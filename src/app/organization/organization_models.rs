@@ -1,5 +1,7 @@
 use chrono::{DateTime, Utc};
+use sqlx::prelude::FromRow;
 
+#[derive(FromRow, Clone)]
 pub struct Organization {
     pub id: i64,
     pub hostname: String,
@@ -9,10 +11,17 @@ pub struct Organization {
     pub updated_at: chrono::DateTime<Utc>,
 }
 
+pub struct Branch {}
+
+impl Branch {
+    pub const MAIN: &'static str = "main";
+    pub const DRAFT: &'static str = "draft";
+}
+
 pub struct Sitemap {
     pub id: i64,
     pub organization_id: i64,
-    pub name: String,
+    pub branch: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

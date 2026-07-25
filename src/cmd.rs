@@ -4,12 +4,11 @@ pub use clap::{Parser, Subcommand};
 #[command(version = "1.0")]
 pub struct Args {
     #[command(subcommand)]
-    pub command: Command,
+    pub command: Option<Command>,
 }
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
-    Serve,
     CreateOrganization {
         #[arg()]
         url: String,

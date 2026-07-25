@@ -1,15 +1,15 @@
 CREATE TABLE IF NOT EXISTS sitemaps (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     organization_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
+    branch TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
-    UNIQUE (organization_id, name)
+    UNIQUE (organization_id, branch)
 );
 
-CREATE INDEX IF NOT EXISTS idx_sitemap_lookup ON sitemaps(organization_id, name);
+CREATE INDEX IF NOT EXISTS idx_sitemap_lookup ON sitemaps(organization_id, branch);
 
 CREATE TABLE IF NOT EXISTS pages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
