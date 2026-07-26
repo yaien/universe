@@ -1,7 +1,5 @@
 use crate::infra::config::Config;
 use anyhow::{Context, Result};
-use axum::extract::FromRef;
-use axum_extra::extract::cookie::Key;
 use oauth2::{
     EndpointNotSet, EndpointSet, RedirectUrl,
     basic::BasicClient,
@@ -12,8 +10,6 @@ use sqlx::{
     ConnectOptions, SqlitePool,
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
-use std::{ops::Deref, sync::Arc};
-use tracing::info;
 
 pub type ID = i64;
 
@@ -22,16 +18,13 @@ pub type DBConnection = sqlx::SqliteConnection;
 pub type GoogleClient =
     BasicClient<EndpointSet, EndpointNotSet, EndpointNotSet, EndpointNotSet, EndpointSet>;
 
-#[derive(Debug)]
-pub struct InnerMonolith {
+pub struct Monolith {
     pub config: Config,
     pub pool: SqlitePool,
     pub oauth2_google_client: GoogleClient,
     pub oauth2_client: OAuth2Client,
     pub http_client: ReqwestClient,
 }
-#[derive(Clone)]
-pub struct Monolith(Arc<InnerMonolith>);
 
 impl Monolith {
     pub async fn build(config: Config) -> Result<Self> {
@@ -62,31 +55,17 @@ impl Monolith {
 
         let http_client = ReqwestClient::new();
 
-        Ok(Monolith(Arc::new(InnerMonolith {
+        Ok(Monolith {
             config,
             pool,
             oauth2_google_client,
             oauth2_client,
             http_client,
-        })))
+        })
     }
 
     pub async fn build_from_env() -> Result<Self> {
         let config = Config::new_from_env();
         Self::build(config).await
-    }
-}
-
-impl Deref for Monolith {
-    type Target = InnerMonolith;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl FromRef<Monolith> for Key {
-    fn from_ref(monolith: &Monolith) -> Self {
-        monolith.config.session_key.clone()
     }
 }

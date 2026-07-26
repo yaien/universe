@@ -2,16 +2,34 @@ mod handlers;
 mod middlewares;
 mod views;
 
-use crate::{infra::Monolith, web::middlewares::with_organization};
-use axum::{Router, middleware::from_fn_with_state, routing::get};
+use std::pin::Pin;
 
-pub fn new_router(mono: Monolith) -> Router<()> {
-    let router = Router::new();
+use crate::{
+    infra::Monolith,
+    web::handlers::{callback, index, login},
+};
+use actix_session::{SessionMiddleware, storage::CookieSessionStore};
+use actix_web::{
+    middleware::from_fn,
+    web::{self, Data, ServiceConfig},
+};
 
-    router
-        .route("/", get(handlers::index))
-        .route("/auth/google/login", get(handlers::login))
-        .route("/auth/google/callback", get(handlers::callback))
-        .route_layer(from_fn_with_state(mono.clone(), with_organization))
-        .with_state(mono)
+pub fn configure(mono: Data<Monolith>) -> impl Fn(&mut ServiceConfig) {
+    move |config| {
+        let session = SessionMiddleware::builder(
+            CookieSessionStore::default(),
+            mono.config.session_key.clone(),
+        )
+        .build();
+
+        config.service(
+            web::scope("")
+                .service(index)
+                .service(login)
+                .service(callback)
+                .wrap(from_fn(middlewares::user))
+                .wrap(session)
+                .wrap(from_fn(middlewares::organization)),
+        );
+    }
 }

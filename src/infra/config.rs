@@ -1,17 +1,17 @@
-use axum_extra::extract::cookie::Key;
+use actix_web::cookie::Key;
 use dotenv::dotenv;
-use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, Scope, TokenUrl};
+use oauth2::{AuthUrl, ClientId, ClientSecret, Scope, TokenUrl};
 use std::{
     env::{self, VarError},
     net::SocketAddr,
 };
 use url::Url;
 
-#[derive(Debug)]
 pub struct Config {
     pub database_url: Url,
     pub server_addr: SocketAddr,
     pub server_url: Url,
+    pub server_tls: Option<ServerTlsConfig>,
     pub session_secure: bool,
     pub session_key: Key,
     pub google_client_id: ClientId,
@@ -21,6 +21,12 @@ pub struct Config {
     pub google_user_info_url: Url,
     pub google_scopes: Vec<Scope>,
     pub encryption_key: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ServerTlsConfig {
+    pub cert_file_path: String,
+    pub key_file_path: String,
 }
 
 impl Config {
@@ -40,6 +46,26 @@ impl Config {
             server_url: env::var("SERVER_URL")
                 .map(|s| s.parse().expect("invalid server url"))
                 .expect("missing server url"),
+
+            server_tls: {
+                let enabled = env::var("SERVER_TLS")
+                    .and_then(|s| s.parse().map_err(|_| VarError::NotPresent))
+                    .unwrap_or(false);
+
+                if enabled {
+                    Some(ServerTlsConfig {
+                        cert_file_path: env::var("SERVER_CERT_FILE_PATH")
+                            .map(|s| s.into())
+                            .expect("missing server cert file path"),
+
+                        key_file_path: env::var("SERVER_KEY_FILE_PATH")
+                            .map(|s| s.into())
+                            .expect("missing server key file path"),
+                    })
+                } else {
+                    None
+                }
+            },
 
             session_secure: env::var("SESSION_SECURE")
                 .map(|s| s.parse().expect("invalid session secure"))

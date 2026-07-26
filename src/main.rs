@@ -3,12 +3,14 @@ mod cmd;
 mod infra;
 mod web;
 
+use std::{fs::File, io::BufReader};
+
+use actix_web::{App, HttpServer, web::Data};
 use anyhow::{Context, Result};
 use app::organization;
 use cmd::{Args, Command, Parser};
+use rustls::crypto;
 use sqlx::migrate;
-use tokio::net::TcpListener;
-use tracing::info;
 
 use infra::Monolith;
 
@@ -37,8 +39,6 @@ async fn main() -> Result<()> {
 
             tx.commit().await.context("failed committing transaction")?;
 
-            info!("Organization created successfully");
-
             return Ok(());
         }
         None => {
@@ -46,26 +46,55 @@ async fn main() -> Result<()> {
                 .await
                 .context("failed initializing monolith")?;
 
-            tracing_subscriber::fmt::init();
-
             migrate!()
                 .run(&mono.pool)
                 .await
                 .context("Migration run failed")?;
 
-            info!("Migrations run successfully");
+            let mono = Data::new(mono);
+            let data = mono.clone();
 
-            let listener = TcpListener::bind(&mono.config.server_addr)
-                .await
-                .context("failed tcp bind")?;
+            let server = HttpServer::new(move || {
+                App::new()
+                    .app_data(data.clone())
+                    .configure(web::configure(data.clone()))
+            });
 
-            let router = web::new_router(mono.clone());
+            match mono.config.server_tls.clone() {
+                Some(tls_config) => {
+                    crypto::aws_lc_rs::default_provider()
+                        .install_default()
+                        .unwrap();
 
-            info!("Server listening on {}", &mono.config.server_url);
+                    let mut certs_file = BufReader::new(File::open(tls_config.cert_file_path)?);
+                    let mut key_file = BufReader::new(File::open(tls_config.key_file_path)?);
 
-            axum::serve(listener, router)
-                .await
-                .context("failed starting server")?;
+                    let tls_certs =
+                        rustls_pemfile::certs(&mut certs_file).collect::<Result<Vec<_>, _>>()?;
+
+                    let tls_key = rustls_pemfile::pkcs8_private_keys(&mut key_file)
+                        .next()
+                        .unwrap()
+                        .unwrap();
+
+                    // set up TLS config options
+                    let config = rustls::ServerConfig::builder()
+                        .with_no_client_auth()
+                        .with_single_cert(
+                            tls_certs,
+                            rustls::pki_types::PrivateKeyDer::Pkcs8(tls_key),
+                        )
+                        .unwrap();
+
+                    server
+                        .bind_rustls_0_23(&mono.config.server_addr, config)?
+                        .run()
+                        .await?;
+                }
+                None => {
+                    server.bind(&mono.config.server_addr)?.run().await?;
+                }
+            }
 
             Ok(())
         }

@@ -1,30 +1,28 @@
-use axum::{
-    Extension,
-    extract::{Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Redirect, Response},
-};
-use axum_extra::extract::PrivateCookieJar;
-use axum_extra::extract::cookie::{Cookie, SameSite};
-use chrono::{DateTime, Utc};
+use std::ops::Deref;
+
+use actix_session::Session;
+use actix_web::http::header;
+use actix_web::web::{Data, Query, ReqData};
+use actix_web::{HttpResponse, Responder, get};
+use chrono::Utc;
 use oauth2::PkceCodeVerifier;
 use oauth2::{AuthorizationCode, CsrfToken, PkceCodeChallenge, TokenResponse};
 use serde::Deserialize;
 use url::Url;
 
-use crate::app::{self, GoogleUserInfo, OAuthAccountInfo, OAuthState, Organization};
+use crate::app::{self, GoogleUserInfo, OAuthAccountInfo, OAuthState, Organization, User};
 use crate::infra::Monolith;
 
-const SESSION_COOKIE_NAME: &'static str = "session";
-
-pub async fn index(Extension(org): Extension<Organization>) -> String {
-    format!("Hello, World! {}", org.title)
+#[get("/")]
+pub async fn index(org: ReqData<Organization>, user: ReqData<Option<User>>) -> String {
+    match user.deref() {
+        Some(user) => format!("Hello, World! {}", user.name),
+        None => format!("Hello, World! {}", org.title),
+    }
 }
 
-pub async fn login(
-    State(mono): State<Monolith>,
-    Extension(org): Extension<Organization>,
-) -> (impl IntoResponse) {
+#[get("/auth/google/login")]
+pub async fn login(mono: Data<Monolith>, org: ReqData<Organization>) -> HttpResponse {
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
     let (redirect_url, csrf_token) = mono
@@ -45,14 +43,16 @@ pub async fn login(
     };
 
     let Ok(mut conn) = mono.pool.acquire().await else {
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        return HttpResponse::InternalServerError().body("failed getting db pool");
     };
 
     if app::create_oauth_state(&mut conn, state).await.is_err() {
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        return HttpResponse::InternalServerError().body("failed creating oauth state");
     };
 
-    Redirect::to(redirect_url.as_str()).into_response()
+    HttpResponse::TemporaryRedirect()
+        .insert_header((header::LOCATION, redirect_url.as_str()))
+        .finish()
 }
 
 #[derive(Deserialize)]
@@ -61,18 +61,19 @@ pub struct OAuthCallbackQuery {
     pub state: String,
 }
 
+#[get("/auth/google/callback")]
 pub async fn callback(
-    State(mono): State<Monolith>,
-    Extension(org): Extension<Organization>,
-    jar: PrivateCookieJar,
+    mono: Data<Monolith>,
+    org: ReqData<Organization>,
+    session: Session,
     query: Query<OAuthCallbackQuery>,
-) -> Response {
+) -> impl Responder {
     let Ok(mut conn) = mono.pool.acquire().await else {
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        return HttpResponse::InternalServerError().body("failed getting db pool");
     };
 
     let Ok(oauth_state) = app::get_oauth_state_by_csrf_token(&mut conn, &query.state).await else {
-        return StatusCode::UNAUTHORIZED.into_response();
+        return HttpResponse::Unauthorized().body("unauthorized");
     };
 
     if oauth_state.hostname != org.hostname {
@@ -81,10 +82,12 @@ pub async fn callback(
                 let mut url = Url::parse(&org.url).unwrap();
                 url.set_path("/oauth/google/callback");
                 url.set_query(Some(&format!("code={}&state={}", query.code, query.state)));
-                return Redirect::to(url.as_str()).into_response();
+                return HttpResponse::TemporaryRedirect()
+                    .insert_header((header::LOCATION, url.as_str()))
+                    .finish();
             }
             Err(_) => {
-                return StatusCode::UNAUTHORIZED.into_response();
+                return HttpResponse::Unauthorized().body("unauthorized");
             }
         }
     }
@@ -100,14 +103,14 @@ pub async fn callback(
         .request_async(&mono.oauth2_client)
         .await
     else {
-        return StatusCode::UNAUTHORIZED.into_response();
+        return HttpResponse::Unauthorized().body("unauthorized");
     };
 
     if app::delete_oauth_state_by_csrf_token(&mut conn, &oauth_state.csrf_token)
         .await
         .is_err()
     {
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        return HttpResponse::InternalServerError().body("failed to delete oauth state");
     }
 
     let Ok(response) = mono
@@ -118,14 +121,14 @@ pub async fn callback(
         .await
         .and_then(|r| r.error_for_status())
     else {
-        return StatusCode::UNAUTHORIZED.into_response();
+        return HttpResponse::Unauthorized().body("unauthorized");
     };
 
     let user_info = match response.json::<GoogleUserInfo>().await {
         Ok(user_info) => user_info,
         Err(e) => {
             eprintln!("failed to parse google user info: {}", e);
-            return StatusCode::UNAUTHORIZED.into_response();
+            return HttpResponse::Unauthorized().body("unauthorized");
         }
     };
 
@@ -139,16 +142,17 @@ pub async fn callback(
         expires_at: res.expires_in().map(|duration| Utc::now() + duration),
     };
 
-    let Ok(user) = app::sync_oauth_account(&mut conn, account_info).await else {
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    let user = match app::sync_oauth_account(&mut conn, account_info).await {
+        Ok(user) => user,
+        Err(e) => {
+            eprintln!("failed to sync oauth account: {}", e);
+            return HttpResponse::InternalServerError().body("failed to sync oauth account");
+        }
     };
 
-    let cookie = Cookie::build((SESSION_COOKIE_NAME, user.id.to_string()))
-        .secure(mono.config.session_secure)
-        .http_only(true)
-        .same_site(SameSite::Lax);
+    session.insert("user_id", user.id.to_string()).unwrap();
 
-    let private = jar.add(cookie);
-
-    (private, Redirect::temporary("/dashboard")).into_response()
+    HttpResponse::TemporaryRedirect()
+        .insert_header((header::LOCATION, "/"))
+        .finish()
 }

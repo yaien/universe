@@ -14,7 +14,7 @@ pub struct OAuthAccountInfo {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-#[derive(FromRow)]
+#[derive(FromRow, Clone)]
 pub struct User {
     pub id: ID,
     pub email: String,
@@ -24,9 +24,9 @@ pub struct User {
 
 #[derive(FromRow)]
 pub struct OAuthAccount {
-    id: String,
-    user_id: String,
-    provider: String,
+    id: ID,
+    user_id: ID,
+    provider_name: String,
     provider_user_id: String,
     access_token: String,
     refresh_token: Option<String>,
@@ -127,7 +127,10 @@ pub async fn sync_oauth_account(conn: &mut DBConnection, info: OAuthAccountInfo)
         .map_err(|e| anyhow::anyhow!(e))?;
 
     let user = match user {
-        Some(user) => user,
+        Some(user) => {
+            println!("user found");
+            user
+        }
         None => {
             sqlx::query_as::<_, User>("insert into users (email, name) values ($1, $2) returning *")
                 .bind(&info.email)
@@ -154,6 +157,14 @@ pub async fn sync_oauth_account(conn: &mut DBConnection, info: OAuthAccountInfo)
     .map_err(|e| anyhow::anyhow!(e))?;
 
     return Ok(user);
+}
+
+pub async fn get_user_by_id(conn: &mut DBConnection, user_id: &ID) -> Result<User> {
+    sqlx::query_as::<_, User>("SELECT * FROM users WHERE id")
+        .bind(&user_id)
+        .fetch_one(conn)
+        .await
+        .map_err(|e| anyhow::anyhow!(e))
 }
 
 #[cfg(test)]
