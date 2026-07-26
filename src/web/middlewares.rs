@@ -2,7 +2,7 @@ use crate::{
     app::{User, get_user_by_id, organization::get_organization_by_host},
     infra::{ID, Monolith},
 };
-use actix_session::{Session, SessionGetError};
+use actix_session::Session;
 use actix_web::{
     Error, HttpMessage, HttpResponse,
     body::{EitherBody, MessageBody},
