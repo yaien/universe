@@ -1,17 +1,16 @@
 mod handlers;
 mod middlewares;
+mod routes;
 mod views;
 
-use crate::{
-    infra::Monolith,
-    web::handlers::{callback, index, login},
-};
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{
     cookie::SameSite,
     middleware::from_fn,
-    web::{Data, ServiceConfig, get, scope},
+    web::{Data, ServiceConfig, scope},
 };
+
+use crate::infra::Monolith;
 
 pub fn configure(mono: Data<Monolith>) -> impl Fn(&mut ServiceConfig) {
     move |config| {
@@ -26,9 +25,8 @@ pub fn configure(mono: Data<Monolith>) -> impl Fn(&mut ServiceConfig) {
 
         config.service(
             scope("")
-                .service(index)
-                .service(login)
-                .route(&mono.config.google_callback_path, get().to(callback))
+                .configure(routes::index::configure)
+                .configure(routes::auth::configure(mono.clone()))
                 .wrap(from_fn(middlewares::user))
                 .wrap(session)
                 .wrap(from_fn(middlewares::organization)),

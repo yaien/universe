@@ -9,7 +9,7 @@
         "imports": {
           "granularity": {
             "enforce": true,
-            "group": "item"
+            "group": "module"
           }
         }
       }
