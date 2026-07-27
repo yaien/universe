@@ -13,8 +13,6 @@ use sqlx::{
 
 pub type ID = i64;
 
-pub type DBConnection = sqlx::SqliteConnection;
-
 pub type DbPool = SqlitePool;
 
 pub type GoogleClient =
@@ -42,10 +40,8 @@ impl Monolith {
 
         // Google OAuth2
         let mut redirect_uri = config.server_url.clone();
-        redirect_uri.set_path("/auth/google/callback");
+        redirect_uri.set_path(&config.google_callback_path);
         let redirect_uri = RedirectUrl::new(redirect_uri.to_string())?;
-
-        println!("Redirect uri {}", redirect_uri);
 
         let oauth2_google_client = BasicClient::new(config.google_client_id.clone())
             .set_client_secret(config.google_client_secret.clone())

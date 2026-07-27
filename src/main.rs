@@ -18,7 +18,7 @@ use infra::Monolith;
 async fn main() -> Result<()> {
     let cmd = Args::parse();
     match &cmd.command {
-        Some(Command::CreateOrganization {
+        Some(Command::Create {
             url,
             hostname,
             title,

@@ -19,8 +19,8 @@ pub struct Config {
     pub google_auth_url: AuthUrl,
     pub google_token_url: TokenUrl,
     pub google_user_info_url: Url,
+    pub google_callback_path: String,
     pub google_scopes: Vec<Scope>,
-    pub encryption_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -103,13 +103,13 @@ impl Config {
             google_user_info_url: Url::parse("https://www.googleapis.com/oauth2/v3/userinfo")
                 .expect("invalid google user info url"),
 
+            google_callback_path: "/auth/google/callback".into(),
+
             google_scopes: vec![
                 Scope::new("openid".to_string()),
                 Scope::new("profile".to_string()),
                 Scope::new("email".to_string()),
             ],
-
-            encryption_key: env::var("ENCRYPTION_KEY").unwrap_or_default(),
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
-    app::{User, get_user_by_id, organization::get_organization_by_host},
-    infra::{ID, Monolith},
+    app::{App, User},
+    infra::ID,
 };
 use actix_session::Session;
 use actix_web::{
@@ -14,7 +14,7 @@ use actix_web::{
 };
 
 pub async fn organization(
-    mono: Data<Monolith>,
+    app: Data<App>,
     req: ServiceRequest,
     next: Next<impl MessageBody>,
 ) -> Result<ServiceResponse<EitherBody<impl MessageBody>>, Error> {
@@ -34,24 +34,19 @@ pub async fn organization(
         return Ok(redirect.map_into_right_body());
     }
 
-    let Ok(mut conn) = mono.pool.acquire().await else {
-        return Err(error::ErrorInternalServerError(
-            "failed to acquire connection",
-        ));
-    };
-
-    let Ok(org) = get_organization_by_host(&mut conn, &host).await else {
+    let Ok(org) = app.organizations.get_one_by_host(&host).await else {
         return Err(error::ErrorNotFound("organization not found"));
     };
 
     req.extensions_mut().insert(org);
 
     let res = next.call(req).await?;
+
     Ok(res.map_into_left_body())
 }
 
 pub async fn user(
-    mono: Data<Monolith>,
+    app: Data<App>,
     session: Session,
     req: ServiceRequest,
     next: Next<impl MessageBody>,
@@ -66,13 +61,7 @@ pub async fn user(
         return next.call(req).await;
     };
 
-    let Ok(mut conn) = mono.pool.acquire().await else {
-        return Err(error::ErrorInternalServerError(
-            "failed to acquire connection",
-        ));
-    };
-
-    let user = get_user_by_id(&mut conn, &user_id).await.ok();
+    let user = app.users.get_one_by_id(&user_id).await.ok();
 
     req.extensions_mut().insert(user);
 

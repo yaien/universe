@@ -9,7 +9,8 @@ pub struct Args {
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
-    CreateOrganization {
+    #[command(about = "Create a new organization")]
+    Create {
         #[arg()]
         url: String,
 

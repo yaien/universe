@@ -10,7 +10,7 @@ use oauth2::{AuthorizationCode, CsrfToken, PkceCodeChallenge, TokenResponse};
 use serde::Deserialize;
 use url::Url;
 
-use crate::app::{self, App, GoogleUserInfo, OAuthAccountInfo, OAuthState, Organization, User};
+use crate::app::{App, GoogleUserInfo, OAuthAccountInfo, OAuthState, Organization, User};
 use crate::infra::Monolith;
 
 #[get("/")]
@@ -61,7 +61,6 @@ pub struct OAuthCallbackQuery {
     pub state: String,
 }
 
-#[get("/auth/google/callback")]
 pub async fn callback(
     mono: Data<Monolith>,
     app: Data<App>,
@@ -81,7 +80,7 @@ pub async fn callback(
         {
             Ok(org) => {
                 let mut url = Url::parse(&org.url).unwrap();
-                url.set_path("/oauth/google/callback");
+                url.set_path(&mono.config.google_callback_path);
                 url.set_query(Some(&format!("code={}&state={}", query.code, query.state)));
                 return HttpResponse::TemporaryRedirect()
                     .insert_header((header::LOCATION, url.as_str()))
@@ -145,7 +144,7 @@ pub async fn callback(
         expires_at: res.expires_in().map(|duration| Utc::now() + duration),
     };
 
-    let user = match app::sync_oauth_account(&mut conn, account_info).await {
+    let user = match app.auth.sync_oauth_account(account_info).await {
         Ok(user) => user,
         Err(e) => {
             eprintln!("failed to sync oauth account: {}", e);
