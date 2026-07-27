@@ -7,7 +7,7 @@ use std::{fs::File, io::BufReader};
 
 use actix_web::{App, HttpServer, web::Data};
 use anyhow::{Context, Result};
-use app::organization;
+use app::App as Service;
 use cmd::{Args, Command, Parser};
 use rustls::crypto;
 use sqlx::migrate;
@@ -27,17 +27,13 @@ async fn main() -> Result<()> {
                 .await
                 .context("failed initializing monolith")?;
 
-            let mut tx = mono
-                .pool
-                .begin()
-                .await
-                .context("failed starting transaction")?;
+            let service = Service::new(&mono);
 
-            organization::create_organization(&mut tx, url, hostname, title)
+            service
+                .organizations
+                .create(url, hostname, title)
                 .await
                 .context("failed creating organization")?;
-
-            tx.commit().await.context("failed committing transaction")?;
 
             return Ok(());
         }
@@ -51,12 +47,15 @@ async fn main() -> Result<()> {
                 .await
                 .context("Migration run failed")?;
 
+            let service = Data::new(Service::new(&mono));
+
             let mono = Data::new(mono);
             let data = mono.clone();
 
             let server = HttpServer::new(move || {
                 App::new()
                     .app_data(data.clone())
+                    .app_data(service.clone())
                     .configure(web::configure(data.clone()))
             });
 

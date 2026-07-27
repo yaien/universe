@@ -15,6 +15,8 @@ pub type ID = i64;
 
 pub type DBConnection = sqlx::SqliteConnection;
 
+pub type DbPool = SqlitePool;
+
 pub type GoogleClient =
     BasicClient<EndpointSet, EndpointNotSet, EndpointNotSet, EndpointNotSet, EndpointSet>;
 

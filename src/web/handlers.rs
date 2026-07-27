@@ -10,7 +10,7 @@ use oauth2::{AuthorizationCode, CsrfToken, PkceCodeChallenge, TokenResponse};
 use serde::Deserialize;
 use url::Url;
 
-use crate::app::{self, GoogleUserInfo, OAuthAccountInfo, OAuthState, Organization, User};
+use crate::app::{self, App, GoogleUserInfo, OAuthAccountInfo, OAuthState, Organization, User};
 use crate::infra::Monolith;
 
 #[get("/")]
@@ -22,7 +22,11 @@ pub async fn index(org: ReqData<Organization>, user: ReqData<Option<User>>) -> S
 }
 
 #[get("/auth/google/login")]
-pub async fn login(mono: Data<Monolith>, org: ReqData<Organization>) -> HttpResponse {
+pub async fn login(
+    mono: Data<Monolith>,
+    app: Data<App>,
+    org: ReqData<Organization>,
+) -> HttpResponse {
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
     let (redirect_url, csrf_token) = mono
@@ -42,11 +46,7 @@ pub async fn login(mono: Data<Monolith>, org: ReqData<Organization>) -> HttpResp
         provider: "google".to_string(),
     };
 
-    let Ok(mut conn) = mono.pool.acquire().await else {
-        return HttpResponse::InternalServerError().body("failed getting db pool");
-    };
-
-    if app::create_oauth_state(&mut conn, state).await.is_err() {
+    if app.auth.create_oauth_state(state).await.is_err() {
         return HttpResponse::InternalServerError().body("failed creating oauth state");
     };
 
@@ -64,20 +64,21 @@ pub struct OAuthCallbackQuery {
 #[get("/auth/google/callback")]
 pub async fn callback(
     mono: Data<Monolith>,
+    app: Data<App>,
     org: ReqData<Organization>,
     session: Session,
     query: Query<OAuthCallbackQuery>,
 ) -> impl Responder {
-    let Ok(mut conn) = mono.pool.acquire().await else {
-        return HttpResponse::InternalServerError().body("failed getting db pool");
-    };
-
-    let Ok(oauth_state) = app::get_oauth_state_by_csrf_token(&mut conn, &query.state).await else {
+    let Ok(oauth_state) = app.auth.get_oauth_state_by_csrf_token(&query.state).await else {
         return HttpResponse::Unauthorized().body("unauthorized");
     };
 
     if oauth_state.hostname != org.hostname {
-        match app::get_organization_by_host(&mut conn, &oauth_state.hostname).await {
+        match app
+            .organizations
+            .get_one_by_host(&oauth_state.hostname)
+            .await
+        {
             Ok(org) => {
                 let mut url = Url::parse(&org.url).unwrap();
                 url.set_path("/oauth/google/callback");
@@ -106,7 +107,9 @@ pub async fn callback(
         return HttpResponse::Unauthorized().body("unauthorized");
     };
 
-    if app::delete_oauth_state_by_csrf_token(&mut conn, &oauth_state.csrf_token)
+    if app
+        .auth
+        .delete_oauth_state_by_csrf_token(&oauth_state.csrf_token)
         .await
         .is_err()
     {
