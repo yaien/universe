@@ -1,0 +1,10 @@
+@scope ([data-scope="roles"]) {
+    .actions {
+        margin: auto;
+        text-align: center;
+    }
+
+    .capitalize {
+        text-transform: capitalize;
+    }
+}

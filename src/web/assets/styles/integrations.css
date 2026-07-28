@@ -1,0 +1,56 @@
+@scope ([data-scope="integrations"]) {
+    /* List Styles */
+    .list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .list-item {
+        text-decoration: none;
+        color: inherit;
+        border-bottom: 1px solid var(--border-color);
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        background: var(--background-color);
+    }
+
+    .list-item:hover {
+        background: var(--hover-color);
+    }
+
+    .list-content {
+        box-sizing: border-box;
+        height: 100%;
+        height: auto;
+        text-align: justify;
+    }
+
+    .list-title {
+        margin: 0;
+        color: var(--text-color);
+    }
+
+    .list-text {
+        margin: 0;
+        color: var(--dark-color-light);
+        margin-bottom: 0.5rem;
+    }
+
+    .list-image {
+        max-width: 70px;
+        max-height: 70px;
+    }
+
+    .actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        margin: 1rem;
+    }
+}

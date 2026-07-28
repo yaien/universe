@@ -1,0 +1,35 @@
+{
+  "name": "universe",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yaien/cultural.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yaien/cultural/issues"
+  },
+  "homepage": "https://github.com/yaien/cultural#readme",
+  "description": "",
+  "devDependencies": {
+    "@types/alpinejs": "^3.13.11",
+    "@types/sortablejs": "^1.15.9",
+    "esbuild": "^0.25.12"
+  },
+  "dependencies": {
+    "@melloware/coloris": "^0.25.0",
+    "@monaco-editor/loader": "^1.7.0",
+    "@picocss/pico": "^2.1.1",
+    "alpinejs": "^3.15.8",
+    "filesize": "^11.0.13",
+    "htmx.org": "^2.0.8",
+    "monaco-editor": "^0.55.1",
+    "polished": "^4.3.1",
+    "sortablejs": "^1.15.7"
+  }
+}

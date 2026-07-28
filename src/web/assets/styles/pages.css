@@ -1,0 +1,309 @@
+@scope ([data-scope="pages"]) {
+    :scope {
+        display: flex;
+        height: 100%;
+        width: 100%;
+        gap: 1rem;
+        padding: 1rem;
+        box-sizing: border-box;
+    }
+
+    .page {
+        flex-grow: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .page .resizeable {
+        display: block;
+        overflow: hidden;
+        resize: both;
+        width: 100%;
+        height: 100%;
+        max-width: 98%;
+        max-height: 100%;
+    }
+
+    .page iframe {
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        resize: both;
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+        box-shadow: 1px 1px 5px var(--shadow-color);
+        border-radius: 0.5rem;
+    }
+
+    .initial {
+        height: 100%;
+        overflow: auto;
+    }
+
+    .delete p {
+        text-align: center;
+    }
+
+    .publish p {
+        text-align: center;
+    }
+
+    .editor {
+        width: 50%;
+        max-width: 600px;
+        padding: 1rem;
+        box-sizing: border-box;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .status {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .actions {
+        text-align: center;
+        padding-bottom: 1rem;
+    }
+
+    .actions.around {
+        display: flex;
+        justify-content: space-around;
+    }
+
+    .no-resize {
+        resize: none;
+    }
+
+    /* Fonts */
+    .fonts {
+        height: 100%;
+    }
+
+    .fonts .font {
+        padding: 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .fonts .font:last-child {
+        border-bottom: none;
+    }
+
+    .fonts .font:hover {
+        background-color: var(--header-bg-color);
+        cursor: pointer;
+    }
+
+    .fonts .font .preview {
+        font-size: 1rem;
+        padding: 0.5rem 0;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .fonts .scrollable {
+        height: 75%;
+        overflow: auto;
+        scroll-behavior: smooth;
+    }
+
+    .fonts .configure {
+        text-align: center;
+    }
+
+    .fonts .configure .actions {
+        display: flex;
+        justify-content: space-around;
+    }
+
+    .fonts .configure small {
+        margin-bottom: 1rem;
+        display: block;
+    }
+
+    /* Files */
+    .files {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .files .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+        overflow: auto;
+        scroll-behavior: smooth;
+        padding: 0rem 1rem;
+    }
+
+    .files .actions {
+        padding-bottom: 0;
+    }
+
+    .files form.htmx-request button {
+        display: none;
+    }
+
+    .files .htmx-indicator {
+        display: none;
+    }
+
+    .files form.htmx-request .htmx-indicator {
+        display: flex;
+    }
+
+    .files .grid .item {
+        position: relative;
+        height: 200px;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: 1px 1px 5px var(--shadow-color);
+        cursor: pointer;
+        background-color: var(--dark-color);
+    }
+
+    .files .grid .item .hover {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+        z-index: 10;
+    }
+
+    .files .grid .item .hover:hover {
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .files .grid img,
+    .files .grid video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        position: absolute;
+    }
+
+    .files .edit .preview {
+        background-color: var(--dark-color);
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: 1px 1px 5px var(--shadow-color);
+        margin: 1rem auto;
+        box-sizing: content-box;
+        position: relative;
+        width: 300px;
+        height: 300px;
+    }
+
+    .files .edit .preview img,
+    .files .edit .preview video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        position: absolute;
+    }
+
+    .files table {
+        margin-bottom: 1rem;
+    }
+
+    /* Monaco Editor */
+    .monaco {
+        height: 100%;
+        overflow: hidden;
+    }
+
+    /* Colors */
+    .colors .color {
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+        margin-bottom: 0.5rem;
+    }
+
+    .colors .field {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+        background-color: var(--light-color-dark);
+    }
+
+    .colors .field input {
+        color: inherit;
+    }
+
+    .colors .field input.coloris {
+        text-align: right;
+        cursor: pointer;
+    }
+
+    .colors .field .clr-field button {
+        display: none;
+    }
+
+    .colors .hint {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem;
+        align-items: center;
+    }
+
+    .colors .hint small {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .colors .hint button {
+        padding: 0;
+    }
+
+    .colors .hint .css {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .color .hint .css pre {
+        margin: 0;
+    }
+
+    /* Actions */
+    .functions {
+        .function {
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+
+        .headers {
+            margin-bottom: calc(var(--space) * 2);
+        }
+
+        .header {
+            display: flex;
+            padding: 0;
+            margin-bottom: var(--space);
+
+            input {
+                border-right: 1px solid var(--border-color);
+                padding: 0 var(--space);
+            }
+        }
+    }
+}

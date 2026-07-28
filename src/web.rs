@@ -25,6 +25,7 @@ pub fn configure(mono: Data<Monolith>) -> impl Fn(&mut ServiceConfig) {
 
         config.service(
             scope("")
+                .configure(routes::home::configure)
                 .configure(routes::index::configure)
                 .configure(routes::auth::configure(mono.clone()))
                 .wrap(from_fn(middlewares::user))
