@@ -40,7 +40,7 @@ pub fn header(title: &str) -> Markup {
     html!(
         header {
             .start {
-                button.toggle ":click"="open = !open" {
+                button.toggle "@click"="open = !open" {
                     template x-if="!open" {
                         i.fa-solid.fa-bars {}
                     }
@@ -66,15 +66,15 @@ pub fn head(title: &str, org: &Organization) -> Markup {
         meta charset="UTF-8";
         meta name="viewport" content="width=device-width, initial-scale=1.0";
         title { (title) " - " (&org.title) }
-        link rel="icon" type="image/png" href={ "/assets/landing/favicon.png?v=" (org.updated_at.to_rfc3339()) };
-        link rel="preconnect" href="https://fonts.googleapis.com";
-        link rel="preconnect" href="https://fonts.gstatic.com" crossorigin;
-        link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet";
-        link rel="stylesheet" href="/assets/static/dashboard/dist/dashboard.min.css";
-        link rel="stylesheet" href="/assets/static/dashboard/fontawesome/css/fontawesome.min.css";
-        link rel="stylesheet" href="/assets/static/dashboard/fontawesome/css/brands.min.css";
-        link rel="stylesheet" href="/assets/static/dashboard/fontawesome/css/solid.min.css";
-        script "type"="module" src="/assets/static/dashboard/dist/dashboard.min.js" {}
+        link rel="icon" type="image/png" href={ "/assets/landing/favicon.png?v=" (org.updated_at.to_rfc3339()) } {}
+        link rel="preconnect" href="https://fonts.googleapis.com" {}
+        link rel="preconnect" href="https://fonts.gstatic.com" crossorigin {}
+        link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet"{}
+        link rel="stylesheet" href="/assets/static/dashboard/dashboard.min.css"{}
+        link rel="stylesheet" href="/assets/static/dashboard/fontawesome/css/fontawesome.min.css"{}
+        link rel="stylesheet" href="/assets/static/dashboard/fontawesome/css/brands.min.css"{}
+        link rel="stylesheet" href="/assets/static/dashboard/fontawesome/css/solid.min.css"{}
+        script type="module" src="/assets/static/dashboard/dashboard.min.js" {}
     )
 }
 
@@ -95,8 +95,8 @@ pub fn aside(path: &str) -> Markup {
                 ul {
                     li {
                         form action="/auth/logout" method="POST" x-ref="logout" {
-                            a ":click.prevent"="$refs.logout.submit()" {
-                                i.fa-solid.fa-arrow-right-from-bracket;
+                            a "@click.prevent"="$refs.logout.submit()" {
+                                i.fa-solid.fa-arrow-right-from-bracket {}
                                 span { "Cerrar sesión" }
                             }
                         }
@@ -107,11 +107,11 @@ pub fn aside(path: &str) -> Markup {
     )
 }
 
-pub fn link(prefix: &str, path: &str, text: &str, icon: &str) -> Markup {
+pub fn link(suffix: &str, path: &str, text: &str, icon: &str) -> Markup {
     html!(
-        li.active[path.starts_with(prefix)] title=(text) {
+        li.active[path.ends_with(suffix)] title=(text) {
             a href=(path) hx-boost="true" {
-                i .fa-solid .(icon);
+                i .fa-solid .(icon) {}
                 span { (text) }
             }
         }

@@ -33,6 +33,8 @@ impl Config {
     pub fn new_from_env() -> Self {
         dotenv().ok();
 
+        env_logger::init();
+
         Config {
             database_url: env::var("DATABASE_URL")
                 .map(|s| s.parse().expect("invalid database url"))

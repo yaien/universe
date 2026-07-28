@@ -1,9 +1,12 @@
+mod assets;
 mod handlers;
 mod middlewares;
 mod routes;
 mod views;
 
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
+use actix_web::dev::Transform;
+use actix_web::middleware::Logger;
 use actix_web::{
     cookie::SameSite,
     middleware::from_fn,
@@ -23,6 +26,8 @@ pub fn configure(mono: Data<Monolith>) -> impl Fn(&mut ServiceConfig) {
         .cookie_same_site(SameSite::Lax)
         .build();
 
+        let logger = Logger::default();
+
         config.service(
             scope("")
                 .configure(routes::home::configure)
@@ -30,7 +35,8 @@ pub fn configure(mono: Data<Monolith>) -> impl Fn(&mut ServiceConfig) {
                 .configure(routes::auth::configure(mono.clone()))
                 .wrap(from_fn(middlewares::user))
                 .wrap(session)
-                .wrap(from_fn(middlewares::organization)),
+                .wrap(from_fn(middlewares::organization))
+                .wrap(logger),
         );
     }
 }
