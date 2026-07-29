@@ -2,7 +2,7 @@ use std::fmt;
 
 use maud::{DOCTYPE, Markup, html};
 
-use crate::app::Organization;
+use crate::app::{Organization, Role};
 
 pub enum Variant {
     Primary,
@@ -20,23 +20,31 @@ impl fmt::Display for Variant {
     }
 }
 
-pub fn page(title: &str, path: &str, org: &Organization, content: Markup) -> Markup {
+pub struct Content<'a> {
+    pub title: &'a str,
+    pub path: &'a str,
+    pub org: &'a Organization,
+    pub role: &'a Role,
+    pub content: Markup,
+}
+
+pub fn layout<'a>(content: &Content<'a>) -> Markup {
     html!(
         (DOCTYPE)
         html {
-            head { (head(title, org)) }
+            head { (head(content.title, content.org)) }
             body x-data="{ open: false }" ":class"="{ open }"  {
-                (header(title))
-                (aside(path))
+                (header(content.title, content.role))
+                (aside(content.path))
                 main {
-                    (content)
+                    (&content.content)
                 }
             }
         }
     )
 }
 
-pub fn header(title: &str) -> Markup {
+pub fn header(title: &str, role: &Role) -> Markup {
     html!(
         header {
             .start {
@@ -54,7 +62,7 @@ pub fn header(title: &str) -> Markup {
             }
             .end {
                 .account {
-                    span { "Usuario"}
+                    span { (format!("{} ({})", role.user_name, role.user_email)) }
                 }
             }
         }

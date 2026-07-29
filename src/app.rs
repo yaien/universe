@@ -1,22 +1,25 @@
 mod auth;
 mod email;
+mod invitation;
 mod layout;
 mod organization;
 mod page;
+mod role;
 mod sitemap;
 mod user;
 
-use std::sync::Arc;
-
 pub use auth::*;
 pub use email::*;
+pub use invitation::*;
 pub use layout::*;
 pub use organization::*;
 pub use page::*;
+pub use role::*;
 pub use sitemap::*;
 pub use user::*;
 
 use crate::infra::Monolith;
+use std::sync::Arc;
 
 pub struct App {
     pub organizations: Arc<Organizations>,
@@ -26,6 +29,8 @@ pub struct App {
     pub layouts: Arc<Layouts>,
     pub auth: Arc<Auth>,
     pub users: Arc<Users>,
+    pub invitations: Arc<Invitations>,
+    pub roles: Arc<Roles>,
 }
 
 impl App {
@@ -39,6 +44,10 @@ impl App {
         let emails = Arc::new(Emails::new(mono.pool.clone()));
 
         let layouts = Arc::new(Layouts::new(mono.pool.clone()));
+
+        let invitations = Arc::new(Invitations::new(mono.pool.clone()));
+
+        let roles = Arc::new(Roles::new(mono.pool.clone()));
 
         let organizations = Arc::new(Organizations::new(
             mono.pool.clone(),
@@ -58,6 +67,8 @@ impl App {
             layouts,
             organizations,
             auth,
+            invitations,
+            roles,
         }
     }
 }

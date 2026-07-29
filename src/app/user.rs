@@ -1,11 +1,11 @@
 use chrono::{DateTime, Utc};
 use sqlx::prelude::FromRow;
 
-use crate::infra::{DbPool, ID};
+use crate::infra::{DbPool, Id};
 
 #[derive(FromRow, Clone)]
 pub struct User {
-    pub id: ID,
+    pub id: Id,
     pub email: String,
     pub name: String,
     pub created_at: DateTime<Utc>,
@@ -28,7 +28,7 @@ impl Users {
             .await
     }
 
-    pub async fn get_one_by_id(&self, id: &ID) -> Result<User, sqlx::Error> {
+    pub async fn get_one_by_id(&self, id: &Id) -> Result<User, sqlx::Error> {
         sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
             .bind(id)
             .fetch_one(&self.pool)

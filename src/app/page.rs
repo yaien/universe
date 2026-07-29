@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::infra::{DbPool, ID};
+use crate::infra::{DbPool, Id};
 
 pub struct Page {
     pub id: i64,
@@ -23,7 +23,7 @@ impl Pages {
         Self { pool }
     }
 
-    pub async fn create(&self, sitemap_id: &ID, path: &str) -> Result<ID, sqlx::Error> {
+    pub async fn create(&self, sitemap_id: &Id, path: &str) -> Result<Id, sqlx::Error> {
         sqlx::query("insert into pages (sitemap_id, path) values ($1, $2)")
             .bind(sitemap_id)
             .bind(path)

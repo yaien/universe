@@ -1,4 +1,4 @@
-use crate::infra::{DbPool, ID};
+use crate::infra::{DbPool, Id};
 
 pub struct Layout {
     pub id: i64,
@@ -18,7 +18,7 @@ impl Layouts {
         Self { pool }
     }
 
-    pub async fn create(&self, sitemap_id: &ID, name: &str) -> Result<ID, sqlx::Error> {
+    pub async fn create(&self, sitemap_id: &Id, name: &str) -> Result<Id, sqlx::Error> {
         sqlx::query("insert into layouts (sitemap_id, name) values ($1, $2)")
             .bind(sitemap_id)
             .bind(name)

@@ -5,7 +5,7 @@ use sqlx::prelude::FromRow;
 
 use crate::{
     app::{Branch, Emails, Layouts, Pages, Sitemaps},
-    infra::{DbPool, ID},
+    infra::{DbPool, Id},
 };
 
 #[derive(FromRow, Clone)]
@@ -43,7 +43,7 @@ impl Organizations {
         }
     }
 
-    pub async fn create(&self, url: &str, hostname: &str, title: &str) -> Result<ID, sqlx::Error> {
+    pub async fn create(&self, url: &str, hostname: &str, title: &str) -> Result<Id, sqlx::Error> {
         let organization_id =
             sqlx::query("insert into organizations (url, hostname, title) values ($1, $2, $3)")
                 .bind(url)
@@ -108,7 +108,7 @@ mod tests {
         assert_eq!(organization_count, 1);
 
         for branch in [Branch::MAIN, Branch::DRAFT] {
-            let sitemap_id: ID =
+            let sitemap_id: Id =
                 sqlx::query("select id from sitemaps where organization_id = $1 and branch = $2")
                     .bind(organization_id)
                     .bind(branch)

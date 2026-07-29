@@ -1,4 +1,4 @@
-use actix_web::web::{ServiceConfig, scope};
+use actix_web::web::ServiceConfig;
 
 use crate::web::handlers;
 

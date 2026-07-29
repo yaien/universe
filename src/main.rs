@@ -8,6 +8,7 @@ use std::{fs::File, io::BufReader};
 use actix_web::{App, HttpServer, web::Data};
 use anyhow::{Context, Result};
 use app::App as Service;
+use chrono::{Duration, Utc};
 use cmd::{Args, Command, Parser};
 use rustls::crypto;
 use sqlx::migrate;
@@ -34,6 +35,29 @@ async fn main() -> Result<()> {
                 .create(url, hostname, title)
                 .await
                 .context("failed creating organization")?;
+
+            return Ok(());
+        }
+        Some(Command::Invite { email, hostname }) => {
+            let mono = Monolith::build_from_env()
+                .await
+                .context("failed initializing monolith")?;
+
+            let service = Service::new(&mono);
+
+            let org = service
+                .organizations
+                .get_one_by_host(hostname)
+                .await
+                .context("organzation not found")?;
+
+            let exp = Utc::now() + Duration::hours(3);
+
+            service
+                .invitations
+                .create(&org.id, email, &exp)
+                .await
+                .context("failed inviting user")?;
 
             return Ok(());
         }

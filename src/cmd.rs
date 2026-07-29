@@ -20,4 +20,12 @@ pub enum Command {
         #[arg()]
         title: String,
     },
+    #[command(about = "Invite a user to the organization")]
+    Invite {
+        #[arg()]
+        email: String,
+
+        #[arg()]
+        hostname: String,
+    },
 }

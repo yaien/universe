@@ -1,18 +1,9 @@
 use actix_web::http::header;
-use actix_web::web::{Path, ReqData};
-use actix_web::{HttpRequest, HttpResponse, Responder, get};
-use maud::{Markup, html};
+use actix_web::web::Path;
+use actix_web::{HttpRequest, HttpResponse, Responder};
 
-use crate::app::Organization;
-use crate::web::assets::Asset;
-use crate::web::views::dashboard_view;
+use crate::web::dashboard::assets::Asset;
 
-#[get("/dashboard")]
-pub async fn index(org: ReqData<Organization>, req: HttpRequest) -> Markup {
-    dashboard_view::page("Home", req.path(), &org.into_inner(), html!())
-}
-
-#[get("/assets/static/dashboard/{filepath:.*}")]
 pub async fn assets(req: HttpRequest, file_path: Path<String>) -> impl Responder {
     if file_path.is_empty() {
         return HttpResponse::NotFound().finish();

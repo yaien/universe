@@ -1,11 +1,9 @@
-mod assets;
-mod handlers;
-mod middlewares;
-mod routes;
-mod views;
+mod auth;
+mod dashboard;
+mod errors;
+mod public;
 
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
-use actix_web::dev::Transform;
 use actix_web::middleware::Logger;
 use actix_web::{
     cookie::SameSite,
@@ -30,12 +28,12 @@ pub fn configure(mono: Data<Monolith>) -> impl Fn(&mut ServiceConfig) {
 
         config.service(
             scope("")
-                .configure(routes::home::configure)
-                .configure(routes::index::configure)
-                .configure(routes::auth::configure(mono.clone()))
-                .wrap(from_fn(middlewares::user))
+                .configure(dashboard::configure)
+                .configure(auth::configure)
+                .configure(public::configure)
+                .wrap(from_fn(auth::middlewares::with_user))
                 .wrap(session)
-                .wrap(from_fn(middlewares::organization))
+                .wrap(from_fn(public::middlewares::with_organization))
                 .wrap(logger),
         );
     }

@@ -6,7 +6,7 @@ use sqlx::prelude::FromRow;
 
 use crate::{
     app::{User, Users},
-    infra::{DbPool, ID},
+    infra::{DbPool, Id},
 };
 
 pub struct OAuthAccountInfo {
@@ -21,8 +21,8 @@ pub struct OAuthAccountInfo {
 
 #[derive(FromRow)]
 pub struct OAuthAccount {
-    pub id: ID,
-    pub user_id: ID,
+    pub id: Id,
+    pub user_id: Id,
     pub provider_name: String,
     pub provider_user_id: String,
     pub access_token: String,
@@ -34,7 +34,7 @@ pub struct OAuthAccount {
 
 #[derive(FromRow)]
 pub struct OAuthState {
-    pub id: ID,
+    pub id: Id,
     pub csrf_token: String,
     pub pkce_verifier: String,
     pub created_at: DateTime<Utc>,
@@ -60,7 +60,7 @@ impl Auth {
         Self { pool, users }
     }
 
-    pub async fn create_oauth_state(&self, state: OAuthState) -> Result<ID, sqlx::Error> {
+    pub async fn create_oauth_state(&self, state: OAuthState) -> Result<Id, sqlx::Error> {
         sqlx::query(
             r#"INSERT INTO oauth_states
                (csrf_token, pkce_verifier, created_at, expires_at, hostname, provider)

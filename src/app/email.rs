@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::infra::{DbPool, ID};
+use crate::infra::{DbPool, Id};
 
 pub struct Email {
     pub id: i64,
@@ -20,7 +20,7 @@ impl Emails {
         Self { pool }
     }
 
-    pub async fn create(&self, sitemap_id: &ID, name: &str) -> Result<ID, sqlx::Error> {
+    pub async fn create(&self, sitemap_id: &Id, name: &str) -> Result<Id, sqlx::Error> {
         sqlx::query("insert into emails (sitemap_id, name) values ($1, $2)")
             .bind(sitemap_id)
             .bind(name)

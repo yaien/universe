@@ -1,7 +1,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 
-use crate::infra::{DbPool, ID};
+use crate::infra::{DbPool, Id};
 
 pub struct Branch {}
 
@@ -46,7 +46,7 @@ impl Sitemaps {
         Self { pool }
     }
 
-    pub async fn create(&self, organization_id: &ID, branch: &str) -> Result<ID, sqlx::Error> {
+    pub async fn create(&self, organization_id: &Id, branch: &str) -> Result<Id, sqlx::Error> {
         sqlx::query("insert into sitemaps (organization_id, branch) values ($1, $2)")
             .bind(organization_id)
             .bind(branch)

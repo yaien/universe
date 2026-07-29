@@ -11,7 +11,7 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
 
-pub type ID = i64;
+pub type Id = i64;
 
 pub type DbPool = SqlitePool;
 

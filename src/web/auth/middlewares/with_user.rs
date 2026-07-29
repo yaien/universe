@@ -1,29 +1,27 @@
 use crate::{
     app::{App, User},
-    infra::ID,
+    infra::Id,
 };
 use actix_session::Session;
 use actix_web::{
-    Error, HttpMessage, HttpResponse,
-    body::{EitherBody, MessageBody},
+    Error, HttpMessage,
+    body::MessageBody,
     dev::{ServiceRequest, ServiceResponse},
-    error,
-    http::header,
     middleware::Next,
     web::Data,
 };
 
-pub async fn user(
+pub async fn with_user<MB: MessageBody>(
     app: Data<App>,
     session: Session,
     req: ServiceRequest,
-    next: Next<impl MessageBody>,
-) -> Result<ServiceResponse<impl MessageBody>, Error> {
+    next: Next<MB>,
+) -> Result<ServiceResponse<MB>, Error> {
     let Some(user_id) = session
         .get::<String>("user_id")
         .ok()
         .flatten()
-        .and_then(|id| id.parse::<ID>().ok())
+        .and_then(|id| id.parse::<Id>().ok())
     else {
         req.extensions_mut().insert::<Option<User>>(None);
         return next.call(req).await;
