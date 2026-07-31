@@ -1,89 +1,22 @@
-#![allow(dead_code)]
-
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
 
-use anyhow::Context;
+use anyhow::{Context, anyhow};
 use chrono::{DateTime, Utc};
+use log::error;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::prelude::FromRow;
 use sqlx::types::JsonValue;
 use tokio::sync::{mpsc, watch};
-use tokio::time::{Duration, sleep};
 
 use crate::infra::{DbPool, Id};
 
-struct Handler<T> {
-    name: String,
-    max_retries: Option<u8>,
-    timeout: Option<Duration>,
-    handle: Arc<dyn Fn(T, Value) -> Pin<Box<dyn Future<Output = anyhow::Result<()>>>>>,
-}
-
-impl<T> Handler<T> {
-    pub fn builder(to: &'static str) -> HandlerBuilder {
-        HandlerBuilder::new(to)
-    }
-}
-
-struct HandlerBuilder {
-    name: &'static str,
-    max_retries: Option<u8>,
-    timeout: Option<Duration>,
-}
-
-impl HandlerBuilder {
-    pub fn new(name: &'static str) -> Self {
-        Self {
-            name: name,
-            max_retries: None,
-            timeout: None,
-        }
-    }
-
-    pub fn with_max_retries(&mut self, max_retries: u8) -> &mut Self {
-        self.max_retries = Some(max_retries);
-        self
-    }
-
-    pub fn with_timeout(&mut self, d: Duration) -> &mut Self {
-        self.timeout = Some(d);
-        self
-    }
-
-    pub fn handle<T, S, F, Fut>(&mut self, f: F) -> Handler<T>
-    where
-        S: DeserializeOwned,
-        F: Fn(T, S) -> Fut + Clone + 'static,
-        T: Clone + 'static,
-        Fut: Future<Output = anyhow::Result<()>>,
-    {
-        Handler {
-            name: self.name.to_string(),
-            max_retries: self.max_retries,
-            timeout: self.timeout,
-            handle: Arc::new(move |state, value| {
-                let f = f.clone();
-                let state = state.clone();
-                Box::pin(async move {
-                    let data =
-                        serde_json::from_value::<S>(value).context("failed converting value")?;
-                    f(state, data).await.context("failed on function")?;
-                    Ok(())
-                })
-            }),
-        }
-    }
-}
-
 #[derive(Debug, sqlx::Type)]
-#[sqlx(type_name = "INTEGER")]
+#[sqlx(type_name = "SMALLINT")]
 #[repr(u8)]
-enum Status {
+pub enum Status {
     Pending = 1,
     Processing = 2,
     Completed = 3,
@@ -91,160 +24,212 @@ enum Status {
 }
 
 #[derive(FromRow)]
-struct Job {
+pub struct Job {
     pub id: Id,
     pub name: String,
     pub data: JsonValue,
     pub status: Status,
-    pub updated_at: DateTime<Utc>,
     pub error: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
-struct Worker<T: Clone + Sync + Send> {
-    state: T,
-    handlers: HashMap<String, Handler<T>>,
+pub struct Queue {
+    sender: mpsc::Sender<Job>,
     pool: DbPool,
-    channel: (mpsc::Sender<Job>, mpsc::Receiver<Job>),
-    watch: Mutex<(watch::Sender<bool>, watch::Receiver<bool>)>,
 }
 
-impl<T: Clone + Send + Sync> Worker<T> {
-    pub fn new(state: T, pool: DbPool) -> Self {
-        Self {
-            state,
-            pool,
-            handlers: HashMap::new(),
-            channel: mpsc::channel(5),
-            watch: Mutex::new(watch::channel(false)),
-        }
+impl Queue {
+    pub fn new(pool: DbPool, sender: mpsc::Sender<Job>) -> Self {
+        Self { sender, pool }
     }
 
-    pub fn handle(&mut self, h: Handler<T>) {
-        self.handlers.insert(h.name.clone(), h);
-    }
-
-    pub async fn queue<S: Serialize>(&mut self, name: &str, data: S) -> anyhow::Result<()> {
-        let value = serde_json::to_value(data)?;
+    pub async fn push<T: Serialize>(&self, to: &str, v: &T) -> anyhow::Result<()> {
+        let data = serde_json::to_string(v).context("failed converting value to json")?;
 
         let job = sqlx::query_as::<_, Job>(
             "insert into jobs(name, data, status) values ($1, $2, $3) returning *",
         )
-        .bind(name)
-        .bind(value)
+        .bind(to)
+        .bind(data)
         .bind(Status::Pending)
         .fetch_one(&self.pool)
         .await
         .context("failed inserting job")?;
 
-        self.channel.0.try_send(job).ok();
+        self.sender.try_send(job).ok();
 
         Ok(())
     }
+}
 
-    pub async fn start(&mut self) {
-        self.listen().await;
+pub struct Data(Value);
+
+impl Data {
+    fn try_into<T: DeserializeOwned>(self) -> anyhow::Result<T> {
+        serde_json::from_value(self.0).context("failed at parsing json")
+    }
+}
+
+pub trait Processor: Send {
+    fn name(&self) -> &'static str;
+    fn process(&self, data: Data) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>>;
+}
+
+pub struct Worker {
+    pool: DbPool,
+    receiver: mpsc::Receiver<Job>,
+    cancel: watch::Receiver<bool>,
+    processors: HashMap<String, Box<dyn Processor>>,
+}
+
+impl Worker {
+    pub fn new(pool: DbPool, receiver: mpsc::Receiver<Job>, cancel: watch::Receiver<bool>) -> Self {
+        let (cancelation_sender, cancelation_receiver) = watch::channel(false);
+        Self {
+            pool,
+            receiver,
+            cancel,
+            processors: HashMap::new(),
+        }
     }
 
-    pub async fn stop(&self) {
-        let lock = self.watch.lock().unwrap();
-        lock.0.send(true).ok();
+    pub fn procesor(&mut self, processor: Box<dyn Processor>) -> &mut Self {
+        self.processors
+            .insert(processor.name().to_string(), processor);
+        self
     }
 
-    async fn listen(&mut self) {
-        while let Some(job) = self.channel.1.recv().await {
-            let mut job = job;
+    async fn process(&mut self, mut job: Job) {
+        let Some(processor) = self.processors.get(&job.name) else {
+            return;
+        };
 
-            let Some(handler) = self.handlers.get(&job.name) else {
-                continue;
-            };
+        job.status = Status::Processing;
+        job.updated_at = Utc::now();
 
-            job.status = Status::Processing;
-            job.updated_at = Utc::now();
+        match processor.process(Data(job.data)).await {
+            Ok(_) => job.status = Status::Completed,
+            Err(e) => {
+                job.status = Status::Failed;
+                job.error = Some(e.to_string());
+            }
+        }
 
-            sqlx::query("update jobs set status = $1, updated_at = $2 where id = $3")
+        job.updated_at = Utc::now();
+
+        let result =
+            sqlx::query("update jobs set status = $1, error = $2, updated_at = $3 where id = $4")
                 .bind(&job.status)
+                .bind(&job.error)
                 .bind(&job.updated_at)
                 .bind(&job.id)
                 .execute(&self.pool)
-                .await
-                .unwrap();
+                .await;
 
-            match (handler.handle)(self.state.clone(), job.data).await {
-                Ok(()) => {
-                    job.status = Status::Completed;
+        if let Err(e) = result {
+            error!("failed updating job {}", e);
+            return;
+        }
+    }
+
+    pub async fn work(&mut self) {
+        loop {
+            tokio::select! {
+                job = self.receiver.recv() => {
+
+                    let Some(job) = job else {
+                        break;
+                    };
+
+                    self.process(job).await;
                 }
-                Err(e) => {
-                    job.status = Status::Failed;
-                    job.error = Some(e.to_string());
+                _ = self.cancel.changed() => {
+                    break
                 }
             }
-
-            sqlx::query("update jobs set status = $1, updated_at = $2, error = $3 where id = $4")
-                .bind(&job.status)
-                .bind(&job.updated_at)
-                .bind(&job.error)
-                .bind(&job.id)
-                .execute(&self.pool)
-                .await
-                .unwrap();
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use anyhow::Context;
-    use serde::Deserialize;
-    use sqlx::migrate;
+
+    use std::time::Duration;
+
+    use tokio::time::sleep;
 
     use super::*;
 
     #[derive(Serialize, Deserialize)]
-    pub struct Data {
-        pub message: String,
+    pub struct Task {
+        message: String,
     }
 
-    #[test]
-    fn test_handler_builder() {
-        let handler = HandlerBuilder::new("game")
-            .with_max_retries(10)
-            .with_timeout(Duration::from_mins(5))
-            .handle(async |state: String, data: Data| {
-                println!("{}, {}", state, data.message);
-                Ok(())
-            });
+    pub struct Manager;
 
-        assert_eq!(handler.name, "game".to_string());
+    impl Manager {
+        const TASKNAME: &'static str = "task";
+    }
+
+    impl Processor for Manager {
+        fn name(&self) -> &'static str {
+            Self::TASKNAME
+        }
+
+        fn process(&self, data: Data) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>> {
+            Box::pin(async move {
+                let task = data.try_into::<Task>()?;
+                println!("Task message: {}", task.message);
+                Ok(())
+            })
+        }
     }
 
     #[tokio::test]
-    async fn test_worker_handle_queue() -> anyhow::Result<()> {
-        let pool = sqlx::SqlitePool::connect(":memory:").await.unwrap();
-        migrate!().run(&pool).await.unwrap();
+    async fn test_queue_worker() -> anyhow::Result<()> {
+        let pool = sqlx::SqlitePool::connect(":memory:").await?;
+        sqlx::migrate!().run(&pool).await?;
+        let (sender, receiver) = mpsc::channel(1);
+        let (cancel_sender, cancel_receiver) = watch::channel(false);
+        let queue = Queue::new(pool.clone(), sender.clone());
 
-        let mut worker = Worker::new("state".to_string(), pool.clone());
+        let worker_pool = pool.clone();
+        let worker = tokio::spawn(async {
+            let manager = Box::new(Manager);
+            let mut worker = Worker::new(worker_pool, receiver, cancel_receiver);
+            worker.procesor(manager);
+            worker.work().await;
+        });
 
-        let f = async move |state: String, data: Data| -> anyhow::Result<()> {
-            println!("message {}, captured {}", data.message, state);
-            Ok(())
+        let task = &Task {
+            message: "hello_task".into(),
         };
 
-        let h = HandlerBuilder::new("task")
-            .with_timeout(Duration::from_mins(1))
-            .with_max_retries(3)
-            .handle(f);
+        queue
+            .push(Manager::TASKNAME, task)
+            .await
+            .context("failed pushing tash queue")?;
 
-        worker.handle(h);
+        sqlx::query_as::<_, Job>("select * from jobs where name = $1 and status = $2 limit 1")
+            .bind(Manager::TASKNAME)
+            .bind(Status::Pending)
+            .fetch_one(&pool)
+            .await
+            .context("failed getting job queue")?;
 
-        let data = Data {
-            message: "nuevo mensaje".to_string(),
-        };
+        sleep(Duration::from_millis(100)).await;
 
-        let listener = worker.listen();
+        sqlx::query_as::<_, Job>("select * from jobs where name = $1 and status = $2 limit 1")
+            .bind(Manager::TASKNAME)
+            .bind(Status::Completed)
+            .fetch_one(&pool)
+            .await
+            .context("failed getting completed")?;
 
-        worker.queue("task", data).await.context("failed at queue");
+        cancel_sender.send(true).unwrap();
 
-        listener.await;
+        worker.await.expect("failed closing worker");
 
         Ok(())
     }
