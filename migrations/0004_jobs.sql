@@ -1,0 +1,12 @@
+CREATE TABLE jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR NOT NULL,
+    data JSONB NOT NULL,
+    status INTEGER NOT NULL,
+    error VARCHAR,
+    created_at TIMESTAMP DEFAULT CURRENT TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT TIMESTAMP
+);
+
+
+CREATE INDEX idx_jobs_name_status ON jobs(name, status);

@@ -1,15 +1,9 @@
-use actix_session::Session;
-use actix_web::http::header;
-use actix_web::web::{Data, Query, ReqData};
-use actix_web::{HttpResponse, Responder};
-use chrono::Utc;
-use oauth2::PkceCodeVerifier;
-use oauth2::{AuthorizationCode, CsrfToken, PkceCodeChallenge, TokenResponse};
-use serde::Deserialize;
-use url::Url;
-
-use crate::app::{App, GoogleUserInfo, OAuthAccountInfo, OAuthState, Organization};
+use crate::app::{App, OAuthState, Organization};
 use crate::infra::Monolith;
+use actix_web::HttpResponse;
+use actix_web::http::header;
+use actix_web::web::{Data, ReqData};
+use oauth2::{CsrfToken, PkceCodeChallenge};
 
 pub async fn login(
     mono: Data<Monolith>,

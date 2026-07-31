@@ -20,7 +20,6 @@ pub async fn with_organization(
 
     if host.starts_with("www.") {
         let uri = req.request().full_url().to_string().replace("www.", "");
-
         return Err(RedirectError(uri).into());
     }
 
