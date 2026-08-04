@@ -10,6 +10,7 @@ use serde_json::Value;
 use sqlx::prelude::FromRow;
 use sqlx::types::JsonValue;
 use tokio::sync::{mpsc, watch};
+use tokio::time::{Duration, sleep};
 
 use crate::infra::{DbPool, Id};
 
@@ -152,6 +153,45 @@ impl Worker {
     }
 }
 
+pub struct Fetcher {
+    pool: DbPool,
+    sender: mpsc::Sender<Job>,
+}
+
+impl Fetcher {
+    pub fn new(pool: DbPool, sender: mpsc::Sender<Job>) -> Self {
+        Self { pool, sender }
+    }
+
+    pub async fn start(&self) {
+        loop {
+            let jobs = sqlx::query_as::<_, Job>("select * from jobs where status = $1 limit 10")
+                .bind(Status::Pending)
+                .fetch_all(&self.pool)
+                .await;
+
+            let jobs = match jobs {
+                Ok(jobs) => jobs,
+                Err(err) => {
+                    error!("Error: failed fetching jobs: {}", err);
+                    sleep(Duration::from_mins(1)).await;
+                    continue;
+                }
+            };
+
+            for job in jobs {
+                self.sender
+                    .send(job)
+                    .await
+                    .inspect_err(|e| error!("failed sending job throught channel sender: {e}"))
+                    .ok();
+            }
+
+            sleep(Duration::from_mins(5)).await;
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
 
@@ -230,6 +270,48 @@ mod test {
         cancel_sender.send(true).unwrap();
 
         worker.await.expect("failed closing worker");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fetcher() -> anyhow::Result<()> {
+        let pool = sqlx::SqlitePool::connect(":memory:").await?;
+        sqlx::migrate!().run(&pool).await?;
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        for i in 0..5 {
+            let task = Task {
+                message: format!("message from task {i}"),
+            };
+
+            let value = serde_json::to_value(&task).expect("failed serializing task");
+
+            sqlx::query("insert into jobs(name, data, status) values ($1, $2, $3)")
+                .bind("task")
+                .bind(&value)
+                .bind(Status::Pending)
+                .execute(&pool)
+                .await
+                .expect("failed inserting job");
+        }
+
+        let fetcher_pool = pool.clone();
+
+        tokio::spawn(async {
+            let fetcher = Fetcher::new(fetcher_pool, sender);
+            fetcher.start().await;
+        });
+
+        let mut count = 0;
+        while let Some(_) = receiver.recv().await {
+            count += 1;
+            if count == 5 {
+                break;
+            }
+        }
+
+        assert_eq!(count, 5, "expected to receive 5 messages, received {count}");
 
         Ok(())
     }
