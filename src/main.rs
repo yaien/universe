@@ -10,10 +10,13 @@ use anyhow::{Context, Result};
 use app::App as Service;
 use chrono::{Duration, Utc};
 use cmd::{Args, Command, Parser};
+use log::info;
 use rustls::crypto;
 use sqlx::migrate;
 
 use infra::Monolith;
+
+use crate::infra::Background;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -62,7 +65,7 @@ async fn main() -> Result<()> {
             return Ok(());
         }
         None => {
-            let mono = Monolith::build_from_env()
+            let mut mono = Monolith::build_from_env()
                 .await
                 .context("failed initializing monolith")?;
 
@@ -75,6 +78,19 @@ async fn main() -> Result<()> {
 
             let mono = Data::new(mono);
             let data = mono.clone();
+
+            let background = Background::new(mono.pool.clone());
+            let worker = background.worker.clone();
+
+            tokio::spawn(async move {
+                let mut w = worker.lock().await;
+                w.work().await;
+            });
+
+            let fetcher = background.fetcher.clone();
+            tokio::spawn(async move {
+                fetcher.start().await;
+            });
 
             let server = HttpServer::new(move || {
                 App::new()

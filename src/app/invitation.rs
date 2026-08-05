@@ -1,9 +1,6 @@
-use std::sync::Arc;
-
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 
-use crate::app::{Roles, User};
 use crate::infra::{DbPool, Id};
 
 #[derive(sqlx::FromRow)]
@@ -86,6 +83,8 @@ mod tests {
 
     use chrono::Duration;
     use sqlx::migrate;
+
+    use crate::app::Roles;
 
     use super::*;
 

@@ -1,15 +1,17 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::pin::Pin;
+use std::sync::Arc;
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use chrono::{DateTime, Utc};
 use log::error;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::prelude::FromRow;
 use sqlx::types::JsonValue;
-use tokio::sync::{mpsc, watch};
+use tokio::sync::{Mutex, mpsc};
 use tokio::time::{Duration, sleep};
 
 use crate::infra::{DbPool, Id};
@@ -72,7 +74,7 @@ impl Data {
     }
 }
 
-pub trait Processor: Send {
+pub trait Processor: Send + Sync {
     fn name(&self) -> &'static str;
     fn process(&self, data: Data) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>>;
 }
@@ -80,17 +82,14 @@ pub trait Processor: Send {
 pub struct Worker {
     pool: DbPool,
     receiver: mpsc::Receiver<Job>,
-    cancel: watch::Receiver<bool>,
     processors: HashMap<String, Box<dyn Processor>>,
 }
 
 impl Worker {
-    pub fn new(pool: DbPool, receiver: mpsc::Receiver<Job>, cancel: watch::Receiver<bool>) -> Self {
-        let (cancelation_sender, cancelation_receiver) = watch::channel(false);
+    pub fn new(pool: DbPool, receiver: mpsc::Receiver<Job>) -> Self {
         Self {
             pool,
             receiver,
-            cancel,
             processors: HashMap::new(),
         }
     }
@@ -135,20 +134,8 @@ impl Worker {
     }
 
     pub async fn work(&mut self) {
-        loop {
-            tokio::select! {
-                job = self.receiver.recv() => {
-
-                    let Some(job) = job else {
-                        break;
-                    };
-
-                    self.process(job).await;
-                }
-                _ = self.cancel.changed() => {
-                    break
-                }
-            }
+        while let Some(job) = self.receiver.recv().await {
+            self.process(job).await;
         }
     }
 }
@@ -187,8 +174,43 @@ impl Fetcher {
                     .ok();
             }
 
-            sleep(Duration::from_mins(5)).await;
+            sleep(Duration::from_min(5)).await;
         }
+    }
+}
+
+pub struct InnerBackground {
+    pub worker: Arc<Mutex<Worker>>,
+    pub queue: Arc<Queue>,
+    pub fetcher: Arc<Fetcher>,
+}
+
+impl InnerBackground {
+    pub fn new(pool: DbPool) -> Self {
+        let (sender, receiver) = mpsc::channel(10);
+        let worker = Arc::new(Mutex::new(Worker::new(pool.clone(), receiver)));
+        let queue = Arc::new(Queue::new(pool.clone(), sender.clone()));
+        let fetcher = Arc::new(Fetcher::new(pool, sender));
+        Self {
+            worker,
+            queue,
+            fetcher,
+        }
+    }
+}
+
+pub struct Background(Arc<InnerBackground>);
+
+impl Background {
+    pub fn new(pool: DbPool) -> Self {
+        Self(Arc::new(InnerBackground::new(pool)))
+    }
+}
+
+impl Deref for Background {
+    type Target = InnerBackground;
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
     }
 }
 
@@ -197,6 +219,7 @@ mod test {
 
     use std::time::Duration;
 
+    use serde::Deserialize;
     use tokio::time::sleep;
 
     use super::*;
@@ -231,13 +254,13 @@ mod test {
         let pool = sqlx::SqlitePool::connect(":memory:").await?;
         sqlx::migrate!().run(&pool).await?;
         let (sender, receiver) = mpsc::channel(1);
-        let (cancel_sender, cancel_receiver) = watch::channel(false);
         let queue = Queue::new(pool.clone(), sender.clone());
 
         let worker_pool = pool.clone();
-        let worker = tokio::spawn(async {
+
+        let mut worker = Worker::new(worker_pool, receiver);
+        tokio::spawn(async move {
             let manager = Box::new(Manager);
-            let mut worker = Worker::new(worker_pool, receiver, cancel_receiver);
             worker.procesor(manager);
             worker.work().await;
         });
@@ -267,10 +290,6 @@ mod test {
             .await
             .context("failed getting completed")?;
 
-        cancel_sender.send(true).unwrap();
-
-        worker.await.expect("failed closing worker");
-
         Ok(())
     }
 
@@ -299,7 +318,7 @@ mod test {
         let fetcher_pool = pool.clone();
 
         tokio::spawn(async {
-            let fetcher = Fetcher::new(fetcher_pool, sender);
+            let mut fetcher = Fetcher::new(fetcher_pool, sender);
             fetcher.start().await;
         });
 
