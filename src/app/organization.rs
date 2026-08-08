@@ -55,7 +55,9 @@ impl Organizations {
 
         for branch in [Branch::MAIN, Branch::DRAFT] {
             let sitemap_id = self.sitemaps.create(&organization_id, branch).await?;
-            self.pages.create(&sitemap_id, "/").await?;
+            self.pages
+                .create(&sitemap_id, "/", "inicio", "Inicio")
+                .await?;
             self.emails.create(&sitemap_id, "invitation").await?;
             self.layouts.create(&sitemap_id, "default").await?;
         }

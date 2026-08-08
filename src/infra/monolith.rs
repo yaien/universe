@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use crate::infra::config::Config;
+use crate::infra::{Fetcher, Queue, Worker};
 use anyhow::{Context, Result};
 use oauth2::{
     EndpointNotSet, EndpointSet, RedirectUrl,
@@ -10,6 +13,7 @@ use sqlx::{
     ConnectOptions, SqlitePool,
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
+use tokio::sync::{Mutex, mpsc};
 
 pub type Id = i64;
 
@@ -24,6 +28,9 @@ pub struct Monolith {
     pub oauth2_google_client: GoogleClient,
     pub oauth2_client: OAuth2Client,
     pub http_client: ReqwestClient,
+    pub worker: Arc<Mutex<Worker>>,
+    pub queue: Arc<Queue>,
+    pub fetcher: Arc<Fetcher>,
 }
 
 impl Monolith {
@@ -53,12 +60,20 @@ impl Monolith {
 
         let http_client = ReqwestClient::new();
 
+        let (sender, receiver) = mpsc::channel(10);
+        let worker = Arc::new(Mutex::new(Worker::new(pool.clone(), receiver)));
+        let queue = Arc::new(Queue::new(pool.clone(), sender.clone()));
+        let fetcher = Arc::new(Fetcher::new(pool.clone(), sender));
+
         Ok(Monolith {
             config,
             pool,
             oauth2_google_client,
             oauth2_client,
             http_client,
+            worker,
+            queue,
+            fetcher,
         })
     }
 

@@ -1,12 +1,19 @@
 use chrono::{DateTime, Utc};
+use sqlx::prelude::FromRow;
 
 use crate::infra::{DbPool, Id};
 
+#[derive(FromRow)]
 pub struct Page {
-    pub id: i64,
-    pub sitemap_id: i64,
-    pub layout_id: i64,
+    pub id: Id,
+    pub sitemap_id: Id,
+    pub layout_id: Id,
     pub path: String,
+    pub name: String,
+    pub title: String,
+    pub og_image: String,
+    pub og_type: String,
+    pub og_description: String,
     pub html: String,
     pub css: String,
     pub js: String,
@@ -23,12 +30,35 @@ impl Pages {
         Self { pool }
     }
 
-    pub async fn create(&self, sitemap_id: &Id, path: &str) -> Result<Id, sqlx::Error> {
-        sqlx::query("insert into pages (sitemap_id, path) values ($1, $2)")
+    pub async fn create(
+        &self,
+        sitemap_id: &Id,
+        path: &str,
+        name: &str,
+        title: &str,
+    ) -> Result<Id, sqlx::Error> {
+        sqlx::query("insert into pages (sitemap_id, path, name, title) values ($1, $2, $3, $4)")
             .bind(sitemap_id)
             .bind(path)
+            .bind(name)
+            .bind(title)
             .execute(&self.pool)
             .await
             .map(|r| r.last_insert_rowid())
+    }
+
+    pub async fn get_by_id(&self, sitemap_id: &Id, id: &Id) -> Result<Page, sqlx::Error> {
+        sqlx::query_as::<_, Page>("select * from pages where sitemap_id = $1 and id = $2")
+            .bind(sitemap_id)
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+    }
+
+    pub async fn get_by_sitemap_id(&self, sitemap_id: &Id) -> Result<Vec<Page>, sqlx::Error> {
+        sqlx::query_as::<_, Page>("select * from pages where sitemap_id = $1")
+            .bind(sitemap_id)
+            .fetch_all(&self.pool)
+            .await
     }
 }

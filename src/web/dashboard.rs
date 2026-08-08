@@ -11,6 +11,7 @@ pub fn configure(config: &mut ServiceConfig) {
         .service(
             scope("/dashboard")
                 .route("", get().to(handlers::home::home))
+                .route("/pages", get().to(handlers::pages::index))
                 .wrap(from_fn(middlewares::role)),
         )
         .route(

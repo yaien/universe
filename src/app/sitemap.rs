@@ -1,38 +1,21 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use sqlx::prelude::FromRow;
 
 use crate::infra::{DbPool, Id};
 
-pub struct Branch {}
+pub struct Branch;
 
 impl Branch {
     pub const MAIN: &'static str = "main";
     pub const DRAFT: &'static str = "draft";
 }
 
+#[derive(FromRow)]
 pub struct Sitemap {
-    pub id: i64,
-    pub organization_id: i64,
+    pub id: Id,
+    pub organization_id: Id,
     pub branch: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-pub struct Layout {
-    pub id: i64,
-    pub sitemap_id: i64,
-    pub name: String,
-    pub html: String,
-    pub css: String,
-    pub js: String,
-}
-
-pub struct Email {
-    pub id: i64,
-    pub sitemap_id: i64,
-    pub name: String,
-    pub subject: String,
-    pub body: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -53,5 +36,19 @@ impl Sitemaps {
             .execute(&self.pool)
             .await
             .map(|r| r.last_insert_rowid())
+    }
+
+    pub async fn get_one_by_branch(
+        &self,
+        organization_id: &Id,
+        branch: &str,
+    ) -> Result<Sitemap, sqlx::Error> {
+        sqlx::query_as::<_, Sitemap>(
+            "select * from sitemaps where organization_id = $1 and branch = $2",
+        )
+        .bind(organization_id)
+        .bind(branch)
+        .fetch_one(&self.pool)
+        .await
     }
 }

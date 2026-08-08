@@ -1,21 +1,25 @@
 mod auth;
 mod email;
+mod integration;
 mod invitation;
 mod layout;
 mod organization;
 mod page;
 mod role;
 mod sitemap;
+mod storage;
 mod user;
 
 pub use auth::*;
 pub use email::*;
+pub use integration::*;
 pub use invitation::*;
 pub use layout::*;
 pub use organization::*;
 pub use page::*;
 pub use role::*;
 pub use sitemap::*;
+pub use storage::*;
 pub use user::*;
 
 use crate::infra::Monolith;

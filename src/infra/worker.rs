@@ -174,43 +174,8 @@ impl Fetcher {
                     .ok();
             }
 
-            sleep(Duration::from_min(5)).await;
+            sleep(Duration::from_mins(5)).await;
         }
-    }
-}
-
-pub struct InnerBackground {
-    pub worker: Arc<Mutex<Worker>>,
-    pub queue: Arc<Queue>,
-    pub fetcher: Arc<Fetcher>,
-}
-
-impl InnerBackground {
-    pub fn new(pool: DbPool) -> Self {
-        let (sender, receiver) = mpsc::channel(10);
-        let worker = Arc::new(Mutex::new(Worker::new(pool.clone(), receiver)));
-        let queue = Arc::new(Queue::new(pool.clone(), sender.clone()));
-        let fetcher = Arc::new(Fetcher::new(pool, sender));
-        Self {
-            worker,
-            queue,
-            fetcher,
-        }
-    }
-}
-
-pub struct Background(Arc<InnerBackground>);
-
-impl Background {
-    pub fn new(pool: DbPool) -> Self {
-        Self(Arc::new(InnerBackground::new(pool)))
-    }
-}
-
-impl Deref for Background {
-    type Target = InnerBackground;
-    fn deref(&self) -> &Self::Target {
-        self.0.deref()
     }
 }
 
@@ -318,7 +283,7 @@ mod test {
         let fetcher_pool = pool.clone();
 
         tokio::spawn(async {
-            let mut fetcher = Fetcher::new(fetcher_pool, sender);
+            let fetcher = Fetcher::new(fetcher_pool, sender);
             fetcher.start().await;
         });
 
