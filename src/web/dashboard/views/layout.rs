@@ -72,9 +72,8 @@ pub fn head(title: &str, org: &Organization) -> Markup {
         link rel="preconnect" href="https://fonts.gstatic.com" crossorigin {}
         link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet"{}
         link rel="stylesheet" href="/assets/static/dashboard/dashboard.min.css"{}
-        link rel="stylesheet" href="/assets/static/dashboard/fontawesome/css/fontawesome.min.css"{}
-        link rel="stylesheet" href="/assets/static/dashboard/fontawesome/css/brands.min.css"{}
-        link rel="stylesheet" href="/assets/static/dashboard/fontawesome/css/solid.min.css"{}
+
+        script src="https://kit.fontawesome.com/952b0b64e9.js" crossorigin="anonymous"{}
         script type="module" src="/assets/static/dashboard/dashboard.min.js" {}
     )
 }
