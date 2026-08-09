@@ -23,16 +23,16 @@ pub struct Font {
 
 #[derive(FromRow)]
 pub struct SitemapFont {
-    id: Id,
-    name: String,
-    font_id: Id,
-    font_family: String,
+    pub id: Id,
+    pub name: String,
+    pub font_id: Id,
+    pub font_family: String,
 
     #[sqlx(json)]
-    font_variants: Vec<String>,
+    pub font_variants: Vec<String>,
 
     #[sqlx(json)]
-    font_files: HashMap<String, String>,
+    pub font_files: HashMap<String, String>,
 }
 
 pub struct Fonts {
@@ -46,9 +46,9 @@ impl Fonts {
 
     pub async fn find(
         &self,
-        query: Option<&str>,
-        limit: Option<u8>,
-        offset: Option<u8>,
+        query: Option<String>,
+        limit: Option<u16>,
+        offset: Option<u16>,
     ) -> Result<Vec<Font>, sqlx::Error> {
         let limit = limit.filter(|l| *l <= 30).unwrap_or(10);
         let offset = offset.unwrap_or(0);
@@ -56,18 +56,17 @@ impl Fonts {
         let mut st = QueryBuilder::new("select * from fonts");
 
         if let Some(query) = query {
-            st.push(" where family like $1")
+            st.push(" where family like")
                 .push_bind(format!("%{query}%"));
         };
 
-        st.push(" limit $2 offset $3")
-            .push_bind(limit)
-            .push_bind(offset);
+        st.push(" limit").push_bind(limit);
+        st.push(" offset").push_bind(offset);
 
         st.build_query_as::<Font>().fetch_all(&self.pool).await
     }
 
-    pub async fn associate_to_sitemap(
+    pub async fn associate(
         &self,
         sitemap_id: &Id,
         font_id: &Id,
@@ -82,10 +81,7 @@ impl Fonts {
             .map(|r| r.last_insert_rowid())
     }
 
-    pub async fn associated_to_sitemap(
-        &self,
-        sitemap_id: &Id,
-    ) -> Result<Vec<SitemapFont>, sqlx::Error> {
+    pub async fn get_associated(&self, sitemap_id: &Id) -> Result<Vec<SitemapFont>, sqlx::Error> {
         sqlx::query_as::<_, SitemapFont>(
             r#"
             select sf.id, sf.name, f.id as font_id, f.family as font_family, f.variants as font_variants, f.files as font_files from sitemaps_fonts sf

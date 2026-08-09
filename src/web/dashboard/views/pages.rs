@@ -1,4 +1,3 @@
-use derive_more::Display;
 use log::info;
 use maud::{Markup, html};
 use serde::{Deserialize, Serialize};
@@ -6,7 +5,7 @@ use serde_json::json;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::app::{Branch, Email, File, Layout, Page, Sitemap};
+use crate::app::{Branch, Email, File, Font, Layout, Page, Sitemap, SitemapFont};
 use crate::infra::Id;
 
 pub enum Model {
@@ -52,6 +51,15 @@ pub struct ViewState {
     pub pages: Vec<Page>,
     pub layouts: Vec<Layout>,
     pub emails: Vec<Email>,
+    pub files: Option<Vec<File>>,
+    pub file: Option<File>,
+    pub sitemap_fonts: Option<Vec<SitemapFont>>,
+    pub sitemap_font: Option<SitemapFont>,
+    pub browsed_fonts: Option<Vec<Font>>,
+    pub browsed_font: Option<Font>,
+    pub browsed_font_limit: Option<u16>,
+    pub browsed_font_offset: Option<u16>,
+    pub browsed_font_query: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -60,6 +68,9 @@ pub struct QueryState {
     pub model_type: Option<ModelType>,
     pub model_id: Option<Id>,
     pub file_id: Option<Id>,
+    pub browsed_fonts_query: Option<String>,
+    pub browsed_fonts_limit: Option<u16>,
+    pub browsed_fonts_offset: Option<u16>,
 }
 
 #[derive(EnumIter, Debug, PartialEq, Serialize, Deserialize)]
@@ -71,7 +82,7 @@ pub enum Section {
     File,
     Fonts,
     BrowseFonts,
-    ConfigureFonts,
+    ConfigureFont,
     Colors,
     EditStyles,
     EditScript,
@@ -128,8 +139,10 @@ impl Section {
             Section::Initial => initial(state),
             Section::Create => create(),
             Section::Delete => delete(),
-            Section::Files => files(),
-            Section::File => file(),
+            Section::Files => files(state),
+            Section::File => file(state),
+            Section::Fonts => fonts(state),
+            Section::BrowseFonts => browse_fonts(state),
             _ => html!(),
         }
     }
@@ -362,7 +375,7 @@ pub fn delete() -> Markup {
     )
 }
 
-pub fn files() -> Markup {
+pub fn files(state: &ViewState) -> Markup {
     html!(
         .grow.files {
             .actions x-data="progress"{
@@ -384,16 +397,16 @@ pub fn files() -> Markup {
                     }
                 }
             }
-            #files .grid hx-get="/dashboard/pages/files" hx-trigger="load" {
-                .htmx-indicator.spinner {
-                    i.fa-solid.fa-spinner {}
+            #files .grid {
+                @if let Some(files) = &state.files {
+                    (file_grid(files))
                 }
             }
         }
     )
 }
 
-pub fn file_grid(files: Vec<File>) -> Markup {
+pub fn file_grid(files: &Vec<File>) -> Markup {
     html!(
         @for file in files {
             .item id=(file.id) hx-vals=(json!({ "file_id": file.id, "section": Section::File })) {
@@ -419,11 +432,11 @@ pub fn file_grid(files: Vec<File>) -> Markup {
     )
 }
 
-pub fn file() -> Markup {
+pub fn file(state: &ViewState) -> Markup {
     html! (
-        .grow.files hx-trigger="load" hx-get="/dashboard/pages/file" {
-            .htmx-indicator.spinner {
-                i.fa-solid.fa-spinner {}
+        .grow.files {
+            @if let Some(file) = &state.file {
+                (file_detail(file))
             }
         }
     )
@@ -431,56 +444,187 @@ pub fn file() -> Markup {
 
 pub fn file_detail(file: &File) -> Markup {
     html!(
-        .grow.files {
-            .edit {
+        .edit {
+            .actions {
+                button
+                    type="button"
+                    hx-trigger="click, deleted from:body, renamed from:body"
+                    hx-get="/dashboard/pages"
+                    hx-vals=(json!({ "section": Section::Files }))
+                    hx-target="#editor"
+                    hx-swap="outerHTML"
+                {
+                    "Volver"
+                }
+            }
+            .preview {
+                @if file.preset == "image" {
+                        img src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) {}
+                }
+                @if file.preset == "video" {
+                    video src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) controls {}
+                }
+            }
+            table.compact {
+                thead {
+                    tr {
+                        th { "Variante" }
+                        th { "Dimensiones" }
+                        th { "Tamaño" }
+                        th { "Tipo" }
+                    }
+                }
+                tbody {
+                    @for format in file.formats.iter() {
+                        tr {
+                            td { (format.variant) }
+                            td { (format.width) "x" (format.height) }
+                                td x-data=(format!("filesize({})", format.size)) x-text="size" {}
+                            td { (format.content_type) }
+                        }
+                    }
+                }
+            }
+            form hx-patch=(format!("/dashboard/files/{}", file.name)) hx-swap="none" {
+                fieldset {
+                    legend { "Nombre" }
+                    input name="name" value=(file.name) required {}
+                }
+                .actions.around {
+                    button.danger type="button" hx-delete=(format!("/dashboard/files/{}", file.name)) hx-swap="none" class="danger" { "Eliminar" }
+                    button type="submit" { "Guardar" }
+                }
+            }
+        }
+    )
+}
+
+pub fn fonts(state: &ViewState) -> Markup {
+    html! (
+        @if let Some(sitemap_fonts) = &state.sitemap_fonts {
+            .fonts {
+                .list {
+                    @for sitemap_font in sitemap_fonts {
+                        .font
+                            title=(sitemap_font.font_family)
+                            hx-get="/dashboard/pages"
+                            hx-target="#editor"
+                            hx-swap="outerHTML"
+                            hx-vals=(json!({ "section": Section::BrowseFonts, "associated_font_id": sitemap_font.id }))
+                        {
+                            .preview
+                                x-data=(
+                                    format!("font({{ family: {:?}, url: {:?} }})",
+                                    sitemap_font.font_family, sitemap_font.font_files["regular"]
+                                ))
+                                ":style"="style"
+                            {
+                                (sitemap_font.font_family)
+                            }
+                            span { (sitemap_font.name) }
+                        }
+                    }
+
+                }
+                @if sitemap_fonts.is_empty() {
+                    p style="text-align: center" {
+                        "Aún no hay fuentes configuradas."
+                        br;
+                        "Agrega una nueva fuente para comenzar"
+                    }
+                }
                 .actions {
                     button
-                        type="button"
-                        hx-trigger="click, deleted from:body, renamed from:body"
                         hx-get="/dashboard/pages"
-                        hx-vals=(json!({ "section": Section::Files }))
                         hx-target="#editor"
                         hx-swap="outerHTML"
+                        hx-vals=(json!({ "section": Section::BrowseFonts }))
                     {
-                        "Volver"
+                        "Fuentes"
                     }
                 }
-                .preview {
-                    @if file.preset == "image" {
-                            img src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) {}
-                    }
-                    @if file.preset == "video" {
-                        video src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) controls {}
-                    }
+            }
+        }
+    )
+}
+
+pub fn browse_fonts(state: &ViewState) -> Markup {
+    html! {
+        .fonts {
+            .actions {
+                button
+                    hx-get="/dashboard/pages"
+                    hx-target="#editor"
+                    hx-vals=(json!({ "section": Section::Fonts }))
+                    hx-swap="outerHTML"
+                {
+                    "Volver"
                 }
-                table.compact {
-                    thead {
-                        tr {
-                            th { "Variante" }
-                            th { "Dimensiones" }
-                            th { "Tamaño" }
-                            th { "Tipo" }
+            }
+            fieldset role="group" {
+                legend { "Fuentes" }
+                input
+                    type="search"
+                    name="family"
+                    placeholder="Buscar fuente"
+                    hx-trigger="input changed delay:500ms"
+                    hx-get="/dashboard/pages"
+                    hx-target="#browsed-fonts"
+                    hx-indicator=".fonts"
+                    {}
+            }
+
+            @let sitemap_font_id = match &state.sitemap_font {
+                Some(sitemap_font) => Some(&sitemap_font.id),
+                None => None,
+            };
+
+            #browsed-fonts
+                class="scrollable"
+                hx-vals=(json!({ "section": Section::ConfigureFont, "sitemap_font_id": sitemap_font_id }))
+            {
+                (browse_fonts_list(&state.browsed_fonts, &state.browsed_font_query, &state.browsed_font_limit, &state.browsed_font_offset))
+            }
+            div class="spinner htmx-indicator" {
+                i class="fa-solid fa-spinner" {}
+            }
+        }
+    }
+}
+
+pub fn browse_fonts_list(
+    fonts: &Option<Vec<Font>>,
+    query: &Option<String>,
+    limit: &Option<u16>,
+    offset: &Option<u16>,
+) -> Markup {
+    html!(
+        @if let Some(fonts) = fonts {
+            @for (index, font) in fonts.iter().enumerate() {
+                @let is_last = index == fonts.len() - 1;
+                .font
+                    hx-get=[is_last.then_some("/dashboard/pages")]
+                    hx-trigger=[is_last.then_some("intersect once")]
+                    hx-swap=[is_last.then_some("beforeend")]
+                    hx-indicator=[is_last.then_some(".fonts")]
+                    hx-target=[is_last.then_some("#browsed-fonts")]
+                    hx-vals=[is_last.then_some(json!({ "query": query, "limit": limit, "offset": offset }))]
+                {
+                    div
+                        hx-get="/dashboard/pages"
+                        hx-target="#editor"
+                        hx-swap="outerHTML"
+                        hx-vals=(json!({ "browsed_font_id": font.id }))
+                    {
+                        .preview
+                            x-data=(format!(
+                                "font({{ family: {:?}, url: {:?} }})",
+                                font.family, font.files["regular"]
+                            ))
+                            ":style"="style"
+                        {
+                            (font.family)
                         }
-                    }
-                    tbody {
-                        @for format in file.formats.iter() {
-                            tr {
-                                td { (format.variant) }
-                                td { (format.width) "x" (format.height) }
-                                   td x-data=(format!("filesize({})", format.size)) x-text="size" {}
-                                td { (format.content_type) }
-                            }
-                        }
-                    }
-                }
-                form hx-patch=(format!("/dashboard/files/{}", file.name)) hx-swap="none" {
-                    fieldset {
-                        legend { "Nombre" }
-                        input name="name" value=(file.name) required {}
-                    }
-                    .actions.around {
-                        button.danger type="button" hx-delete=(format!("/dashboard/files/{}", file.name)) hx-swap="none" class="danger" { "Eliminar" }
-                        button type="submit" { "Guardar" }
                     }
                 }
             }

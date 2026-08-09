@@ -11,7 +11,9 @@ use maud::Markup;
 
 use crate::app::{App, Organization, Role};
 use crate::web::dashboard::views;
-use crate::web::dashboard::views::pages::{Model, ModelType, QueryState, SessionState, ViewState};
+use crate::web::dashboard::views::pages::{
+    Model, ModelType, QueryState, Section, SessionState, ViewState,
+};
 use crate::web::errors::StatusError;
 
 async fn get_view_state(
@@ -133,7 +135,7 @@ async fn get_view_state(
 
     session.insert("pages", &session_state).ok();
 
-    let state = ViewState {
+    let mut view_state = ViewState {
         sitemap: sitemap,
         model: model,
         model_type: session_state.model_type,
@@ -141,9 +143,49 @@ async fn get_view_state(
         pages: pages,
         layouts: layouts,
         emails: emails,
+        files: None,
+        file: None,
+        sitemap_fonts: None,
+        sitemap_font: None,
+        browsed_fonts: None,
+        browsed_font: None,
+        browsed_font_offset: query.browsed_fonts_offset,
+        browsed_font_limit: query.browsed_fonts_limit,
+        browsed_font_query: query.browsed_fonts_query,
     };
 
-    Ok(state)
+    match &view_state.section {
+        Section::Files => {
+            view_state.files = app.files.get_by_organization_id(&org.id).await.ok();
+        }
+        Section::File => {
+            if let Some(file_id) = session_state.file_id {
+                view_state.file = app
+                    .files
+                    .get_one_by_organization_id_and_id(&org.id, &file_id)
+                    .await
+                    .ok();
+            }
+        }
+        Section::Fonts => {
+            view_state.sitemap_fonts = app.fonts.get_associated(&view_state.sitemap.id).await.ok();
+        }
+        Section::BrowseFonts => {
+            view_state.browsed_fonts = app
+                .fonts
+                .find(
+                    view_state.browsed_font_query.clone(),
+                    view_state.browsed_font_limit.clone(),
+                    view_state.browsed_font_offset.clone(),
+                )
+                .await
+                .inspect_err(|e| log::error!("failed getting browsed fonts: {}", e))
+                .ok();
+        }
+        _ => {}
+    };
+
+    Ok(view_state)
 }
 
 pub async fn get_index(
@@ -165,6 +207,12 @@ pub async fn get_index(
     match target {
         Some("editor") => Ok(views::pages::editor(&state)),
         Some("content") => Ok(views::pages::content(&state)),
+        Some("browsed-fonts") => Ok(views::pages::browse_fonts_list(
+            &state.browsed_fonts,
+            &state.browsed_font_query,
+            &state.browsed_font_limit,
+            &state.browsed_font_offset,
+        )),
         _ => Ok(views::layout::layout(&views::layout::Content {
             title: "Pages",
             path: req.path(),
@@ -173,16 +221,6 @@ pub async fn get_index(
             content: views::pages::content(&state),
         })),
     }
-}
-
-pub async fn get_files(org: ReqData<Organization>, app: Data<App>) -> Result<Markup, Error> {
-    let files = app
-        .files
-        .get_by_organization_id(&org.id)
-        .await
-        .map_err(|e| StatusError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    Ok(views::pages::file_grid(files))
 }
 
 #[derive(Debug, MultipartForm)]
@@ -200,31 +238,11 @@ pub async fn upload_files(
         .await
         .map_err(|e| StatusError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    get_files(org, app).await
-}
-
-pub async fn get_file(
-    org: ReqData<Organization>,
-    app: Data<App>,
-    session: Session,
-) -> Result<Markup, Error> {
-    let Some(file_id) = session
-        .get::<SessionState>("pages")
-        .ok()
-        .flatten()
-        .map(|s| s.file_id)
-        .flatten()
-    else {
-        return Err(
-            StatusError(StatusCode::NOT_FOUND, "not file_id in session".to_string()).into(),
-        );
-    };
-
-    let file = app
+    let files = app
         .files
-        .get_one_by_organization_id_and_id(&org.id, &file_id)
+        .get_by_organization_id(&org.id)
         .await
-        .map_err(|e| StatusError(StatusCode::NOT_FOUND, e.to_string()))?;
+        .map_err(|e| StatusError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    Ok(views::pages::file_detail(&file))
+    Ok(views::pages::file_grid(&files))
 }
