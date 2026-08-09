@@ -5,10 +5,10 @@ test:
     cargo test
 
 esbuild:
-    npx esbuild src/web/dashboard/assets/dashboard.ts --bundle --outfile=src/web/dashboard/assets/dist/dashboard.min.js --minify --sourcemap  --format=esm
+    npx esbuild src/web/dashboard/assets/dashboard.ts --bundle --outfile=data/dist/dashboard.min.js --minify --sourcemap  --format=esm
 
 run: esbuild
     cargo run
 
 watch:
-    watchexec -r -e rs,ts,css -i "src/web/dashboard/assets/dist/*" just run
+    watchexec -r --bell -e rs,ts,css just run

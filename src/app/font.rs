@@ -24,7 +24,7 @@ pub struct Font {
 #[derive(FromRow)]
 pub struct SitemapFont {
     pub id: Id,
-    pub name: String,
+    pub css_var_name: String,
     pub font_id: Id,
     pub font_family: String,
 
@@ -56,14 +56,21 @@ impl Fonts {
         let mut st = QueryBuilder::new("select * from fonts");
 
         if let Some(query) = query {
-            st.push(" where family like")
+            st.push(" where family like ")
                 .push_bind(format!("%{query}%"));
         };
 
-        st.push(" limit").push_bind(limit);
-        st.push(" offset").push_bind(offset);
+        st.push(" limit ").push_bind(limit);
+        st.push(" offset ").push_bind(offset);
 
         st.build_query_as::<Font>().fetch_all(&self.pool).await
+    }
+
+    pub async fn get_one(&self, id: &Id) -> Result<Font, sqlx::Error> {
+        sqlx::query_as::<_, Font>("select * from fonts where id = $1")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
     }
 
     pub async fn associate(
@@ -84,7 +91,7 @@ impl Fonts {
     pub async fn get_associated(&self, sitemap_id: &Id) -> Result<Vec<SitemapFont>, sqlx::Error> {
         sqlx::query_as::<_, SitemapFont>(
             r#"
-            select sf.id, sf.name, f.id as font_id, f.family as font_family, f.variants as font_variants, f.files as font_files from sitemaps_fonts sf
+            select sf.id, sf.css_var_name, f.id as font_id, f.family as font_family, f.variants as font_variants, f.files as font_files from sitemaps_fonts sf
             join fonts f on f.id = sf.font_id
             where sitemap_id = $1
             "#,
@@ -92,6 +99,24 @@ impl Fonts {
         .bind(sitemap_id)
         .fetch_all(&self.pool)
         .await
+    }
+
+    pub async fn get_one_associated(
+        &self,
+        sitemap_id: &Id,
+        id: &Id,
+    ) -> Result<SitemapFont, sqlx::Error> {
+        sqlx::query_as::<_, SitemapFont>(
+                    r#"
+                    select sf.id, sf.css_var_name, f.id as font_id, f.family as font_family, f.variants as font_variants, f.files as font_files from sitemaps_fonts sf
+                    join fonts f on f.id = sf.font_id
+                    where sitemap_id = $1 and id = $2
+                    "#,
+                )
+                .bind(sitemap_id)
+                .bind(id)
+                .fetch_one(&self.pool)
+                .await
     }
 
     pub async fn update_associated(

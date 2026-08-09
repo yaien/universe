@@ -45,6 +45,14 @@ async fn get_view_state(
         session_state.file_id = query.file_id;
     }
 
+    if query.browsed_font_id.is_some() {
+        session_state.browsed_font_id = query.browsed_font_id
+    }
+
+    if query.sitemap_font_id.is_some() {
+        session_state.sitemap_font_id = query.sitemap_font_id
+    }
+
     let sitemap = match app
         .sitemaps
         .get_one_by_branch(&org.id, &session_state.sitemap_branch)
@@ -171,6 +179,13 @@ async fn get_view_state(
             view_state.sitemap_fonts = app.fonts.get_associated(&view_state.sitemap.id).await.ok();
         }
         Section::BrowseFonts => {
+            log::warn!(
+                "Query {:?}, Limit {:?}, Offset {:?}",
+                view_state.browsed_font_query,
+                view_state.browsed_font_limit,
+                view_state.browsed_font_offset
+            );
+
             view_state.browsed_fonts = app
                 .fonts
                 .find(
@@ -181,6 +196,25 @@ async fn get_view_state(
                 .await
                 .inspect_err(|e| log::error!("failed getting browsed fonts: {}", e))
                 .ok();
+        }
+        Section::ConfigureFont => {
+            if let Some(browsed_font_id) = session_state.browsed_font_id {
+                view_state.browsed_font = app
+                    .fonts
+                    .get_one(&browsed_font_id)
+                    .await
+                    .inspect_err(|e| log::error!("failed getting browsed font: {e}"))
+                    .ok()
+            }
+
+            if let Some(sitemap_font_id) = session_state.sitemap_font_id {
+                view_state.sitemap_font = app
+                    .fonts
+                    .get_one_associated(&view_state.sitemap.id, &sitemap_font_id)
+                    .await
+                    .inspect_err(|e| log::error!("failed getting sitemap font: {e}"))
+                    .ok();
+            }
         }
         _ => {}
     };
@@ -196,7 +230,12 @@ pub async fn get_index(
     session: Session,
     req: HttpRequest,
 ) -> Result<Markup, Error> {
-    let state = get_view_state(app.as_ref(), org.deref(), query.into_inner(), &session).await?;
+    let mut query = query.into_inner();
+    if !req.headers().contains_key("hx-request") {
+        query = QueryState::default();
+    }
+
+    let state = get_view_state(app.as_ref(), org.deref(), query, &session).await?;
 
     let target = req
         .headers()
@@ -205,9 +244,9 @@ pub async fn get_index(
         .flatten();
 
     match target {
-        Some("editor") => Ok(views::pages::editor(&state)),
-        Some("content") => Ok(views::pages::content(&state)),
-        Some("browsed-fonts") => Ok(views::pages::browse_fonts_list(
+        Some("article#editor") => Ok(views::pages::editor(&state)),
+        Some("div#content") => Ok(views::pages::content(&state)),
+        Some("div#browsed-fonts") => Ok(views::pages::browse_fonts_list(
             &state.browsed_fonts,
             &state.browsed_font_query,
             &state.browsed_font_limit,

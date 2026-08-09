@@ -1,5 +1,5 @@
 use rust_embed::Embed;
 
 #[derive(Embed)]
-#[folder = "src/web/dashboard/assets/dist"]
+#[folder = "data/dist"]
 pub struct Asset;

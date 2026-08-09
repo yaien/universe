@@ -2,11 +2,11 @@ create table sitemaps_fonts (
     id integer primary key autoincrement,
     sitemap_id integer not null,
     font_id integer not null,
-    name varchar not null,
+    css_var_name varchar not null,
 
     foreign key (sitemap_id) references sitemaps(id) on delete cascade,
     foreign key (font_id) references fonts(id) on delete cascade,
-    unique (sitemap_id, name)
+    unique (sitemap_id, css_var_name)
 );
 
 

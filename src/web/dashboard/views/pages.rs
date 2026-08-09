@@ -29,6 +29,8 @@ pub struct SessionState {
     pub model_id: Option<Id>,
     pub section: Section,
     pub file_id: Option<Id>,
+    pub browsed_font_id: Option<Id>,
+    pub sitemap_font_id: Option<Id>,
 }
 
 impl Default for SessionState {
@@ -39,6 +41,8 @@ impl Default for SessionState {
             model_id: None,
             section: Section::Initial,
             file_id: None,
+            browsed_font_id: None,
+            sitemap_font_id: None,
         }
     }
 }
@@ -62,7 +66,7 @@ pub struct ViewState {
     pub browsed_font_query: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 pub struct QueryState {
     pub section: Option<Section>,
     pub model_type: Option<ModelType>,
@@ -71,6 +75,8 @@ pub struct QueryState {
     pub browsed_fonts_query: Option<String>,
     pub browsed_fonts_limit: Option<u16>,
     pub browsed_fonts_offset: Option<u16>,
+    pub browsed_font_id: Option<Id>,
+    pub sitemap_font_id: Option<Id>,
 }
 
 #[derive(EnumIter, Debug, PartialEq, Serialize, Deserialize)]
@@ -143,6 +149,7 @@ impl Section {
             Section::File => file(state),
             Section::Fonts => fonts(state),
             Section::BrowseFonts => browse_fonts(state),
+            Section::ConfigureFont => configure_font(state),
             _ => html!(),
         }
     }
@@ -168,8 +175,6 @@ pub fn editor(state: &ViewState) -> Markup {
             Some(Model::Layout(_)) => true,
             _ => false,
         };
-
-        info!("Pass Section, {:?}", s);
 
         if s.is_only_web() && !state_is_web {
             return false;
@@ -380,7 +385,7 @@ pub fn files(state: &ViewState) -> Markup {
         .grow.files {
             .actions x-data="progress"{
                 form
-                    hx-trigger="change changed"
+                    hx-trigger="change from:input changed"
                     hx-post="/dashboard/pages/files"
                     hx-target="#files"
                     hx-encoding="multipart/form-data"
@@ -409,14 +414,14 @@ pub fn files(state: &ViewState) -> Markup {
 pub fn file_grid(files: &Vec<File>) -> Markup {
     html!(
         @for file in files {
-            .item id=(file.id) hx-vals=(json!({ "file_id": file.id, "section": Section::File })) {
+            .item id=(file.id)  {
                 div x-data {
-
                     .hover
                         title=(file.name)
                         hx-get="/dashboard/pages"
                         hx-target="#editor"
                         hx-swap="outerHTML"
+                        hx-vals=(json!({ "file_id": file.id, "section": Section::File }))
                         "@mouseenter"="$refs.video?.play()"
                         "@mouseleave"="$refs.video?.pause()"  {}
 
@@ -521,7 +526,7 @@ pub fn fonts(state: &ViewState) -> Markup {
                             {
                                 (sitemap_font.font_family)
                             }
-                            span { (sitemap_font.name) }
+                            span { (sitemap_font.css_var_name) }
                         }
                     }
 
@@ -565,7 +570,7 @@ pub fn browse_fonts(state: &ViewState) -> Markup {
                 legend { "Fuentes" }
                 input
                     type="search"
-                    name="family"
+                    name="browsed_fonts_query"
                     placeholder="Buscar fuente"
                     hx-trigger="input changed delay:500ms"
                     hx-get="/dashboard/pages"
@@ -574,14 +579,14 @@ pub fn browse_fonts(state: &ViewState) -> Markup {
                     {}
             }
 
-            @let sitemap_font_id = match &state.sitemap_font {
-                Some(sitemap_font) => Some(&sitemap_font.id),
-                None => None,
+            @let vals = match &state.sitemap_font {
+                Some(sitemap_font) => json!({ "section": Section::ConfigureFont, "sitemap_font_id": sitemap_font.id }),
+                None => json!({ "section": Section::ConfigureFont }),
             };
 
             #browsed-fonts
                 class="scrollable"
-                hx-vals=(json!({ "section": Section::ConfigureFont, "sitemap_font_id": sitemap_font_id }))
+                hx-vals:inherited=(vals)
             {
                 (browse_fonts_list(&state.browsed_fonts, &state.browsed_font_query, &state.browsed_font_limit, &state.browsed_font_offset))
             }
@@ -608,13 +613,13 @@ pub fn browse_fonts_list(
                     hx-swap=[is_last.then_some("beforeend")]
                     hx-indicator=[is_last.then_some(".fonts")]
                     hx-target=[is_last.then_some("#browsed-fonts")]
-                    hx-vals=[is_last.then_some(json!({ "query": query, "limit": limit, "offset": offset }))]
+                    hx-vals=[is_last.then_some(json!({ "browsed_fonts_query": query.clone().unwrap_or("".into()), "browsed_fonts_limit": limit.unwrap_or(10), "browsed_fonts_offset": offset.unwrap_or(0) + limit.unwrap_or(10) }))]
                 {
                     div
                         hx-get="/dashboard/pages"
                         hx-target="#editor"
                         hx-swap="outerHTML"
-                        hx-vals=(json!({ "browsed_font_id": font.id }))
+                        hx-vals:append=(json!({ "browsed_font_id": font.id }))
                     {
                         .preview
                             x-data=(format!(
@@ -624,6 +629,57 @@ pub fn browse_fonts_list(
                             ":style"="style"
                         {
                             (font.family)
+                        }
+                    }
+                }
+            }
+        }
+    )
+}
+
+pub fn configure_font(state: &ViewState) -> Markup {
+    html! (
+        @if let Some(browsed_font) = &state.browsed_font {
+            .fonts {
+                .configure {
+                    div class="actions" {
+                        button
+                            hx-trigger="click, updated from:body"
+                            hx-get="/dashboard/pages"
+                            hx-target="#editor"
+                            hx-swap="outerHTML"
+                            hx-vals=(json!({ "section": Section::BrowseFonts }))
+                        {
+                            "Volver"
+                        }
+                    }
+                    h1.preview
+                        ":style"="style"
+                        x-data=(format!(
+                            "font({{ family: {:?}, url: {:?} }})",
+                            browsed_font.family, browsed_font.files["regular"]
+                        ))
+                    {
+                        (browsed_font.family)
+                    }
+                    form hx-post="/dashboard/fonts" hx-swap="none" {
+                        small {
+
+                            "Usa \"primary\"  para cambiar la fuente base de la página o \"headings\" para cambiar los
+                            encabezados"
+                        }
+
+                        @let sitemap_font_name = match &state.sitemap_font {
+                            Some(sitemap_font) => Some(&sitemap_font.css_var_name),
+                            None => None
+                        };
+                        fieldset {
+                            legend { "Tag" }
+                            input name="css_var_name" autocomplete="off" required value=[sitemap_font_name] {}
+                        }
+
+                        div class="actions" {
+                            button type="submit" { "Guardar" }
                         }
                     }
                 }
