@@ -3,7 +3,7 @@ use sqlx::prelude::FromRow;
 
 use crate::infra::{DbPool, Id};
 
-#[derive(FromRow)]
+#[derive(FromRow, Clone)]
 pub struct Page {
     pub id: Id,
     pub sitemap_id: Id,

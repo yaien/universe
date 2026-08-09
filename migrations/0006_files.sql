@@ -15,14 +15,15 @@ CREATE INDEX idx_files_lookup ON files(name, organization_id);
 CREATE TABLE files_formats (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_id INTEGER NOT NULL,
+    file_name VARCHAR NOT NULL,
     variant INTEGER NOT NULL,
     size INTEGER NOT NULL,
     width INTEGER NOT NULL,
     height INTEGER NOT NULL,
     content_type VARCHAR NOT NULL,
 
-    FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE;
+    FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE,
     UNIQUE(file_id, variant)
 );
 
-CREATE INDEX idx_files_format_lookup ON files_formats(file_id, variant)
+CREATE INDEX idx_files_format_lookup ON files_formats(file_id, variant);

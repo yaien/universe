@@ -1,6 +1,7 @@
 use actix_web::cookie::Key;
 use dotenv::dotenv;
 use oauth2::{AuthUrl, ClientId, ClientSecret, Scope, TokenUrl};
+use std::path::PathBuf;
 use std::{
     env::{self, VarError},
     net::SocketAddr,
@@ -14,6 +15,8 @@ pub struct Config {
     pub server_tls: Option<ServerTlsConfig>,
     pub session_secure: bool,
     pub session_key: Key,
+    pub storage_path: PathBuf,
+    pub storage_temp_path: PathBuf,
     pub google_client_id: ClientId,
     pub google_client_secret: ClientSecret,
     pub google_auth_url: AuthUrl,
@@ -87,6 +90,12 @@ impl Config {
                     }
                 }
             },
+
+            storage_path: PathBuf::from(env::var("STORAGE_PATH").unwrap_or("data/storage".into())),
+
+            storage_temp_path: PathBuf::from(
+                env::var("STORAGE_TEMP_PATH").unwrap_or("data/temp".into()),
+            ),
 
             google_client_id: env::var("GOOGLE_CLIENT_ID")
                 .map(|s| ClientId::new(s))

@@ -2,6 +2,7 @@ use actix_web::error::ResponseError;
 use actix_web::http::{StatusCode, header};
 use actix_web::{HttpResponse, HttpResponseBuilder};
 use derive_more::Display;
+use log::error;
 
 #[derive(Debug, Display)]
 #[display("Redirect to {}", 0)]
@@ -33,6 +34,7 @@ impl From<(StatusCode, &str)> for StatusError {
 
 impl ResponseError for StatusError {
     fn error_response(&self) -> HttpResponse {
+        error!("error response: {}", self.1);
         HttpResponseBuilder::new(self.0).body(self.1.clone())
     }
 }

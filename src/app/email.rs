@@ -3,7 +3,7 @@ use sqlx::prelude::FromRow;
 
 use crate::infra::{DbPool, Id};
 
-#[derive(FromRow)]
+#[derive(FromRow, Clone)]
 pub struct Email {
     pub id: i64,
     pub sitemap_id: i64,

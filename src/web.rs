@@ -3,6 +3,7 @@ mod dashboard;
 mod errors;
 mod public;
 
+use actix_multipart::form::tempfile::TempFileConfig;
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::middleware::Logger;
 use actix_web::{
@@ -26,6 +27,8 @@ pub fn configure(mono: Data<Monolith>) -> impl Fn(&mut ServiceConfig) {
 
         let logger = Logger::default();
 
+        let tempfile = TempFileConfig::default().directory(&mono.config.storage_temp_path);
+
         config.service(
             scope("")
                 .configure(dashboard::configure)
@@ -34,7 +37,8 @@ pub fn configure(mono: Data<Monolith>) -> impl Fn(&mut ServiceConfig) {
                 .wrap(from_fn(auth::middlewares::with_user))
                 .wrap(session)
                 .wrap(from_fn(public::middlewares::with_organization))
-                .wrap(logger),
+                .wrap(logger)
+                .app_data(tempfile),
         );
     }
 }

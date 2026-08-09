@@ -1,5 +1,6 @@
 mod auth;
 mod email;
+mod file;
 mod integration;
 mod invitation;
 mod layout;
@@ -7,11 +8,11 @@ mod organization;
 mod page;
 mod role;
 mod sitemap;
-mod storage;
 mod user;
 
 pub use auth::*;
 pub use email::*;
+pub use file::*;
 pub use integration::*;
 pub use invitation::*;
 pub use layout::*;
@@ -19,7 +20,6 @@ pub use organization::*;
 pub use page::*;
 pub use role::*;
 pub use sitemap::*;
-pub use storage::*;
 pub use user::*;
 
 use crate::infra::Monolith;
@@ -35,6 +35,7 @@ pub struct App {
     pub users: Arc<Users>,
     pub invitations: Arc<Invitations>,
     pub roles: Arc<Roles>,
+    pub files: Files,
 }
 
 impl App {
@@ -63,6 +64,8 @@ impl App {
 
         let auth = Arc::new(Auth::new(mono.pool.clone(), users.clone()));
 
+        let files = Files::new(mono.pool.clone(), mono.config.storage_path.clone());
+
         Self {
             users,
             pages,
@@ -73,6 +76,7 @@ impl App {
             auth,
             invitations,
             roles,
+            files,
         }
     }
 }

@@ -6,7 +6,7 @@ use serde_json::json;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::app::{Branch, Email, Layout, Page, Sitemap};
+use crate::app::{Branch, Email, File, Layout, Page, Sitemap};
 use crate::infra::Id;
 
 pub enum Model {
@@ -16,6 +16,7 @@ pub enum Model {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
 pub enum ModelType {
     Page,
     Layout,
@@ -124,6 +125,7 @@ impl Section {
             Section::Initial => initial(state),
             Section::Create => create(),
             Section::Delete => delete(),
+            Section::Files => files(),
             _ => html!(),
         }
     }
@@ -217,9 +219,9 @@ pub fn initial(state: &ViewState) -> Markup {
                 hx-get="/dashboard/pages"
                 hx-target="#content"
                 hx-swap="outerHTML" {
-                option value="Page" selected=[selected_is_page.then_some("")] { "Sitio" }
-                option value="Layout" selected=[selected_is_layout.then_some("")] { "Diseño" }
-                option value="Email" selected=[selected_is_email.then_some("")] { "Correo" }
+                option value="page" selected=[selected_is_page.then_some("")] { "Sitio" }
+                option value="layout" selected=[selected_is_layout.then_some("")] { "Diseño" }
+                option value="email" selected=[selected_is_email.then_some("")] { "Correo" }
             }
         }
         fieldset {
@@ -228,7 +230,7 @@ pub fn initial(state: &ViewState) -> Markup {
                 @match state.model_type {
                     ModelType::Page => {
                         @for page in &state.pages {
-                            option value=(&page.id) { (page.path) }
+                            option value=(&page.id) { (page.name) }
                         }
                     }
                     ModelType::Layout => {
@@ -359,6 +361,56 @@ pub fn delete() -> Markup {
                 button hx-get="/dashboard/pages" hx-target="#editor" hx-swap="outerHTML" { "Cancelar" }
                 button.danger hx-delete="/dashoboard/pages" hx-target="#content" hx-swap="outerHTML" {
                     "Eliminar"
+                }
+            }
+        }
+    )
+}
+
+pub fn files() -> Markup {
+    html!(
+        .grow.files {
+            .actions x-data="progress"{
+                form
+                    hx-trigger="change changed"
+                    hx-post="/dashboard/pages/files"
+                    hx-target="#files"
+                    hx-encoding="multipart/form-data"
+                    "@htmx:xhr:progress"="progress($event)"
+                {
+                    input type="file" x-ref="input" hidden name="files" accept="image/*,video/*" multiple {}
+                    button type="button" "@click"="$refs.input.click()" class="clear" {
+                        i.fa-solid.fa-plus {}
+                    }
+                    template x-if="loading" {
+                        .progress {
+                            div ":style"="{ width: percent + '%' }" {}
+                        }
+                    }
+                }
+            }
+            #files .grid hx-get="/dashboard/pages/files" hx-trigger="load" {
+                .htmx-indicator.spinner {
+                    i.fa-solid.fa-spinner {}
+                }
+            }
+        }
+    )
+}
+
+pub fn file_grid(files: Vec<File>) -> Markup {
+    html!(
+        @for file in files {
+            .item id=(file.id) hx-vals=(json!({ "file_id": file.id, "section": Section::File })) {
+                x-hover-play {
+                    .hover title=(file.name) hx-get="/dashboard/pages" hx-target="#editor" hx-swap="outerHTML" {
+                        @if file.preset == "image" {
+                            img src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) {}
+                        }
+                        @if file.preset == "video" {
+                            video src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) muted {}
+                        }
+                    }
                 }
             }
         }

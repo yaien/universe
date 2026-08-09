@@ -1,13 +1,16 @@
 use std::ops::Deref;
 
+use actix_multipart::form::MultipartForm;
+use actix_multipart::form::tempfile::TempFile;
 use actix_session::Session;
 use actix_web::Error;
 use actix_web::HttpRequest;
 use actix_web::http::StatusCode;
 use actix_web::web::{Data, Query, ReqData};
-use maud::{Markup, html};
+use anyhow::Context;
+use maud::Markup;
 
-use crate::app::{App, Branch, Layout, Organization, Role};
+use crate::app::{App, Organization, Role};
 use crate::web::dashboard::views;
 use crate::web::dashboard::views::pages::{Model, ModelType, QueryState, ViewState};
 use crate::web::errors::StatusError;
@@ -30,6 +33,7 @@ async fn get_view_state(
 
     if let Some(model_type) = query.model_type {
         session_state.model_type = model_type;
+        session_state.model_id = None;
     }
 
     if let Some(model_id) = query.model_id {
@@ -50,32 +54,6 @@ async fn get_view_state(
             return Err(err.into());
         }
     };
-
-    let model = match session_state.model_id {
-        Some(id) => match session_state.model_type {
-            ModelType::Page => app
-                .pages
-                .get_by_id(&sitemap.id, &id)
-                .await
-                .ok()
-                .map(|page| Model::Page(page)),
-            ModelType::Layout => app
-                .layouts
-                .get_by_id(&sitemap.id, &id)
-                .await
-                .ok()
-                .map(|layout| Model::Layout(layout)),
-            ModelType::Email => app
-                .emails
-                .get_by_id(&sitemap.id, &id)
-                .await
-                .ok()
-                .map(|email| Model::Email(email)),
-        },
-        None => None,
-    };
-
-    session.insert("pages", &session_state).ok();
 
     let pages = app
         .pages
@@ -110,6 +88,48 @@ async fn get_view_state(
             )
         })?;
 
+    let model = match session_state.model_id {
+        Some(id) => match session_state.model_type {
+            ModelType::Page => app
+                .pages
+                .get_by_id(&sitemap.id, &id)
+                .await
+                .ok()
+                .inspect(|page| session_state.model_id = Some(page.id))
+                .map(|page| Model::Page(page)),
+            ModelType::Layout => app
+                .layouts
+                .get_by_id(&sitemap.id, &id)
+                .await
+                .ok()
+                .inspect(|layout| session_state.model_id = Some(layout.id))
+                .map(|layout| Model::Layout(layout)),
+            ModelType::Email => app
+                .emails
+                .get_by_id(&sitemap.id, &id)
+                .await
+                .ok()
+                .inspect(|email| session_state.model_id = Some(email.id))
+                .map(|email| Model::Email(email)),
+        },
+        None => match session_state.model_type {
+            ModelType::Page => pages
+                .get(0)
+                .inspect(|page| session_state.model_id = Some(page.id))
+                .map(|page| Model::Page(page.clone())),
+            ModelType::Layout => layouts
+                .get(0)
+                .inspect(|layout| session_state.model_id = Some(layout.id))
+                .map(|layout| Model::Layout(layout.clone())),
+            ModelType::Email => emails
+                .get(0)
+                .inspect(|email| session_state.model_id = Some(email.id))
+                .map(|email| Model::Email(email.clone())),
+        },
+    };
+
+    session.insert("pages", &session_state).ok();
+
     let state = ViewState {
         sitemap: sitemap,
         model: model,
@@ -123,7 +143,7 @@ async fn get_view_state(
     Ok(state)
 }
 
-pub async fn index(
+pub async fn get_index(
     org: ReqData<Organization>,
     role: ReqData<Role>,
     app: Data<App>,
@@ -150,4 +170,32 @@ pub async fn index(
             content: views::pages::content(&state),
         })),
     }
+}
+
+pub async fn get_files(org: ReqData<Organization>, app: Data<App>) -> Result<Markup, Error> {
+    let files = app
+        .files
+        .get_by_organization_id(&org.id)
+        .await
+        .map_err(|e| StatusError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(views::pages::file_grid(files))
+}
+
+#[derive(Debug, MultipartForm)]
+pub struct UploadFilesForm {
+    files: Vec<TempFile>,
+}
+
+pub async fn upload_files(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    MultipartForm(form): MultipartForm<UploadFilesForm>,
+) -> Result<Markup, Error> {
+    app.files
+        .upload_many(&org.id, form.files)
+        .await
+        .map_err(|e| StatusError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    get_files(org, app).await
 }
