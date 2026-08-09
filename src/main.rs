@@ -18,18 +18,24 @@ use infra::Monolith;
 #[tokio::main]
 async fn main() -> Result<()> {
     let cmd = Args::parse();
+
+    let mono = Monolith::build_from_env()
+        .await
+        .context("failed initializing monolith")?;
+
+    migrate!()
+        .run(&mono.pool)
+        .await
+        .context("Migration run failed")?;
+
+    let service = Service::new(&mono);
+
     match &cmd.command {
         Some(Command::Create {
             url,
             hostname,
             title,
         }) => {
-            let mono = Monolith::build_from_env()
-                .await
-                .context("failed initializing monolith")?;
-
-            let service = Service::new(&mono);
-
             service
                 .organizations
                 .create(url, hostname, title)
@@ -39,12 +45,6 @@ async fn main() -> Result<()> {
             return Ok(());
         }
         Some(Command::Invite { email, hostname }) => {
-            let mono = Monolith::build_from_env()
-                .await
-                .context("failed initializing monolith")?;
-
-            let service = Service::new(&mono);
-
             let org = service
                 .organizations
                 .get_one_by_host(hostname)
@@ -62,18 +62,8 @@ async fn main() -> Result<()> {
             return Ok(());
         }
         None => {
-            let mono = Monolith::build_from_env()
-                .await
-                .context("failed initializing monolith")?;
-
-            migrate!()
-                .run(&mono.pool)
-                .await
-                .context("Migration run failed")?;
-
-            let service = Data::new(Service::new(&mono));
-
             let mono = Data::new(mono);
+            let service = Data::new(service);
             let data = mono.clone();
 
             let worker = mono.worker.clone();

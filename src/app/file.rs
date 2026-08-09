@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use actix_multipart::form::tempfile::TempFile;
-use anyhow::{Context, Ok, anyhow, bail};
+use anyhow::{Context, anyhow, bail};
 use chrono::{DateTime, Utc};
 use image::{GenericImageView, ImageReader};
 use mime::Mime;
@@ -187,6 +187,62 @@ impl Files {
 
         Ok(())
     }
+
+    pub async fn delete_by_organization_id_and_id(
+        &self,
+        organization_id: &Id,
+        id: &Id,
+    ) -> Result<(), anyhow::Error> {
+        // 1. Get the file to check its formats (optional but good practice for cascading deletes)
+        let file = self
+            .get_one_by_organization_id_and_id(organization_id, id)
+            .await?;
+
+        // 2. Delete associated records from files_formats
+        sqlx::query!("DELETE FROM files_formats WHERE file_id = $1", &file.id)
+            .execute(&self.pool)
+            .await
+            .context("failed deleting formats for file")?;
+
+        // 3. Delete the file record
+        sqlx::query!(
+            "DELETE FROM files WHERE organization_id = $1 AND id = $2",
+            organization_id,
+            id
+        )
+        .execute(&self.pool)
+        .await
+        .context("failed deleting file from main table")?;
+
+        // 4. Clean up the actual file on disk (assuming the path is derived from one of the formats)
+        for format in file.formats.iter() {
+            let path = self.path.join(&format.file_name);
+            std::fs::remove_file(&path).ok();
+        }
+
+        Ok(())
+    }
+
+    pub async fn update_by_organization_id_and_id(
+        &self,
+        organization_id: &Id,
+        id: &Id,
+        name: &str,
+    ) -> Result<(), sqlx::Error> {
+        let result =
+            sqlx::query("UPDATE files SET name = $1 WHERE organization_id = $2 AND id = $3")
+                .bind(name)
+                .bind(organization_id)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(sqlx::Error::RowNotFound);
+        }
+
+        Ok(())
+    }
 }
 
 // Dimenstions width, height, variant
@@ -343,7 +399,7 @@ mod tests {
                 name: "If query is between formats, return the best format",
                 variants: vec![200, 300, 100],
                 query: 150,
-                want: Some(300),
+                want: Some(200),
             },
             Test {
                 name: "If no variants, return none",

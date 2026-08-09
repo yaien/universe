@@ -1,6 +1,7 @@
 mod auth;
 mod email;
 mod file;
+mod font;
 mod integration;
 mod invitation;
 mod layout;
@@ -13,6 +14,7 @@ mod user;
 pub use auth::*;
 pub use email::*;
 pub use file::*;
+pub use font::*;
 pub use integration::*;
 pub use invitation::*;
 pub use layout::*;
@@ -35,7 +37,8 @@ pub struct App {
     pub users: Arc<Users>,
     pub invitations: Arc<Invitations>,
     pub roles: Arc<Roles>,
-    pub files: Files,
+    pub files: Arc<Files>,
+    pub fonts: Arc<Fonts>,
 }
 
 impl App {
@@ -64,7 +67,12 @@ impl App {
 
         let auth = Arc::new(Auth::new(mono.pool.clone(), users.clone()));
 
-        let files = Files::new(mono.pool.clone(), mono.config.storage_path.clone());
+        let files = Arc::new(Files::new(
+            mono.pool.clone(),
+            mono.config.storage_path.clone(),
+        ));
+
+        let fonts = Arc::new(Fonts::new(mono.pool.clone()));
 
         Self {
             users,
@@ -77,6 +85,7 @@ impl App {
             invitations,
             roles,
             files,
+            fonts,
         }
     }
 }
