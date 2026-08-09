@@ -1,5 +1,5 @@
 use std::cmp::max;
-use std::io::{self, BufReader};
+use std::io::BufReader;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -69,6 +69,30 @@ impl Files {
         .bind(name)
         .fetch_one(&self.pool)
         .await?;
+
+        let mut formats = sqlx::query_as::<_, FileFormat>(
+            "select * from files_formats where file_id = $1 order by variant",
+        )
+        .bind(&file.id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        file.formats.append(&mut formats);
+
+        Ok(file)
+    }
+
+    pub async fn get_one_by_organization_id_and_id(
+        &self,
+        organization_id: &Id,
+        id: &Id,
+    ) -> Result<File, anyhow::Error> {
+        let mut file =
+            sqlx::query_as::<_, File>("select * from files where organization_id = $1 and id = $2")
+                .bind(organization_id)
+                .bind(id)
+                .fetch_one(&self.pool)
+                .await?;
 
         let mut formats = sqlx::query_as::<_, FileFormat>(
             "select * from files_formats where file_id = $1 order by variant",

@@ -29,6 +29,7 @@ pub struct SessionState {
     pub model_type: ModelType,
     pub model_id: Option<Id>,
     pub section: Section,
+    pub file_id: Option<Id>,
 }
 
 impl Default for SessionState {
@@ -38,6 +39,7 @@ impl Default for SessionState {
             model_type: ModelType::Page,
             model_id: None,
             section: Section::Initial,
+            file_id: None,
         }
     }
 }
@@ -57,6 +59,7 @@ pub struct QueryState {
     pub section: Option<Section>,
     pub model_type: Option<ModelType>,
     pub model_id: Option<Id>,
+    pub file_id: Option<Id>,
 }
 
 #[derive(EnumIter, Debug, PartialEq, Serialize, Deserialize)]
@@ -126,6 +129,7 @@ impl Section {
             Section::Create => create(),
             Section::Delete => delete(),
             Section::Files => files(),
+            Section::File => file(),
             _ => html!(),
         }
     }
@@ -181,22 +185,13 @@ pub fn preview(state: &ViewState) -> Markup {
 
 fn tab_button(state: &ViewState, section: &Section) -> Markup {
     let active = state.section == *section;
-    let mut hx_get = None;
-    let mut hx_target = None;
-    let mut hx_swap = None;
-    let mut hx_vals = None;
-    if !active {
-        hx_get = Some("/dashboard/pages");
-        hx_target = Some("#editor");
-        hx_swap = Some("outerHTML");
-        hx_vals = Some(json!({ "section": section}))
-    }
+    let redirect = !active;
     html!(
         button.active[active]
-                hx-get=[hx_get]
-                hx-vals=[hx_vals]
-                hx-target=[hx_target]
-                hx-swap=[hx_swap]
+                hx-get=[redirect.then_some("/dashboard/pages")]
+                hx-vals=[redirect.then_some(json!({ "section": section }))]
+                hx-target=[redirect.then_some("#editor")]
+                hx-swap=[redirect.then_some("outerHTML")]
         {
             @if let Some(icon) = section.icon() {
                 i.(icon) {}
@@ -402,14 +397,90 @@ pub fn file_grid(files: Vec<File>) -> Markup {
     html!(
         @for file in files {
             .item id=(file.id) hx-vals=(json!({ "file_id": file.id, "section": Section::File })) {
-                x-hover-play {
-                    .hover title=(file.name) hx-get="/dashboard/pages" hx-target="#editor" hx-swap="outerHTML" {
-                        @if file.preset == "image" {
+                div x-data {
+
+                    .hover
+                        title=(file.name)
+                        hx-get="/dashboard/pages"
+                        hx-target="#editor"
+                        hx-swap="outerHTML"
+                        "@mouseenter"="$refs.video?.play()"
+                        "@mouseleave"="$refs.video?.pause()"  {}
+
+                    @if file.preset == "image" {
+                        img src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) {}
+                    }
+                    @if file.preset == "video" {
+                        video x-ref="video" src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) muted {}
+                    }
+                }
+            }
+        }
+    )
+}
+
+pub fn file() -> Markup {
+    html! (
+        .grow.files hx-trigger="load" hx-get="/dashboard/pages/file" {
+            .htmx-indicator.spinner {
+                i.fa-solid.fa-spinner {}
+            }
+        }
+    )
+}
+
+pub fn file_detail(file: &File) -> Markup {
+    html!(
+        .grow.files {
+            .edit {
+                .actions {
+                    button
+                        type="button"
+                        hx-trigger="click, deleted from:body, renamed from:body"
+                        hx-get="/dashboard/pages"
+                        hx-vals=(json!({ "section": Section::Files }))
+                        hx-target="#editor"
+                        hx-swap="outerHTML"
+                    {
+                        "Volver"
+                    }
+                }
+                .preview {
+                    @if file.preset == "image" {
                             img src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) {}
+                    }
+                    @if file.preset == "video" {
+                        video src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) controls {}
+                    }
+                }
+                table.compact {
+                    thead {
+                        tr {
+                            th { "Variante" }
+                            th { "Dimensiones" }
+                            th { "Tamaño" }
+                            th { "Tipo" }
                         }
-                        @if file.preset == "video" {
-                            video src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) muted {}
+                    }
+                    tbody {
+                        @for format in file.formats.iter() {
+                            tr {
+                                td { (format.variant) }
+                                td { (format.width) "x" (format.height) }
+                                   td x-data=(format!("filesize({})", format.size)) x-text="size" {}
+                                td { (format.content_type) }
+                            }
                         }
+                    }
+                }
+                form hx-patch=(format!("/dashboard/files/{}", file.name)) hx-swap="none" {
+                    fieldset {
+                        legend { "Nombre" }
+                        input name="name" value=(file.name) required {}
+                    }
+                    .actions.around {
+                        button.danger type="button" hx-delete=(format!("/dashboard/files/{}", file.name)) hx-swap="none" class="danger" { "Eliminar" }
+                        button type="submit" { "Guardar" }
                     }
                 }
             }

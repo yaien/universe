@@ -94,7 +94,7 @@ impl Config {
             storage_path: PathBuf::from(env::var("STORAGE_PATH").unwrap_or("data/storage".into())),
 
             storage_temp_path: PathBuf::from(
-                env::var("STORAGE_TEMP_PATH").unwrap_or("data/temp".into()),
+                env::var("STORAGE_TEMP_PATH").unwrap_or("data/tmp".into()),
             ),
 
             google_client_id: env::var("GOOGLE_CLIENT_ID")

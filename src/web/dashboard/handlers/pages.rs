@@ -7,12 +7,11 @@ use actix_web::Error;
 use actix_web::HttpRequest;
 use actix_web::http::StatusCode;
 use actix_web::web::{Data, Query, ReqData};
-use anyhow::Context;
 use maud::Markup;
 
 use crate::app::{App, Organization, Role};
 use crate::web::dashboard::views;
-use crate::web::dashboard::views::pages::{Model, ModelType, QueryState, ViewState};
+use crate::web::dashboard::views::pages::{Model, ModelType, QueryState, SessionState, ViewState};
 use crate::web::errors::StatusError;
 
 async fn get_view_state(
@@ -36,8 +35,12 @@ async fn get_view_state(
         session_state.model_id = None;
     }
 
-    if let Some(model_id) = query.model_id {
-        session_state.model_id = Some(model_id);
+    if query.model_id.is_some() {
+        session_state.model_id = query.model_id;
+    }
+
+    if query.file_id.is_some() {
+        session_state.file_id = query.file_id;
     }
 
     let sitemap = match app
@@ -198,4 +201,30 @@ pub async fn upload_files(
         .map_err(|e| StatusError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     get_files(org, app).await
+}
+
+pub async fn get_file(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+) -> Result<Markup, Error> {
+    let Some(file_id) = session
+        .get::<SessionState>("pages")
+        .ok()
+        .flatten()
+        .map(|s| s.file_id)
+        .flatten()
+    else {
+        return Err(
+            StatusError(StatusCode::NOT_FOUND, "not file_id in session".to_string()).into(),
+        );
+    };
+
+    let file = app
+        .files
+        .get_one_by_organization_id_and_id(&org.id, &file_id)
+        .await
+        .map_err(|e| StatusError(StatusCode::NOT_FOUND, e.to_string()))?;
+
+    Ok(views::pages::file_detail(&file))
 }

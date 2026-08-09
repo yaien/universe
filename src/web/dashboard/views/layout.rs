@@ -1,23 +1,16 @@
 use std::fmt;
 
+use derive_more::Display;
 use maud::{DOCTYPE, Markup, html};
 
 use crate::app::{Organization, Role};
 
+#[derive(Display)]
+#[display(rename_all = "lowercase")]
 pub enum Variant {
     Primary,
     Secondary,
     Danger,
-}
-
-impl fmt::Display for Variant {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Variant::Primary => write!(f, "primary"),
-            Variant::Secondary => write!(f, "secondary"),
-            Variant::Danger => write!(f, "danger"),
-        }
-    }
 }
 
 pub struct Content<'a> {
