@@ -44,4 +44,49 @@ impl Layouts {
             .fetch_all(&self.pool)
             .await
     }
+
+    pub async fn update_html(
+        &self,
+        sitemap_id: &Id,
+        layout_id: &Id,
+        html: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("update layouts set html = $1 where sitemap_id = $2 and id = $3")
+            .bind(html)
+            .bind(sitemap_id)
+            .bind(layout_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn update_css(
+        &self,
+        sitemap_id: &Id,
+        layout_id: &Id,
+        css: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("update layouts set css = $1 where sitemap_id = $2 and id = $3")
+            .bind(css)
+            .bind(sitemap_id)
+            .bind(layout_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn update_js(
+        &self,
+        sitemap_id: &Id,
+        layout_id: &Id,
+        js: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("update layouts set js = $1 where sitemap_id = $2 and id = $3")
+            .bind(js)
+            .bind(sitemap_id)
+            .bind(layout_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+    }
 }

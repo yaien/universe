@@ -25,7 +25,7 @@ pub fn configure(mono: Data<Monolith>) -> impl Fn(&mut ServiceConfig) {
         .cookie_same_site(SameSite::Lax)
         .build();
 
-        let logger = Logger::default();
+        let logger = Logger::default().log_level(log::Level::Debug);
 
         let tempfile = TempFileConfig::default().directory(&mono.config.storage_temp_path);
 

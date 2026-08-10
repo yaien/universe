@@ -144,6 +144,10 @@ impl Section {
             Section::BrowseFonts => browse_fonts(state),
             Section::ConfigureFont => configure_font(state),
             Section::Colors => colors(state),
+            Section::EditHTML => edit_html(state),
+            Section::EditScript => edit_js(state),
+            Section::EditStyles => edit_css(state),
+            Section::Publish => publish(),
             _ => html!(),
         }
     }
@@ -153,7 +157,7 @@ pub fn content(state: &ViewState) -> Markup {
     html!(
         #content "data-scope"="pages" {
             (editor(&state))
-            (preview(&state))
+            (preview())
         }
     )
 }
@@ -191,8 +195,14 @@ pub fn editor(state: &ViewState) -> Markup {
     )
 }
 
-pub fn preview(state: &ViewState) -> Markup {
-    html!()
+pub fn preview() -> Markup {
+    html!(
+        #preview.page x-data="preview('/dashboard/pages/preview')" "@render.window.debounce"="render()" {
+            .resizeable {
+                iframe x-ref="iframe" ":srcdoc"="srcdoc" {}
+            }
+        }
+    )
 }
 
 fn tab_button(state: &ViewState, section: &Section) -> Markup {
@@ -748,4 +758,104 @@ pub fn color(color: &Color) -> Markup {
             }
         }
     }
+}
+
+pub fn edit_html(state: &ViewState) -> Markup {
+    let source: &str = match &state.model {
+        Some(Model::Page(page)) => &page.html,
+        Some(Model::Layout(layout)) => &layout.html,
+        Some(Model::Email(email)) => &email.body,
+        _ => "",
+    };
+
+    html! {
+        .monaco
+            x-data=(format!(
+                "monaco({{ language: {:?}, source: {:?} }})",
+                "html", source
+            ))
+            hx-post="/dashboard/pages"
+            hx-trigger="editorinput"
+            hx-vals=(format!(
+                "js:{{ action: {:?}, source: event.detail.value }}",
+                "save_html"
+            ))
+            hx-swap="none"
+        {
+            .spinner x-show="loading" {
+                i class="fa-solid fa-spinner" {}
+            }
+        }
+    }
+}
+
+pub fn edit_css(state: &ViewState) -> Markup {
+    let source: &str = match &state.model {
+        Some(Model::Page(page)) => &page.css,
+        Some(Model::Layout(layout)) => &layout.css,
+        _ => "",
+    };
+
+    html! {
+        .monaco
+            x-data=(format!(
+                "monaco({{ language: {:?}, source: {:?} }})",
+                "css", source
+            ))
+            hx-post="/dashboard/pages"
+            hx-trigger="editorinput"
+            hx-vals=(format!(
+                "js:{{ action: {:?}, source: event.detail.value }}",
+                "save_css"
+            ))
+            hx-swap="none"
+        {
+            .spinner x-show="loading" {
+                i class="fa-solid fa-spinner" {}
+            }
+        }
+    }
+}
+
+pub fn edit_js(state: &ViewState) -> Markup {
+    let source: &str = match &state.model {
+        Some(Model::Page(page)) => &page.js,
+        Some(Model::Layout(layout)) => &layout.js,
+        _ => "",
+    };
+
+    html! {
+        .monaco
+            x-data=(format!(
+                "monaco({{ language: {:?}, source: {:?} }})",
+                "javascript", source
+            ))
+            hx-post="/dashboard/pages"
+            hx-trigger="editorinput"
+            hx-vals=(format!(
+                "js:{{ action: {:?}, source: event.detail.value }}",
+                "save_js"
+            ))
+            hx-swap="none"
+        {
+            .spinner x-show="loading" {
+                i class="fa-solid fa-spinner" {}
+            }
+        }
+    }
+}
+
+pub fn publish() -> Markup {
+    html!(
+           .publish {
+            p {
+                "¿Estás seguro de que deseas publicar la configuración"
+                br;
+                "Esta estará disponible para los usuarios finales"
+            }
+            .actions {
+                button.warning hx-post="/dashboard/pages" hx-swap="none" hx-vals="{ action: 'publish' }" { "Publicar" }
+            }
+        }
+    )
 }

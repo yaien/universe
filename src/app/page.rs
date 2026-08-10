@@ -47,10 +47,10 @@ impl Pages {
             .map(|r| r.last_insert_rowid())
     }
 
-    pub async fn get_by_id(&self, sitemap_id: &Id, id: &Id) -> Result<Page, sqlx::Error> {
+    pub async fn get_by_id(&self, sitemap_id: &Id, page_id: &Id) -> Result<Page, sqlx::Error> {
         sqlx::query_as::<_, Page>("select * from pages where sitemap_id = $1 and id = $2")
             .bind(sitemap_id)
-            .bind(id)
+            .bind(page_id)
             .fetch_one(&self.pool)
             .await
     }
@@ -60,5 +60,50 @@ impl Pages {
             .bind(sitemap_id)
             .fetch_all(&self.pool)
             .await
+    }
+
+    pub async fn update_html(
+        &self,
+        sitemap_id: &Id,
+        page_id: &Id,
+        html: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("update pages set html = $1 where sitemap_id = $2 and id = $3")
+            .bind(html)
+            .bind(sitemap_id)
+            .bind(page_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn update_css(
+        &self,
+        sitemap_id: &Id,
+        page_id: &Id,
+        css: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("update pages set css = $1 where sitemap_id = $2 and id = $3")
+            .bind(css)
+            .bind(sitemap_id)
+            .bind(page_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn update_js(
+        &self,
+        sitemap_id: &Id,
+        page_id: &Id,
+        js: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("update pages set js = $1 where sitemap_id = $2 and id = $3")
+            .bind(js)
+            .bind(sitemap_id)
+            .bind(page_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
     }
 }

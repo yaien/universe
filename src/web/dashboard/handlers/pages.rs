@@ -316,6 +316,15 @@ pub enum ActionForm {
     SaveFont {
         tag: String,
     },
+    SaveHtml {
+        source: String,
+    },
+    SaveCss {
+        source: String,
+    },
+    SaveJS {
+        source: String,
+    },
 }
 
 pub async fn exec_action(
@@ -432,6 +441,135 @@ pub async fn exec_action(
             session.insert("pages", &session_state).ok();
 
             Ok(views::pages::fonts(&Some(associated_fonts)))
+        }
+        ActionForm::SaveHtml { source } => {
+            let Some(model_id) = session_state.model_id else {
+                return Err(StatusError(
+                    StatusCode::BAD_REQUEST,
+                    "missing model id in session".into(),
+                )
+                .into());
+            };
+
+            match session_state.model_type {
+                ModelType::Page => {
+                    app.pages
+                        .update_html(&sitemap.id, &model_id, &source)
+                        .await
+                        .map_err(|e| {
+                            StatusError(
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                format!("failed updating model html: {e}"),
+                            )
+                        })?;
+                }
+                ModelType::Layout => {
+                    app.layouts
+                        .update_html(&sitemap.id, &model_id, &source)
+                        .await
+                        .map_err(|e| {
+                            StatusError(
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                format!("failed updating model html: {e}"),
+                            )
+                        })?;
+                }
+                ModelType::Email => {
+                    app.emails
+                        .update_body(&sitemap.id, &model_id, &source)
+                        .await
+                        .map_err(|e| {
+                            StatusError(
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                format!("failed updating model body: {e}"),
+                            )
+                        })?;
+                }
+            };
+
+            Ok(html!())
+        }
+        ActionForm::SaveCss { source } => {
+            let Some(model_id) = session_state.model_id else {
+                return Err(StatusError(
+                    StatusCode::BAD_REQUEST,
+                    "missing model id in session".into(),
+                ))?;
+            };
+
+            match session_state.model_type {
+                ModelType::Page => {
+                    app.pages
+                        .update_css(&sitemap.id, &model_id, &source)
+                        .await
+                        .map_err(|e| {
+                            StatusError(
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                format!("failed updating model html: {e}"),
+                            )
+                        })?;
+                }
+                ModelType::Layout => {
+                    app.layouts
+                        .update_css(&sitemap.id, &model_id, &source)
+                        .await
+                        .map_err(|e| {
+                            StatusError(
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                format!("failed updating model html: {e}"),
+                            )
+                        })?;
+                }
+                ModelType::Email => {
+                    return Err(StatusError(
+                        StatusCode::BAD_REQUEST,
+                        "invalid model type selected".into(),
+                    ))?;
+                }
+            };
+
+            Ok(html!())
+        }
+        ActionForm::SaveJS { source } => {
+            let Some(model_id) = session_state.model_id else {
+                return Err(StatusError(
+                    StatusCode::BAD_REQUEST,
+                    "missing model id in session".into(),
+                ))?;
+            };
+
+            match session_state.model_type {
+                ModelType::Page => {
+                    app.pages
+                        .update_js(&sitemap.id, &model_id, &source)
+                        .await
+                        .map_err(|e| {
+                            StatusError(
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                format!("failed updating model html: {e}"),
+                            )
+                        })?;
+                }
+                ModelType::Layout => {
+                    app.layouts
+                        .update_js(&sitemap.id, &model_id, &source)
+                        .await
+                        .map_err(|e| {
+                            StatusError(
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                format!("failed updating model html: {e}"),
+                            )
+                        })?;
+                }
+                ModelType::Email => {
+                    return Err(StatusError(
+                        StatusCode::BAD_REQUEST,
+                        "invalid model type selected".into(),
+                    ))?;
+                }
+            };
+
+            Ok(html!())
         }
     }
 }

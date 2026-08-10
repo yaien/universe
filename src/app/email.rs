@@ -45,4 +45,19 @@ impl Emails {
             .fetch_all(&self.pool)
             .await
     }
+
+    pub async fn update_body(
+        &self,
+        sitemap_id: &Id,
+        email_id: &Id,
+        body: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("update emails set body = $1 where sitemap_id = $2 and id = $3")
+            .bind(body)
+            .bind(sitemap_id)
+            .bind(email_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+    }
 }
