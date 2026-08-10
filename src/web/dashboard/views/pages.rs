@@ -114,7 +114,15 @@ impl Section {
     }
 
     pub fn is_only_web(&self) -> bool {
-        false
+        match &self {
+            Self::Create => true,
+            Self::Fonts => true,
+            Self::Delete => true,
+            Self::Colors => true,
+            Self::EditScript => true,
+            Self::EditStyles => true,
+            _ => false,
+        }
     }
 
     pub fn icon(&self) -> Option<&'static str> {
