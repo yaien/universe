@@ -24,7 +24,7 @@ pub struct Font {
 #[derive(FromRow)]
 pub struct SitemapFont {
     pub id: Id,
-    pub css_var_name: String,
+    pub tag: String,
     pub font_id: Id,
     pub font_family: String,
 
@@ -91,7 +91,7 @@ impl Fonts {
     pub async fn get_associated(&self, sitemap_id: &Id) -> Result<Vec<SitemapFont>, sqlx::Error> {
         sqlx::query_as::<_, SitemapFont>(
             r#"
-            select sf.id, sf.css_var_name, f.id as font_id, f.family as font_family, f.variants as font_variants, f.files as font_files from sitemaps_fonts sf
+            select sf.id, sf.tag, f.id as font_id, f.family as font_family, f.variants as font_variants, f.files as font_files from sitemaps_fonts sf
             join fonts f on f.id = sf.font_id
             where sitemap_id = $1
             "#,
@@ -108,7 +108,7 @@ impl Fonts {
     ) -> Result<SitemapFont, sqlx::Error> {
         sqlx::query_as::<_, SitemapFont>(
                     r#"
-                    select sf.id, sf.css_var_name, f.id as font_id, f.family as font_family, f.variants as font_variants, f.files as font_files from sitemaps_fonts sf
+                    select sf.id, sf.tag, f.id as font_id, f.family as font_family, f.variants as font_variants, f.files as font_files from sitemaps_fonts sf
                     join fonts f on f.id = sf.font_id
                     where sitemap_id = $1 and id = $2
                     "#,

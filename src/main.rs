@@ -35,12 +35,21 @@ async fn main() -> Result<()> {
             url,
             hostname,
             title,
+            email,
         }) => {
-            service
+            let org_id = service
                 .organizations
                 .create(url, hostname, title)
                 .await
                 .context("failed creating organization")?;
+
+            let exp = Utc::now() + Duration::hours(3);
+
+            service
+                .invitations
+                .create(&org_id, email, &exp)
+                .await
+                .context("failed inviting user")?;
 
             return Ok(());
         }

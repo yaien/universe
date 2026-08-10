@@ -1,11 +1,10 @@
-use log::info;
 use maud::{Markup, html};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::app::{Branch, Email, File, Font, Layout, Page, Sitemap, SitemapFont};
+use crate::app::{Branch, Color, Email, File, Font, Layout, Page, Sitemap, SitemapFont};
 use crate::infra::Id;
 
 pub enum Model {
@@ -64,6 +63,7 @@ pub struct ViewState {
     pub browsed_font_limit: Option<u16>,
     pub browsed_font_offset: Option<u16>,
     pub browsed_font_query: Option<String>,
+    pub colors: Option<Vec<Color>>,
 }
 
 #[derive(Deserialize, Default)]
@@ -150,6 +150,7 @@ impl Section {
             Section::Fonts => fonts(state),
             Section::BrowseFonts => browse_fonts(state),
             Section::ConfigureFont => configure_font(state),
+            Section::Colors => colors(state),
             _ => html!(),
         }
     }
@@ -526,7 +527,7 @@ pub fn fonts(state: &ViewState) -> Markup {
                             {
                                 (sitemap_font.font_family)
                             }
-                            span { (sitemap_font.css_var_name) }
+                            span { (sitemap_font.tag) }
                         }
                     }
 
@@ -670,12 +671,12 @@ pub fn configure_font(state: &ViewState) -> Markup {
                         }
 
                         @let sitemap_font_name = match &state.sitemap_font {
-                            Some(sitemap_font) => Some(&sitemap_font.css_var_name),
+                            Some(sitemap_font) => Some(&sitemap_font.tag),
                             None => None
                         };
                         fieldset {
                             legend { "Tag" }
-                            input name="css_var_name" autocomplete="off" required value=[sitemap_font_name] {}
+                            input name="tag" autocomplete="off" required value=[sitemap_font_name] {}
                         }
 
                         div class="actions" {
@@ -686,4 +687,78 @@ pub fn configure_font(state: &ViewState) -> Markup {
             }
         }
     )
+}
+
+pub fn colors(state: &ViewState) -> Markup {
+    html! (
+
+        @let colors = match &state.colors {
+          Some(colors) => &colors,
+          None => &Vec::new()
+        };
+
+        @let swatches: Vec<&String> = colors.iter().map(|c| &c.value).collect();
+        .colors x-data=(json!({"swatches": swatches})) {
+            #colors {
+                @for c in colors.iter() {
+                    (color(c))
+                }
+            }
+            .actions {
+                button class="clear" hx-post="/dashboard/pages" hx-include="find input" hx-target="#colors" hx-swap="beforeend" {
+                    input name="action" value="create_color" hidden {}
+                    i class="fa-solid fa-plus" {}
+                }
+            }
+        }
+
+    )
+}
+
+pub fn color(color: &Color) -> Markup {
+    html! {
+        .color
+            x-data=(format!(
+                "coloris({{ color: {:?}, tag: {:?}, swatches }})",
+                color.value, color.tag
+            ))
+        {
+            form
+                hx-post="/dashboard/pages"
+                hx-trigger="input throttle:100ms"
+                hx-swap="none"
+            {
+                .field x-bind:style="{color: readable, background: color}" {
+                    input name="action" value="update_color" hidden {}
+                    input name="id" value=(&color.id) hidden {}
+                    input name="tag" x-model="tag" required {}
+                    input
+                        name="value"
+                        class="coloris"
+                        x-ref="input"
+                        x-model="color"
+                        x-bind:style="{ color: readable }"
+                        required
+                        {}
+                }
+            }
+            small.hint {
+                .css {
+                    i.fa-brands.fa-css {}
+                    pre {
+                        "var(--color--" span x-text="tag" { (color.tag) } ")"
+                    }
+                }
+                button.clear.danger
+                    type="button"
+                    hx-post="/dashboard/pages"
+                    hx-target="closest .color"
+                    hx-swap="outerHTML"
+                    hx-vals=(json!({ "action": "delete_color", "id": &color.id }))
+                {
+                    i class="fa-solid fa-trash" {}
+                }
+            }
+        }
+    }
 }

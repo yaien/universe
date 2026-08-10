@@ -6,10 +6,13 @@ use actix_session::Session;
 use actix_web::Error;
 use actix_web::HttpRequest;
 use actix_web::http::StatusCode;
-use actix_web::web::{Data, Query, ReqData};
-use maud::Markup;
+use actix_web::web::{Data, Form, Path, Query, ReqData};
+use maud::{Markup, html};
+use serde::Deserialize;
 
 use crate::app::{App, Organization, Role};
+use crate::infra::Id;
+use crate::web::dashboard::handlers::pages::ActionForm::{CreateColor, DeleteColor, UpdateColor};
 use crate::web::dashboard::views;
 use crate::web::dashboard::views::pages::{
     Model, ModelType, QueryState, Section, SessionState, ViewState,
@@ -160,6 +163,7 @@ async fn get_view_state(
         browsed_font_offset: query.browsed_fonts_offset,
         browsed_font_limit: query.browsed_fonts_limit,
         browsed_font_query: query.browsed_fonts_query,
+        colors: None,
     };
 
     match &view_state.section {
@@ -215,6 +219,14 @@ async fn get_view_state(
                     .inspect_err(|e| log::error!("failed getting sitemap font: {e}"))
                     .ok();
             }
+        }
+        Section::Colors => {
+            view_state.colors = app
+                .colors
+                .get_all(&view_state.sitemap.id)
+                .await
+                .inspect_err(|e| log::error!("failed getting colors: {e}"))
+                .ok();
         }
         _ => {}
     };
@@ -284,4 +296,85 @@ pub async fn upload_files(
         .map_err(|e| StatusError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     Ok(views::pages::file_grid(&files))
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "action", rename_all = "snake_case")]
+pub enum ActionForm {
+    CreateColor,
+    UpdateColor {
+        id: String,
+        tag: String,
+        value: String,
+    },
+    DeleteColor {
+        id: String,
+    },
+}
+
+pub async fn exec_action(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    Form(form): Form<ActionForm>,
+) -> Result<Markup, Error> {
+    let session_state = session
+        .get::<SessionState>("pages")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+
+    let sitemap = app
+        .sitemaps
+        .get_one_by_branch(&org.id, &session_state.sitemap_branch)
+        .await
+        .map_err(|e| {
+            StatusError(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("missing sitemap branch: {e}"),
+            )
+        })?;
+
+    match form {
+        CreateColor => {
+            let color = app.colors.create(&sitemap.id).await.map_err(|e| {
+                StatusError(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("failed creating color: {e}"),
+                )
+            })?;
+
+            Ok(views::pages::color(&color))
+        }
+        UpdateColor { id, tag, value } => {
+            let id: Id = id.parse().map_err(|e| {
+                StatusError(StatusCode::BAD_REQUEST, format!("invalid id format: {e}"))
+            })?;
+
+            app.colors
+                .update(&sitemap.id, &id, &tag, &value)
+                .await
+                .map_err(|e| {
+                    StatusError(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed updating color: {e}"),
+                    )
+                })?;
+
+            Ok(html!())
+        }
+        DeleteColor { id } => {
+            let id: Id = id.parse().map_err(|e| {
+                StatusError(StatusCode::BAD_REQUEST, format!("invalid id format: {e}"))
+            })?;
+
+            app.colors.delete(&sitemap.id, &id).await.map_err(|e| {
+                StatusError(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("failed updating color: {e}"),
+                )
+            })?;
+            Ok(html!())
+        }
+    }
 }

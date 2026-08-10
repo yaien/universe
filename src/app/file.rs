@@ -198,21 +198,13 @@ impl Files {
             .get_one_by_organization_id_and_id(organization_id, id)
             .await?;
 
-        // 2. Delete associated records from files_formats
-        sqlx::query!("DELETE FROM files_formats WHERE file_id = $1", &file.id)
+        // 3. Delete the file record
+        sqlx::query("DELETE FROM files WHERE organization_id = $1 AND id = $2")
+            .bind(organization_id)
+            .bind(id)
             .execute(&self.pool)
             .await
-            .context("failed deleting formats for file")?;
-
-        // 3. Delete the file record
-        sqlx::query!(
-            "DELETE FROM files WHERE organization_id = $1 AND id = $2",
-            organization_id,
-            id
-        )
-        .execute(&self.pool)
-        .await
-        .context("failed deleting file from main table")?;
+            .context("failed deleting file from main table")?;
 
         // 4. Clean up the actual file on disk (assuming the path is derived from one of the formats)
         for format in file.formats.iter() {

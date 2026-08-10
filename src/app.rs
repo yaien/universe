@@ -1,4 +1,5 @@
 mod auth;
+mod color;
 mod email;
 mod file;
 mod font;
@@ -12,6 +13,7 @@ mod sitemap;
 mod user;
 
 pub use auth::*;
+pub use color::*;
 pub use email::*;
 pub use file::*;
 pub use font::*;
@@ -39,19 +41,24 @@ pub struct App {
     pub roles: Arc<Roles>,
     pub files: Arc<Files>,
     pub fonts: Arc<Fonts>,
+    pub colors: Arc<Colors>,
 }
 
 impl App {
     pub fn new(mono: &Monolith) -> Self {
         let users = Arc::new(Users::new(mono.pool.clone()));
 
-        let pages = Arc::new(Pages::new(mono.pool.clone()));
-
         let sitemaps = Arc::new(Sitemaps::new(mono.pool.clone()));
+
+        let pages = Arc::new(Pages::new(mono.pool.clone()));
 
         let emails = Arc::new(Emails::new(mono.pool.clone()));
 
         let layouts = Arc::new(Layouts::new(mono.pool.clone()));
+
+        let fonts = Arc::new(Fonts::new(mono.pool.clone()));
+
+        let colors = Arc::new(Colors::new(mono.pool.clone()));
 
         let invitations = Arc::new(Invitations::new(mono.pool.clone()));
 
@@ -72,8 +79,6 @@ impl App {
             mono.config.storage_path.clone(),
         ));
 
-        let fonts = Arc::new(Fonts::new(mono.pool.clone()));
-
         Self {
             users,
             pages,
@@ -86,6 +91,7 @@ impl App {
             roles,
             files,
             fonts,
+            colors,
         }
     }
 }
