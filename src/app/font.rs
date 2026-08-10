@@ -73,22 +73,25 @@ impl Fonts {
             .await
     }
 
-    pub async fn associate(
+    pub async fn create_sitemap_font(
         &self,
         sitemap_id: &Id,
         font_id: &Id,
-        name: &str,
+        tag: &str,
     ) -> Result<Id, sqlx::Error> {
-        sqlx::query("insert into sitemaps_fonts(sitemap_id, font_id, name) values ($1, $2, $3)")
+        sqlx::query("insert into sitemaps_fonts(sitemap_id, font_id, tag) values ($1, $2, $3)")
             .bind(sitemap_id)
             .bind(font_id)
-            .bind(name)
+            .bind(tag)
             .execute(&self.pool)
             .await
             .map(|r| r.last_insert_rowid())
     }
 
-    pub async fn get_associated(&self, sitemap_id: &Id) -> Result<Vec<SitemapFont>, sqlx::Error> {
+    pub async fn get_sitemap_fonts(
+        &self,
+        sitemap_id: &Id,
+    ) -> Result<Vec<SitemapFont>, sqlx::Error> {
         sqlx::query_as::<_, SitemapFont>(
             r#"
             select sf.id, sf.tag, f.id as font_id, f.family as font_family, f.variants as font_variants, f.files as font_files from sitemaps_fonts sf
@@ -101,7 +104,7 @@ impl Fonts {
         .await
     }
 
-    pub async fn get_one_associated(
+    pub async fn get_one_sitemap_font(
         &self,
         sitemap_id: &Id,
         id: &Id,
@@ -110,7 +113,7 @@ impl Fonts {
                     r#"
                     select sf.id, sf.tag, f.id as font_id, f.family as font_family, f.variants as font_variants, f.files as font_files from sitemaps_fonts sf
                     join fonts f on f.id = sf.font_id
-                    where sitemap_id = $1 and id = $2
+                    where sf.sitemap_id = $1 and sf.id = $2
                     "#,
                 )
                 .bind(sitemap_id)
@@ -119,36 +122,22 @@ impl Fonts {
                 .await
     }
 
-    pub async fn update_associated(
+    pub async fn update_sitemap_font(
         &self,
         id: &Id,
         sitemap_id: &Id,
         font_id: &Id,
-        name: &str,
+        tag: &str,
     ) -> Result<(), sqlx::Error> {
         let result = sqlx::query(
-            "update sitemaps_fonts set font_id = $1, name = $2 where id = $3 and sitemap_id = $4",
+            "update sitemaps_fonts set font_id = $1, tag = $2 where id = $3 and sitemap_id = $4",
         )
         .bind(font_id)
-        .bind(name)
+        .bind(tag)
         .bind(id)
         .bind(sitemap_id)
         .execute(&self.pool)
         .await?;
-
-        if result.rows_affected() == 0 {
-            return Err(sqlx::Error::RowNotFound);
-        }
-
-        Ok(())
-    }
-
-    pub async fn delete_associated(&self, id: &Id, &sitemap_id: &Id) -> Result<(), sqlx::Error> {
-        let result = sqlx::query("delete from sitemaps_fonts where id = $1 and sitemap_id = $2")
-            .bind(id)
-            .bind(sitemap_id)
-            .execute(&self.pool)
-            .await?;
 
         if result.rows_affected() == 0 {
             return Err(sqlx::Error::RowNotFound);

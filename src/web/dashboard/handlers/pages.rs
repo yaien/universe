@@ -12,7 +12,6 @@ use serde::Deserialize;
 
 use crate::app::{App, Organization, Role};
 use crate::infra::Id;
-use crate::web::dashboard::handlers::pages::ActionForm::{CreateColor, DeleteColor, UpdateColor};
 use crate::web::dashboard::views;
 use crate::web::dashboard::views::pages::{
     Model, ModelType, QueryState, Section, SessionState, ViewState,
@@ -180,7 +179,11 @@ async fn get_view_state(
             }
         }
         Section::Fonts => {
-            view_state.sitemap_fonts = app.fonts.get_associated(&view_state.sitemap.id).await.ok();
+            view_state.sitemap_fonts = app
+                .fonts
+                .get_sitemap_fonts(&view_state.sitemap.id)
+                .await
+                .ok();
         }
         Section::BrowseFonts => {
             log::warn!(
@@ -214,7 +217,7 @@ async fn get_view_state(
             if let Some(sitemap_font_id) = session_state.sitemap_font_id {
                 view_state.sitemap_font = app
                     .fonts
-                    .get_one_associated(&view_state.sitemap.id, &sitemap_font_id)
+                    .get_one_sitemap_font(&view_state.sitemap.id, &sitemap_font_id)
                     .await
                     .inspect_err(|e| log::error!("failed getting sitemap font: {e}"))
                     .ok();
@@ -310,6 +313,9 @@ pub enum ActionForm {
     DeleteColor {
         id: String,
     },
+    SaveFont {
+        tag: String,
+    },
 }
 
 pub async fn exec_action(
@@ -318,7 +324,7 @@ pub async fn exec_action(
     session: Session,
     Form(form): Form<ActionForm>,
 ) -> Result<Markup, Error> {
-    let session_state = session
+    let mut session_state = session
         .get::<SessionState>("pages")
         .ok()
         .flatten()
@@ -336,7 +342,7 @@ pub async fn exec_action(
         })?;
 
     match form {
-        CreateColor => {
+        ActionForm::CreateColor => {
             let color = app.colors.create(&sitemap.id).await.map_err(|e| {
                 StatusError(
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -346,7 +352,7 @@ pub async fn exec_action(
 
             Ok(views::pages::color(&color))
         }
-        UpdateColor { id, tag, value } => {
+        ActionForm::UpdateColor { id, tag, value } => {
             let id: Id = id.parse().map_err(|e| {
                 StatusError(StatusCode::BAD_REQUEST, format!("invalid id format: {e}"))
             })?;
@@ -363,7 +369,7 @@ pub async fn exec_action(
 
             Ok(html!())
         }
-        DeleteColor { id } => {
+        ActionForm::DeleteColor { id } => {
             let id: Id = id.parse().map_err(|e| {
                 StatusError(StatusCode::BAD_REQUEST, format!("invalid id format: {e}"))
             })?;
@@ -375,6 +381,56 @@ pub async fn exec_action(
                 )
             })?;
             Ok(html!())
+        }
+        ActionForm::SaveFont { tag } => {
+            let browsed_font_id = session_state.browsed_font_id.ok_or_else(|| {
+                StatusError(
+                    StatusCode::BAD_REQUEST,
+                    "missing browsed font in session".into(),
+                )
+            })?;
+
+            match session_state.sitemap_font_id {
+                Some(sitemap_font_id) => {
+                    app.fonts
+                        .update_sitemap_font(&sitemap_font_id, &sitemap.id, &browsed_font_id, &tag)
+                        .await
+                        .map_err(|e| {
+                            StatusError(
+                                StatusCode::BAD_REQUEST,
+                                format!("failed updating font: {e}"),
+                            )
+                        })?;
+                }
+                None => {
+                    app.fonts
+                        .create_sitemap_font(&sitemap.id, &browsed_font_id, &tag)
+                        .await
+                        .map_err(|e| {
+                            StatusError(
+                                StatusCode::BAD_REQUEST,
+                                format!("failed creating font: {e}"),
+                            )
+                        })?;
+                }
+            };
+
+            let associated_fonts = app
+                .fonts
+                .get_sitemap_fonts(&sitemap.id)
+                .await
+                .map_err(|e| {
+                    StatusError(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed getting sitemap fonts: {e}"),
+                    )
+                })?;
+
+            session_state.section = Section::Fonts;
+
+            session.insert("pages", &session_state).ok();
+
+            Ok(views::pages::fonts(&Some(associated_fonts)))
         }
     }
 }

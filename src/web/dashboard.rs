@@ -12,7 +12,7 @@ pub fn configure(config: &mut ServiceConfig) {
             scope("/dashboard")
                 .route("", get().to(handlers::home::home))
                 .route("/pages", get().to(handlers::pages::get_index))
-                .route("/pages", to(handlers::pages::exec_action))
+                .route("/pages", post().to(handlers::pages::exec_action))
                 .route("/pages/files", post().to(handlers::pages::upload_files))
                 .wrap(from_fn(middlewares::role)),
         )

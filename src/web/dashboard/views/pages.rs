@@ -117,13 +117,6 @@ impl Section {
         false
     }
 
-    pub fn is_delete(&self) -> bool {
-        match &self {
-            Self::Delete => true,
-            _ => false,
-        }
-    }
-
     pub fn icon(&self) -> Option<&'static str> {
         match &self {
             Self::Initial => Some("fa-solid fa-house"),
@@ -147,7 +140,7 @@ impl Section {
             Section::Delete => delete(),
             Section::Files => files(state),
             Section::File => file(state),
-            Section::Fonts => fonts(state),
+            Section::Fonts => fonts(&state.sitemap_fonts),
             Section::BrowseFonts => browse_fonts(state),
             Section::ConfigureFont => configure_font(state),
             Section::Colors => colors(state),
@@ -505,9 +498,9 @@ pub fn file_detail(file: &File) -> Markup {
     )
 }
 
-pub fn fonts(state: &ViewState) -> Markup {
+pub fn fonts(sitemap_fonts: &Option<Vec<SitemapFont>>) -> Markup {
     html! (
-        @if let Some(sitemap_fonts) = &state.sitemap_fonts {
+        @if let Some(sitemap_fonts) = sitemap_fonts {
             .fonts {
                 .list {
                     @for sitemap_font in sitemap_fonts {
@@ -516,7 +509,7 @@ pub fn fonts(state: &ViewState) -> Markup {
                             hx-get="/dashboard/pages"
                             hx-target="#editor"
                             hx-swap="outerHTML"
-                            hx-vals=(json!({ "section": Section::BrowseFonts, "associated_font_id": sitemap_font.id }))
+                            hx-vals=(json!({ "section": Section::BrowseFonts, "sitemap_font_id": sitemap_font.id }))
                         {
                             .preview
                                 x-data=(
@@ -580,19 +573,11 @@ pub fn browse_fonts(state: &ViewState) -> Markup {
                     {}
             }
 
-            @let vals = match &state.sitemap_font {
-                Some(sitemap_font) => json!({ "section": Section::ConfigureFont, "sitemap_font_id": sitemap_font.id }),
-                None => json!({ "section": Section::ConfigureFont }),
-            };
-
-            #browsed-fonts
-                class="scrollable"
-                hx-vals:inherited=(vals)
-            {
+            #browsed-fonts.scrollable hx-vals:inherited=(json!({ "section": Section::ConfigureFont })) {
                 (browse_fonts_list(&state.browsed_fonts, &state.browsed_font_query, &state.browsed_font_limit, &state.browsed_font_offset))
             }
-            div class="spinner htmx-indicator" {
-                i class="fa-solid fa-spinner" {}
+            .spinner.htmx-indicator {
+                i.fa-solid.fa-spinner {}
             }
         }
     }
@@ -663,7 +648,7 @@ pub fn configure_font(state: &ViewState) -> Markup {
                     {
                         (browsed_font.family)
                     }
-                    form hx-post="/dashboard/fonts" hx-swap="none" {
+                    form hx-post="/dashboard/pages" hx-target="#editor" hx-swap="outerHTML" {
                         small {
 
                             "Usa \"primary\"  para cambiar la fuente base de la página o \"headings\" para cambiar los
@@ -678,6 +663,8 @@ pub fn configure_font(state: &ViewState) -> Markup {
                             legend { "Tag" }
                             input name="tag" autocomplete="off" required value=[sitemap_font_name] {}
                         }
+
+                        input name="action" value="save_font" hidden {}
 
                         div class="actions" {
                             button type="submit" { "Guardar" }
