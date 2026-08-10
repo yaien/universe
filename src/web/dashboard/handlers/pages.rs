@@ -427,6 +427,7 @@ pub async fn exec_action(
                 })?;
 
             session_state.section = Section::Fonts;
+            session_state.sitemap_font_id = None;
 
             session.insert("pages", &session_state).ok();
 

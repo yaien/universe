@@ -648,7 +648,7 @@ pub fn configure_font(state: &ViewState) -> Markup {
                     {
                         (browsed_font.family)
                     }
-                    form hx-post="/dashboard/pages" hx-target="#editor" hx-swap="outerHTML" {
+                    form hx-post="/dashboard/pages" hx-target=".fonts" hx-swap="outerHTML" {
                         small {
 
                             "Usa \"primary\"  para cambiar la fuente base de la página o \"headings\" para cambiar los
