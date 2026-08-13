@@ -21,26 +21,11 @@ pub struct Organization {
 pub struct Organizations {
     pool: DbPool,
     sitemaps: Arc<Sitemaps>,
-    pages: Arc<Pages>,
-    emails: Arc<Emails>,
-    layouts: Arc<Layouts>,
 }
 
 impl Organizations {
-    pub fn new(
-        pool: DbPool,
-        sitemaps: Arc<Sitemaps>,
-        pages: Arc<Pages>,
-        emails: Arc<Emails>,
-        layouts: Arc<Layouts>,
-    ) -> Self {
-        Self {
-            pool,
-            sitemaps,
-            pages,
-            emails,
-            layouts,
-        }
+    pub fn new(pool: DbPool, sitemaps: Arc<Sitemaps>) -> Self {
+        Self { pool, sitemaps }
     }
 
     pub async fn create(&self, url: &str, hostname: &str, title: &str) -> Result<Id, sqlx::Error> {
@@ -54,12 +39,9 @@ impl Organizations {
                 .map(|r| r.last_insert_rowid())?;
 
         for branch in [Branch::MAIN, Branch::DRAFT] {
-            let sitemap_id = self.sitemaps.create(&organization_id, branch).await?;
-            self.pages
-                .create(&sitemap_id, "/", "inicio", "Inicio")
+            self.sitemaps
+                .create_with_default_content(&organization_id, branch)
                 .await?;
-            self.emails.create(&sitemap_id, "invitation").await?;
-            self.layouts.create(&sitemap_id, "default").await?;
         }
 
         Ok(organization_id)
@@ -77,7 +59,7 @@ impl Organizations {
 mod tests {
     use sqlx::{Row, SqlitePool};
 
-    use crate::app::Branch;
+    use crate::app::{Branch, Colors, Fonts};
 
     use super::*;
 
@@ -86,13 +68,16 @@ mod tests {
         let pool = SqlitePool::connect(":memory:").await.unwrap();
         sqlx::migrate!().run(&pool).await.unwrap();
 
-        let organizations = Organizations::new(
+        let sitemaps = Arc::new(Sitemaps::new(
             pool.clone(),
-            Arc::new(Sitemaps::new(pool.clone())),
             Arc::new(Pages::new(pool.clone())),
             Arc::new(Emails::new(pool.clone())),
+            Arc::new(Fonts::new(pool.clone())),
+            Arc::new(Colors::new(pool.clone())),
             Arc::new(Layouts::new(pool.clone())),
-        );
+        ));
+
+        let organizations = Organizations::new(pool.clone(), sitemaps.clone());
 
         let organization_id = organizations
             .create("http://localhost:3000", "localhost:3000", "Localhost")

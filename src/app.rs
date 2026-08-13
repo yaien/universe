@@ -48,8 +48,6 @@ impl App {
     pub fn new(mono: &Monolith) -> Self {
         let users = Arc::new(Users::new(mono.pool.clone()));
 
-        let sitemaps = Arc::new(Sitemaps::new(mono.pool.clone()));
-
         let pages = Arc::new(Pages::new(mono.pool.clone()));
 
         let emails = Arc::new(Emails::new(mono.pool.clone()));
@@ -60,17 +58,20 @@ impl App {
 
         let colors = Arc::new(Colors::new(mono.pool.clone()));
 
+        let sitemaps = Arc::new(Sitemaps::new(
+            mono.pool.clone(),
+            pages.clone(),
+            emails.clone(),
+            fonts.clone(),
+            colors.clone(),
+            layouts.clone(),
+        ));
+
         let invitations = Arc::new(Invitations::new(mono.pool.clone()));
 
         let roles = Arc::new(Roles::new(mono.pool.clone()));
 
-        let organizations = Arc::new(Organizations::new(
-            mono.pool.clone(),
-            sitemaps.clone(),
-            pages.clone(),
-            emails.clone(),
-            layouts.clone(),
-        ));
+        let organizations = Arc::new(Organizations::new(mono.pool.clone(), sitemaps.clone()));
 
         let auth = Arc::new(Auth::new(mono.pool.clone(), users.clone()));
 
