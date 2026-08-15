@@ -30,6 +30,20 @@ impl Layouts {
             .map(|r| r.last_insert_rowid())
     }
 
+    pub async fn create_from(&self, layout: &Layout) -> Result<Id, sqlx::Error> {
+        sqlx::query(
+            "insert into layouts (sitemap_id, name, html, css, js) values ($1, $2, $3, $4, $5)",
+        )
+        .bind(&layout.sitemap_id)
+        .bind(&layout.name)
+        .bind(&layout.html)
+        .bind(&layout.css)
+        .bind(&layout.js)
+        .execute(&self.pool)
+        .await
+        .map(|r| r.last_insert_rowid())
+    }
+
     pub async fn get_by_id(&self, sitemap_id: &Id, id: &Id) -> Result<Layout, sqlx::Error> {
         sqlx::query_as::<_, Layout>("select * from layouts where sitemap_id = $1 and id = $2")
             .bind(sitemap_id)
@@ -85,6 +99,14 @@ impl Layouts {
             .bind(js)
             .bind(sitemap_id)
             .bind(layout_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn delete_by_sitemap_id(&self, sitemap_id: &Id) -> Result<(), sqlx::Error> {
+        sqlx::query("delete from layouts where sitemap_id = $1")
+            .bind(sitemap_id)
             .execute(&self.pool)
             .await
             .map(|_| ())

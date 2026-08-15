@@ -10,13 +10,14 @@ use actix_web::web::{Data, Form, Path, Query, ReqData};
 use maud::{Markup, html};
 use serde::Deserialize;
 
-use crate::app::{App, Organization, Role};
+use crate::app::{App, Branch, Organization, Role};
 use crate::infra::Id;
 use crate::web::dashboard::views;
+use crate::web::dashboard::views::layout::Variant;
 use crate::web::dashboard::views::pages::{
     Model, ModelType, QueryState, Section, SessionState, ViewState,
 };
-use crate::web::errors::StatusError;
+use crate::web::errors::WebError;
 
 async fn get_view_state(
     app: &App,
@@ -62,7 +63,7 @@ async fn get_view_state(
     {
         Ok(sitemap) => sitemap,
         Err(e) => {
-            let err = StatusError(
+            let err = WebError::Status(
                 StatusCode::NOT_FOUND,
                 format!("sitemap {} not found: {}", session_state.sitemap_branch, e),
             );
@@ -75,7 +76,7 @@ async fn get_view_state(
         .get_by_sitemap_id(&sitemap.id)
         .await
         .map_err(|e| {
-            StatusError(
+            WebError::Status(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("failed loading sitemap pages: {e}"),
             )
@@ -86,7 +87,7 @@ async fn get_view_state(
         .get_by_sitemap_id(&sitemap.id)
         .await
         .map_err(|e| {
-            StatusError(
+            WebError::Status(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("failed loading sitemap emails: {e}"),
             )
@@ -97,7 +98,7 @@ async fn get_view_state(
         .get_by_sitemap_id(&sitemap.id)
         .await
         .map_err(|e| {
-            StatusError(
+            WebError::Status(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("failed loading sitemap layouts: {e}"),
             )
@@ -181,7 +182,7 @@ async fn get_view_state(
         Section::Fonts => {
             view_state.sitemap_fonts = app
                 .fonts
-                .get_sitemap_fonts(&view_state.sitemap.id)
+                .get_by_sitemap_id(&view_state.sitemap.id)
                 .await
                 .ok();
         }
@@ -226,7 +227,7 @@ async fn get_view_state(
         Section::Colors => {
             view_state.colors = app
                 .colors
-                .get_all(&view_state.sitemap.id)
+                .get_by_sitemap_id(&view_state.sitemap.id)
                 .await
                 .inspect_err(|e| log::error!("failed getting colors: {e}"))
                 .ok();
@@ -290,13 +291,13 @@ pub async fn upload_files(
     app.files
         .upload_many(&org.id, form.files)
         .await
-        .map_err(|e| StatusError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(|e| WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let files = app
         .files
         .get_by_organization_id(&org.id)
         .await
-        .map_err(|e| StatusError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(|e| WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     Ok(views::pages::file_grid(&files))
 }
@@ -325,6 +326,7 @@ pub enum ActionForm {
     SaveJS {
         source: String,
     },
+    Publish,
 }
 
 pub async fn exec_action(
@@ -344,16 +346,18 @@ pub async fn exec_action(
         .get_one_by_branch(&org.id, &session_state.sitemap_branch)
         .await
         .map_err(|e| {
-            StatusError(
+            WebError::Status(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("missing sitemap branch: {e}"),
             )
         })?;
 
+    use ActionForm::*;
+
     match form {
-        ActionForm::CreateColor => {
+        CreateColor => {
             let color = app.colors.create(&sitemap.id).await.map_err(|e| {
-                StatusError(
+                WebError::Status(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     format!("failed creating color: {e}"),
                 )
@@ -361,16 +365,16 @@ pub async fn exec_action(
 
             Ok(views::pages::color(&color))
         }
-        ActionForm::UpdateColor { id, tag, value } => {
+        UpdateColor { id, tag, value } => {
             let id: Id = id.parse().map_err(|e| {
-                StatusError(StatusCode::BAD_REQUEST, format!("invalid id format: {e}"))
+                WebError::Status(StatusCode::BAD_REQUEST, format!("invalid id format: {e}"))
             })?;
 
             app.colors
                 .update(&sitemap.id, &id, &tag, &value)
                 .await
                 .map_err(|e| {
-                    StatusError(
+                    WebError::Status(
                         StatusCode::INTERNAL_SERVER_ERROR,
                         format!("failed updating color: {e}"),
                     )
@@ -378,22 +382,22 @@ pub async fn exec_action(
 
             Ok(html!())
         }
-        ActionForm::DeleteColor { id } => {
+        DeleteColor { id } => {
             let id: Id = id.parse().map_err(|e| {
-                StatusError(StatusCode::BAD_REQUEST, format!("invalid id format: {e}"))
+                WebError::Status(StatusCode::BAD_REQUEST, format!("invalid id format: {e}"))
             })?;
 
             app.colors.delete(&sitemap.id, &id).await.map_err(|e| {
-                StatusError(
+                WebError::Status(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     format!("failed updating color: {e}"),
                 )
             })?;
             Ok(html!())
         }
-        ActionForm::SaveFont { tag } => {
+        SaveFont { tag } => {
             let browsed_font_id = session_state.browsed_font_id.ok_or_else(|| {
-                StatusError(
+                WebError::Status(
                     StatusCode::BAD_REQUEST,
                     "missing browsed font in session".into(),
                 )
@@ -405,7 +409,7 @@ pub async fn exec_action(
                         .update_sitemap_font(&sitemap_font_id, &sitemap.id, &browsed_font_id, &tag)
                         .await
                         .map_err(|e| {
-                            StatusError(
+                            WebError::Status(
                                 StatusCode::BAD_REQUEST,
                                 format!("failed updating font: {e}"),
                             )
@@ -416,7 +420,7 @@ pub async fn exec_action(
                         .create_sitemap_font(&sitemap.id, &browsed_font_id, &tag)
                         .await
                         .map_err(|e| {
-                            StatusError(
+                            WebError::Status(
                                 StatusCode::BAD_REQUEST,
                                 format!("failed creating font: {e}"),
                             )
@@ -426,10 +430,10 @@ pub async fn exec_action(
 
             let associated_fonts = app
                 .fonts
-                .get_sitemap_fonts(&sitemap.id)
+                .get_by_sitemap_id(&sitemap.id)
                 .await
                 .map_err(|e| {
-                    StatusError(
+                    WebError::Status(
                         StatusCode::INTERNAL_SERVER_ERROR,
                         format!("failed getting sitemap fonts: {e}"),
                     )
@@ -442,9 +446,9 @@ pub async fn exec_action(
 
             Ok(views::pages::fonts(&Some(associated_fonts)))
         }
-        ActionForm::SaveHtml { source } => {
+        SaveHtml { source } => {
             let Some(model_id) = session_state.model_id else {
-                return Err(StatusError(
+                return Err(WebError::Status(
                     StatusCode::BAD_REQUEST,
                     "missing model id in session".into(),
                 )
@@ -457,7 +461,7 @@ pub async fn exec_action(
                         .update_html(&sitemap.id, &model_id, &source)
                         .await
                         .map_err(|e| {
-                            StatusError(
+                            WebError::Status(
                                 StatusCode::INTERNAL_SERVER_ERROR,
                                 format!("failed updating model html: {e}"),
                             )
@@ -468,7 +472,7 @@ pub async fn exec_action(
                         .update_html(&sitemap.id, &model_id, &source)
                         .await
                         .map_err(|e| {
-                            StatusError(
+                            WebError::Status(
                                 StatusCode::INTERNAL_SERVER_ERROR,
                                 format!("failed updating model html: {e}"),
                             )
@@ -479,7 +483,7 @@ pub async fn exec_action(
                         .update_body(&sitemap.id, &model_id, &source)
                         .await
                         .map_err(|e| {
-                            StatusError(
+                            WebError::Status(
                                 StatusCode::INTERNAL_SERVER_ERROR,
                                 format!("failed updating model body: {e}"),
                             )
@@ -489,9 +493,9 @@ pub async fn exec_action(
 
             Ok(html!())
         }
-        ActionForm::SaveCss { source } => {
+        SaveCss { source } => {
             let Some(model_id) = session_state.model_id else {
-                return Err(StatusError(
+                return Err(WebError::Status(
                     StatusCode::BAD_REQUEST,
                     "missing model id in session".into(),
                 ))?;
@@ -503,7 +507,7 @@ pub async fn exec_action(
                         .update_css(&sitemap.id, &model_id, &source)
                         .await
                         .map_err(|e| {
-                            StatusError(
+                            WebError::Status(
                                 StatusCode::INTERNAL_SERVER_ERROR,
                                 format!("failed updating model html: {e}"),
                             )
@@ -514,14 +518,14 @@ pub async fn exec_action(
                         .update_css(&sitemap.id, &model_id, &source)
                         .await
                         .map_err(|e| {
-                            StatusError(
+                            WebError::Status(
                                 StatusCode::INTERNAL_SERVER_ERROR,
                                 format!("failed updating model html: {e}"),
                             )
                         })?;
                 }
                 ModelType::Email => {
-                    return Err(StatusError(
+                    return Err(WebError::Status(
                         StatusCode::BAD_REQUEST,
                         "invalid model type selected".into(),
                     ))?;
@@ -530,9 +534,9 @@ pub async fn exec_action(
 
             Ok(html!())
         }
-        ActionForm::SaveJS { source } => {
+        SaveJS { source } => {
             let Some(model_id) = session_state.model_id else {
-                return Err(StatusError(
+                return Err(WebError::Status(
                     StatusCode::BAD_REQUEST,
                     "missing model id in session".into(),
                 ))?;
@@ -544,7 +548,7 @@ pub async fn exec_action(
                         .update_js(&sitemap.id, &model_id, &source)
                         .await
                         .map_err(|e| {
-                            StatusError(
+                            WebError::Status(
                                 StatusCode::INTERNAL_SERVER_ERROR,
                                 format!("failed updating model html: {e}"),
                             )
@@ -555,14 +559,14 @@ pub async fn exec_action(
                         .update_js(&sitemap.id, &model_id, &source)
                         .await
                         .map_err(|e| {
-                            StatusError(
+                            WebError::Status(
                                 StatusCode::INTERNAL_SERVER_ERROR,
                                 format!("failed updating model html: {e}"),
                             )
                         })?;
                 }
                 ModelType::Email => {
-                    return Err(StatusError(
+                    return Err(WebError::Status(
                         StatusCode::BAD_REQUEST,
                         "invalid model type selected".into(),
                     ))?;
@@ -570,6 +574,22 @@ pub async fn exec_action(
             };
 
             Ok(html!())
+        }
+        Publish => {
+            app.sitemaps
+                .sync_branch(&org.id, &sitemap.id, Branch::MAIN)
+                .await
+                .map_err(|e| {
+                    WebError::Status(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed publishing: {e}"),
+                    )
+                })?;
+
+            Ok(views::layout::toast(
+                "Mapa de sitio publicado correctamente",
+                Variant::Primary,
+            ))
         }
     }
 }

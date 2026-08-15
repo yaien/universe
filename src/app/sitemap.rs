@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -79,6 +80,59 @@ impl Sitemaps {
         self.layouts.create(&sitemap_id, "default").await?;
 
         Ok(sitemap_id)
+    }
+
+    pub async fn sync_branch(
+        &self,
+        org_id: &Id,
+        from_sitemap_id: &Id,
+        to_branch: &str,
+    ) -> Result<Id, sqlx::Error> {
+        let to_sitemap_id = match self.get_one_by_branch_optional(org_id, to_branch).await? {
+            Some(sitemap) => sitemap.id,
+            None => self.create(org_id, to_branch).await?,
+        };
+
+        let layouts = self.layouts.get_by_sitemap_id(from_sitemap_id).await?;
+        let pages = self.pages.get_by_sitemap_id(from_sitemap_id).await?;
+        let fonts = self.fonts.get_by_sitemap_id(from_sitemap_id).await?;
+        let colors = self.colors.get_by_sitemap_id(from_sitemap_id).await?;
+
+        self.layouts.delete_by_sitemap_id(&to_sitemap_id).await?;
+        self.pages.delete_by_sitemap_id(&to_sitemap_id).await?;
+        self.fonts.delete_by_sitemap_id(&to_sitemap_id).await?;
+        self.colors.delete_by_sitemap_id(&to_sitemap_id).await?;
+
+        let mut layout_matches = HashMap::new();
+        for mut layout in layouts {
+            layout.sitemap_id = to_sitemap_id.clone();
+            let created_layout_id = self.layouts.create_from(&layout).await?;
+            layout_matches.insert(layout.id.clone(), created_layout_id);
+        }
+
+        for mut page in pages {
+            page.sitemap_id = to_sitemap_id.clone();
+
+            page.layout_id = page
+                .layout_id
+                .map(|id| layout_matches.get(&id).copied())
+                .flatten();
+
+            self.pages.create_from(&page).await?;
+        }
+
+        for font in fonts {
+            self.fonts
+                .create_sitemap_font(&to_sitemap_id, &font.font_id, &font.tag)
+                .await?;
+        }
+
+        for mut color in colors {
+            color.sitemap_id = to_sitemap_id.clone();
+            self.colors.create_from(&color).await?;
+        }
+
+        Ok(to_sitemap_id)
     }
 
     pub async fn get_one_by_branch(

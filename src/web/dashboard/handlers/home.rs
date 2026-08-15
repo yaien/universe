@@ -5,6 +5,10 @@ use maud::{Markup, html};
 use crate::app::{Organization, Role};
 use crate::web::dashboard::views;
 
+pub async fn empty() -> Markup {
+    html!()
+}
+
 pub async fn home(org: ReqData<Organization>, role: ReqData<Role>, req: HttpRequest) -> Markup {
     views::layout::layout(&views::layout::Content {
         title: "Home",

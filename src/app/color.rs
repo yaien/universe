@@ -19,7 +19,7 @@ impl Colors {
         Self { pool }
     }
 
-    pub async fn get_all(&self, sitemap_id: &Id) -> Result<Vec<Color>, sqlx::Error> {
+    pub async fn get_by_sitemap_id(&self, sitemap_id: &Id) -> Result<Vec<Color>, sqlx::Error> {
         sqlx::query_as::<_, Color>("select * from colors where sitemap_id = $1")
             .bind(sitemap_id)
             .fetch_all(&self.pool)
@@ -50,7 +50,7 @@ impl Colors {
     }
 
     pub async fn create(&self, sitemap_id: &Id) -> Result<Color, sqlx::Error> {
-        let colors = self.get_all(sitemap_id).await?;
+        let colors = self.get_by_sitemap_id(sitemap_id).await?;
         let mut new_tag_index = colors.len();
         let mut new_tag_name = format!("black-{new_tag_index}").to_string();
         while colors.iter().any(|c| c.tag == new_tag_name) {
@@ -68,10 +68,29 @@ impl Colors {
         .await
     }
 
+    pub async fn create_from(&self, color: &Color) -> Result<Color, sqlx::Error> {
+        sqlx::query_as::<_, Color>(
+            "insert into colors(sitemap_id, tag, value) values ($1, $2, $3) returning *",
+        )
+        .bind(&color.sitemap_id)
+        .bind(&color.tag)
+        .bind(&color.value)
+        .fetch_one(&self.pool)
+        .await
+    }
+
     pub async fn delete(&self, sitemap_id: &Id, id: &Id) -> Result<(), sqlx::Error> {
         sqlx::query("delete from colors where sitemap_id = $1 and id = $2")
             .bind(sitemap_id)
             .bind(id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn delete_by_sitemap_id(&self, sitemap_id: &Id) -> Result<(), sqlx::Error> {
+        sqlx::query("delete from colors where sitemap_id = $1")
+            .bind(sitemap_id)
             .execute(&self.pool)
             .await
             .map(|_| ())

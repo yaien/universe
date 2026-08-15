@@ -9,7 +9,7 @@ use crate::app::{Organization, Role};
 #[display(rename_all = "lowercase")]
 pub enum Variant {
     Primary,
-    Secondary,
+    Success,
     Danger,
 }
 

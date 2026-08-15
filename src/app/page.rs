@@ -7,7 +7,7 @@ use crate::infra::{DbPool, Id};
 pub struct Page {
     pub id: Id,
     pub sitemap_id: Id,
-    pub layout_id: Id,
+    pub layout_id: Option<Id>,
     pub path: String,
     pub name: String,
     pub title: String,
@@ -42,6 +42,24 @@ impl Pages {
             .bind(path)
             .bind(name)
             .bind(title)
+            .execute(&self.pool)
+            .await
+            .map(|r| r.last_insert_rowid())
+    }
+
+    pub async fn create_from(&self, page: &Page) -> Result<Id, sqlx::Error> {
+        sqlx::query("insert into pages (sitemap_id, layout_id, path, name, title, og_image, og_type, og_description, html, css, js) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)")
+            .bind(&page.sitemap_id)
+            .bind(&page.layout_id)
+            .bind(&page.path)
+            .bind(&page.name)
+            .bind(&page.title)
+            .bind(&page.og_image)
+            .bind(&page.og_type)
+            .bind(&page.og_description)
+            .bind(&page.html)
+            .bind(&page.css)
+            .bind(&page.js)
             .execute(&self.pool)
             .await
             .map(|r| r.last_insert_rowid())
@@ -102,6 +120,14 @@ impl Pages {
             .bind(js)
             .bind(sitemap_id)
             .bind(page_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn delete_by_sitemap_id(&self, sitemap_id: &Id) -> Result<(), sqlx::Error> {
+        sqlx::query("delete from pages where sitemap_id = $1")
+            .bind(sitemap_id)
             .execute(&self.pool)
             .await
             .map(|_| ())

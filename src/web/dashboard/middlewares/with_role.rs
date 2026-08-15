@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use crate::app::Organization;
 use crate::app::{App, User};
-use crate::web::errors::RedirectError;
+use crate::web::errors::WebError;
 
 use actix_web::HttpMessage;
 use actix_web::body::MessageBody;
@@ -19,7 +19,7 @@ pub async fn role<MB: MessageBody>(
     next: Next<MB>,
 ) -> Result<ServiceResponse<MB>, Error> {
     let Some(user) = user.deref() else {
-        return Err(RedirectError::from("/auth/google/login").into());
+        return Err(WebError::Redirect("/auth/google/login".into()))?;
     };
 
     if let Ok(role) = app
@@ -42,5 +42,5 @@ pub async fn role<MB: MessageBody>(
         }
     }
 
-    Err(RedirectError::from("/").into())
+    Err(WebError::Redirect("/".into()))?
 }

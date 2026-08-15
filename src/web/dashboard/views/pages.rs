@@ -862,7 +862,7 @@ pub fn publish() -> Markup {
                 "Esta estará disponible para los usuarios finales"
             }
             .actions {
-                button.warning hx-post="/dashboard/pages" hx-swap="none" hx-vals="{ action: 'publish' }" { "Publicar" }
+                button.warning hx-post="/dashboard/pages" hx-swap="none" hx-vals=(json!({ "action": "publish"})) { "Publicar" }
             }
         }
     )

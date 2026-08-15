@@ -1,40 +1,30 @@
 use actix_web::error::ResponseError;
 use actix_web::http::{StatusCode, header};
 use actix_web::{HttpResponse, HttpResponseBuilder};
-use derive_more::Display;
 use log::error;
+use thiserror::Error;
 
-#[derive(Debug, Display)]
-#[display("Redirect to {}", 0)]
-pub struct RedirectError(pub String);
+#[derive(Debug, Error)]
+pub enum WebError {
+    #[error("redirect to {0}")]
+    Redirect(String),
 
-impl From<&str> for RedirectError {
-    fn from(value: &str) -> Self {
-        Self(String::from(value))
-    }
+    #[error("status {0}: {1}")]
+    Status(StatusCode, String),
 }
 
-impl ResponseError for RedirectError {
+impl ResponseError for WebError {
     fn error_response(&self) -> HttpResponse {
-        HttpResponse::TemporaryRedirect()
-            .insert_header((header::LOCATION, &self.0[..]))
-            .finish()
-    }
-}
+        use WebError::*;
 
-#[derive(Debug, Display)]
-#[display("Status {}: {}", 0, 1)]
-pub struct StatusError(pub StatusCode, pub String);
+        match self {
+            // Redirect to a given url
+            Redirect(url) => HttpResponse::TemporaryRedirect()
+                .insert_header((header::LOCATION, &url[..]))
+                .finish(),
 
-impl From<(StatusCode, &str)> for StatusError {
-    fn from(value: (StatusCode, &str)) -> Self {
-        Self(value.0, String::from(value.1))
-    }
-}
-
-impl ResponseError for StatusError {
-    fn error_response(&self) -> HttpResponse {
-        error!("error response: {}", self.1);
-        HttpResponseBuilder::new(self.0).body(self.1.clone())
+            // Return a status code and message
+            Status(code, msg) => HttpResponseBuilder::new(*code).body(msg.clone()),
+        }
     }
 }

@@ -88,7 +88,7 @@ impl Fonts {
             .map(|r| r.last_insert_rowid())
     }
 
-    pub async fn get_sitemap_fonts(
+    pub async fn get_by_sitemap_id(
         &self,
         sitemap_id: &Id,
     ) -> Result<Vec<SitemapFont>, sqlx::Error> {
@@ -144,5 +144,13 @@ impl Fonts {
         }
 
         Ok(())
+    }
+
+    pub async fn delete_by_sitemap_id(&self, sitemap_id: &Id) -> Result<(), sqlx::Error> {
+        sqlx::query("delete from sitemaps_fonts where sitemap_id = $1")
+            .bind(sitemap_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
     }
 }

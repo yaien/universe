@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::app::User;
 use crate::app::{App, Organization};
-use crate::web::errors::StatusError;
+use crate::web::errors::WebError;
 
 use std::ops::Deref;
 use std::str::FromStr;
@@ -35,7 +35,7 @@ pub async fn download_file(
         .files
         .get_one_by_organization_id_and_name(&org.id, &name)
         .await
-        .map_err(|e| StatusError(StatusCode::NOT_FOUND, e.to_string()))?;
+        .map_err(|e| WebError::Status(StatusCode::NOT_FOUND, e.to_string()))?;
 
     let variant = query.variant.unwrap_or(0);
 
@@ -43,7 +43,7 @@ pub async fn download_file(
         .files
         .get_path_and_format(&mut file, &variant)
         .await
-        .map_err(|e| StatusError(StatusCode::NOT_FOUND, e.to_string()))?;
+        .map_err(|e| WebError::Status(StatusCode::NOT_FOUND, e.to_string()))?;
 
     let named = NamedFile::open(path)?
         .set_content_type(Mime::from_str(&format.content_type).unwrap_or(APPLICATION_OCTET_STREAM))

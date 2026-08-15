@@ -4,13 +4,14 @@ mod middlewares;
 mod views;
 
 use actix_web::middleware::from_fn;
-use actix_web::web::{ServiceConfig, get, post, scope, to};
+use actix_web::web::{ServiceConfig, get, post, scope};
 
 pub fn configure(config: &mut ServiceConfig) {
     config
         .service(
             scope("/dashboard")
                 .route("", get().to(handlers::home::home))
+                .route("/empty", get().to(handlers::home::empty))
                 .route("/pages", get().to(handlers::pages::get_index))
                 .route("/pages", post().to(handlers::pages::exec_action))
                 .route("/pages/files", post().to(handlers::pages::upload_files))

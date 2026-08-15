@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::web::errors::{RedirectError, StatusError};
+use crate::web::errors::WebError;
 use actix_web::body::MessageBody;
 use actix_web::http::StatusCode;
 use actix_web::{
@@ -15,20 +15,22 @@ pub async fn with_organization(
     next: Next<impl MessageBody>,
 ) -> Result<ServiceResponse<impl MessageBody>, Error> {
     let Some(host) = req.uri().host() else {
-        return Err(StatusError(StatusCode::BAD_REQUEST, String::from("host not found")).into());
+        return Err(WebError::Status(
+            StatusCode::BAD_REQUEST,
+            String::from("host not found"),
+        ))?;
     };
 
     if host.starts_with("www.") {
         let uri = req.request().full_url().to_string().replace("www.", "");
-        return Err(RedirectError(uri).into());
+        return Err(WebError::Redirect(uri))?;
     }
 
     let Ok(org) = app.organizations.get_one_by_host(&host).await else {
-        return Err(StatusError(
+        return Err(WebError::Status(
             StatusCode::NOT_FOUND,
             String::from("organization not found"),
-        )
-        .into());
+        ))?;
     };
 
     req.extensions_mut().insert(org);
