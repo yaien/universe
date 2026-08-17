@@ -347,6 +347,9 @@ pub enum ActionForm {
         name: String,
         title: String,
     },
+    CreateLayout {
+        name: String,
+    },
 }
 
 pub async fn exec_action(
@@ -406,6 +409,35 @@ pub async fn exec_action(
 
             Ok(views::pages::edit(&Some(Model::Page(page)), &layouts))
         }
+
+        CreateLayout { name } => {
+            let layout = app.layouts.create(&sitemap.id, &name).await.map_err(|e| {
+                WebError::Status(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("failed creating layout: {e}"),
+                )
+            })?;
+
+            session_state.model_type = ModelType::Layout;
+            session_state.model_id = Some(layout.id);
+            session_state.section = Section::Edit;
+
+            session.insert("pages", &session_state).ok();
+
+            let layouts = app
+                .layouts
+                .get_by_sitemap_id(&sitemap.id)
+                .await
+                .map_err(|e| {
+                    WebError::Status(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed getting pages: {e}"),
+                    )
+                })?;
+
+            Ok(views::pages::edit(&Some(Model::Layout(layout)), &layouts))
+        }
+
         CreateColor => {
             let color = app.colors.create(&sitemap.id).await.map_err(|e| {
                 WebError::Status(

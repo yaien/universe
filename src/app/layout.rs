@@ -21,13 +21,14 @@ impl Layouts {
         Self { pool }
     }
 
-    pub async fn create(&self, sitemap_id: &Id, name: &str) -> Result<Id, sqlx::Error> {
-        sqlx::query("insert into layouts (sitemap_id, name) values ($1, $2)")
-            .bind(sitemap_id)
-            .bind(name)
-            .execute(&self.pool)
-            .await
-            .map(|r| r.last_insert_rowid())
+    pub async fn create(&self, sitemap_id: &Id, name: &str) -> Result<Layout, sqlx::Error> {
+        sqlx::query_as::<_, Layout>(
+            "insert into layouts (sitemap_id, name) values ($1, $2) returning *",
+        )
+        .bind(sitemap_id)
+        .bind(name)
+        .fetch_one(&self.pool)
+        .await
     }
 
     pub async fn create_from(&self, layout: &Layout) -> Result<Id, sqlx::Error> {
