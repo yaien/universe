@@ -36,15 +36,16 @@ impl Pages {
         path: &str,
         name: &str,
         title: &str,
-    ) -> Result<Id, sqlx::Error> {
-        sqlx::query("insert into pages (sitemap_id, path, name, title) values ($1, $2, $3, $4)")
-            .bind(sitemap_id)
-            .bind(path)
-            .bind(name)
-            .bind(title)
-            .execute(&self.pool)
-            .await
-            .map(|r| r.last_insert_rowid())
+    ) -> Result<Page, sqlx::Error> {
+        sqlx::query_as::<_, Page>(
+            "insert into pages (sitemap_id, path, name, title) values ($1, $2, $3, $4) returning *",
+        )
+        .bind(sitemap_id)
+        .bind(path)
+        .bind(name)
+        .bind(title)
+        .fetch_one(&self.pool)
+        .await
     }
 
     pub async fn create_from(&self, page: &Page) -> Result<Id, sqlx::Error> {

@@ -141,7 +141,7 @@ impl Section {
     pub fn markup(&self, state: &ViewState) -> Markup {
         match &self {
             Section::Initial => initial(state),
-            Section::Edit => edit(state),
+            Section::Edit => edit(&state.model, &state.layouts),
             Section::Create => create(state),
             Section::Delete => delete(state),
             Section::Publish => publish(),
@@ -193,7 +193,7 @@ pub fn editor(state: &ViewState) -> Markup {
                     (tab_button(&state, &section))
                 }
             }
-            div style="height: 100%; overflow: hidden;" {
+            #section style="height: 100%; overflow: hidden;" {
                 (state.section.markup(&state))
             }
         }
@@ -233,54 +233,58 @@ pub fn initial(state: &ViewState) -> Markup {
     let selected_is_email = (state.model_type == ModelType::Email).then_some("");
 
     html!(
-        @if let Some(sitemaps) = &state.sitemaps {
+        form autocomplete="off" {
+            @if let Some(sitemaps) = &state.sitemaps {
+                fieldset role="group" {
+                    legend { "Mapa de Sitio"}
+                    select
+                        name="section"
+                        autocomplete="off"
+                        hx-get="/dashboard/pages"
+                        hx-target="#content"
+                        hx-swap="outerHTML" {
+
+                        @for sitemap in sitemaps {
+                            option value=(sitemap.id)  { (sitemap.branch) }
+                        }
+                    }
+
+                }
+            }
             fieldset role="group" {
-                legend { "Mapa de Sitio"}
+                legend { "Tipo de Plantilla" }
                 select
-                    name="section"
+                    name="model_type"
                     autocomplete="off"
                     hx-get="/dashboard/pages"
                     hx-target="#content"
                     hx-swap="outerHTML" {
-
-                    @for sitemap in sitemaps {
-                        option value=(sitemap.id)  { (sitemap.branch) }
-                    }
+                    option value="page" selected=[selected_is_page] { "Sitio" }
+                    option value="layout" selected=[selected_is_layout] { "Diseño" }
+                    option value="email" selected=[selected_is_email] { "Correo" }
                 }
+            }
+            fieldset {
+                legend { "Seleccionar Plantilla" }
+                select name="model_id" hx-get="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" required  {
+                    @match &state.model {
+                        Some(Model::Page(selected)) => {
+                            @for page in &state.pages {
+                                option value=(&page.id) selected=[(page.id == selected.id).then_some("true")] { (page.name) }
+                            }
+                        }
+                        Some(Model::Layout(selected)) => {
+                            @for layout in &state.layouts {
+                                option value=(&layout.id) selected=[(layout.id == selected.id).then_some("")] { (layout.name) }
+                            }
+                        }
+                        Some(Model::Email(selected)) => {
+                            @for email in &state.emails {
+                                option value=(&email.id) selected=[(email.id == selected.id).then_some("")] { (email.name) }
+                            }
+                        }
+                        _=> {}
 
-            }
-        }
-        fieldset role="group" {
-            legend { "Tipo de Plantilla" }
-            select
-                name="model_type"
-                autocomplete="off"
-                hx-get="/dashboard/pages"
-                hx-target="#content"
-                hx-swap="outerHTML" {
-                option value="page" selected=[selected_is_page] { "Sitio" }
-                option value="layout" selected=[selected_is_layout] { "Diseño" }
-                option value="email" selected=[selected_is_email] { "Correo" }
-            }
-        }
-        fieldset {
-            legend { "Seleccionar Plantilla" }
-            select name="model_id" hx-get="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" required {
-                @match state.model_type {
-                    ModelType::Page => {
-                        @for page in &state.pages {
-                            option value=(&page.id) { (page.name) }
-                        }
-                    }
-                    ModelType::Layout => {
-                        @for layout in &state.layouts {
-                            option value=(&layout.id) { (layout.name) }
-                        }
-                    }
-                    ModelType::Email => {
-                        @for email in &state.emails {
-                            option value=(&email.id) { (email.name) }
-                        }
                     }
                 }
             }
@@ -321,7 +325,7 @@ pub fn create(state: &ViewState) -> Markup {
         }
         fieldset x-data="{ modelType: 'page' }" {
             legend { "Agregar Modelo" }
-            form hx-post="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" {
+            form hx-post="/dashboard/pages" hx-target="#section" {
                 fieldset role="group" {
                     legend {"Tipo de Plantilla"}
                     select name="model_type" x-model="modelType" {
@@ -344,7 +348,7 @@ pub fn create(state: &ViewState) -> Markup {
                             legend { "Titulo" }
                             input name="title" required {}
                         }
-                        input name="action" value="create" hidden {}
+                        input name="action" value="create_page" hidden {}
                     }
                 }
 
@@ -354,7 +358,7 @@ pub fn create(state: &ViewState) -> Markup {
                             legend { "Nombre" }
                             input name="name" required {}
                         }
-                        input name="action" value="create" hidden {}
+                        input name="action" value="create_layout" hidden {}
                     }
                 }
 
@@ -469,9 +473,9 @@ pub fn publish() -> Markup {
     )
 }
 
-pub fn edit(state: &ViewState) -> Markup {
+pub fn edit(model: &Option<Model>, layouts: &Vec<Layout>) -> Markup {
     html!(
-        @match &state.model {
+        @match model {
             Some(Model::Page(page)) => {
                 form hx-patch="/dashboard/pages/basic" hx-swap="none" {
                     fieldset {
@@ -510,7 +514,7 @@ pub fn edit(state: &ViewState) -> Markup {
                         legend { "Diseño" }
                         select name="layout" autocomplete="off" {
                             option value="" { "Ninguno" }
-                            @for layout in &state.layouts {
+                            @for layout in layouts {
                                 option value=(layout.id) { (layout.name) }
                             }
                         }

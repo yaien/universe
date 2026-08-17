@@ -342,6 +342,11 @@ pub enum ActionForm {
         source: String,
     },
     Publish,
+    CreatePage {
+        path: String,
+        name: String,
+        title: String,
+    },
 }
 
 pub async fn exec_action(
@@ -370,6 +375,37 @@ pub async fn exec_action(
     use ActionForm::*;
 
     match form {
+        CreatePage { path, name, title } => {
+            let page = app
+                .pages
+                .create(&sitemap.id, &path, &name, &title)
+                .await
+                .map_err(|e| {
+                    WebError::Status(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed creating page: {e}"),
+                    )
+                })?;
+
+            session_state.model_id = Some(page.id.clone());
+            session_state.model_type = ModelType::Page;
+            session_state.section = Section::Edit;
+
+            session.insert("pages", &session_state).ok();
+
+            let layouts = app
+                .layouts
+                .get_by_sitemap_id(&sitemap.id)
+                .await
+                .map_err(|e| {
+                    WebError::Status(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed getting pages: {e}"),
+                    )
+                })?;
+
+            Ok(views::pages::edit(&Some(Model::Page(page)), &layouts))
+        }
         CreateColor => {
             let color = app.colors.create(&sitemap.id).await.map_err(|e| {
                 WebError::Status(
