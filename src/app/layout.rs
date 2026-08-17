@@ -60,6 +60,21 @@ impl Layouts {
             .await
     }
 
+    pub async fn update_name(
+        &self,
+        sitemap_id: &Id,
+        layout_id: &Id,
+        name: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("update layouts set name = $1 where sitemap_id = $2 and id = $3")
+            .bind(name)
+            .bind(sitemap_id)
+            .bind(layout_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+    }
+
     pub async fn update_html(
         &self,
         sitemap_id: &Id,

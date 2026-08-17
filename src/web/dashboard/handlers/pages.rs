@@ -6,11 +6,11 @@ use actix_session::Session;
 use actix_web::Error;
 use actix_web::HttpRequest;
 use actix_web::http::StatusCode;
-use actix_web::web::{Data, Form, Path, Query, ReqData};
+use actix_web::web::{Data, Form, Query, ReqData};
 use maud::{Markup, html};
 use serde::Deserialize;
 
-use crate::app::{App, Branch, Organization, Role};
+use crate::app::{App, Branch, Organization, PageInfo, Role};
 use crate::infra::Id;
 use crate::web::dashboard::views;
 use crate::web::dashboard::views::layout::Variant;
@@ -350,6 +350,21 @@ pub enum ActionForm {
     CreateLayout {
         name: String,
     },
+    SavePageInfo {
+        name: String,
+        title: String,
+        path: String,
+        og_image: String,
+        og_description: String,
+        og_type: String,
+        layout_id: String,
+    },
+    SaveLayoutInfo {
+        name: String,
+    },
+    SaveEmailInfo {
+        subject: String,
+    },
 }
 
 pub async fn exec_action(
@@ -436,6 +451,90 @@ pub async fn exec_action(
                 })?;
 
             Ok(views::pages::edit(&Some(Model::Layout(layout)), &layouts))
+        }
+
+        SavePageInfo {
+            name,
+            title,
+            path,
+            og_image,
+            og_description,
+            og_type,
+            layout_id,
+        } => {
+            let page_id = session_state.model_id.ok_or(WebError::Status(
+                StatusCode::BAD_REQUEST,
+                "mising model id in session".into(),
+            ))?;
+
+            app.pages
+                .update_info(&PageInfo {
+                    sitemap_id: sitemap.id.clone(),
+                    layout_id: layout_id.parse().ok(),
+                    page_id,
+                    name,
+                    title,
+                    path,
+                    og_image,
+                    og_description,
+                    og_type,
+                })
+                .await
+                .map_err(|e| {
+                    WebError::Status(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed updating page info: {e}"),
+                    )
+                })?;
+
+            Ok(views::layout::toast(
+                "Pagina actualizada correctamente",
+                Variant::Primary,
+            ))
+        }
+
+        SaveLayoutInfo { name } => {
+            let layout_id = session_state.model_id.ok_or(WebError::Status(
+                StatusCode::BAD_REQUEST,
+                "missing model id".into(),
+            ))?;
+
+            app.layouts
+                .update_name(&sitemap.id, &layout_id, &name)
+                .await
+                .map_err(|e| {
+                    WebError::Status(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed updating layout info: {e}"),
+                    )
+                })?;
+
+            Ok(views::layout::toast(
+                "Layout actualizado correctamente",
+                Variant::Primary,
+            ))
+        }
+
+        SaveEmailInfo { subject } => {
+            let email_id = session_state.model_id.ok_or(WebError::Status(
+                StatusCode::BAD_REQUEST,
+                "missing model id".into(),
+            ))?;
+
+            app.emails
+                .update_subject(&sitemap.id, &email_id, &subject)
+                .await
+                .map_err(|e| {
+                    WebError::Status(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed updating email info: {e}"),
+                    )
+                })?;
+
+            Ok(views::layout::toast(
+                "Email actualizado correctamente",
+                Variant::Primary,
+            ))
         }
 
         CreateColor => {

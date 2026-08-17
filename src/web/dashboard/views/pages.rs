@@ -477,7 +477,7 @@ pub fn edit(model: &Option<Model>, layouts: &Vec<Layout>) -> Markup {
     html!(
         @match model {
             Some(Model::Page(page)) => {
-                form hx-patch="/dashboard/pages/basic" hx-swap="none" {
+                form hx-post="/dashboard/pages" hx-swap="none" autocomplete="off" {
                     fieldset {
                         legend { "Nombre" }
                         input name="name" required value=(page.name) {}
@@ -497,52 +497,63 @@ pub fn edit(model: &Option<Model>, layouts: &Vec<Layout>) -> Markup {
                     fieldset {
                         legend { "Tipo" }
                         select name="og_type" {
-                            option value="" {"Ninguno"}
-                            option value="website" { "Sitio Web" }
-                            option value="article" { "Artículo" }
-                            option value="profile" { "Perfil" }
-                            option value="product" { "Producto" }
+                            @let options = [
+                                ("", "Ninguno"),
+                                ("website", "Sitio Web"),
+                                ("article", "Artículo"),
+                                ("profile", "Perfil"),
+                                ("product", "Producto"),
+                            ];
+
+                            @for (value, label) in options {
+                                option value=(value) selected=[(value == page.og_type).then_some("")] { (label) }
+                            }
                         }
                     }
                     fieldset {
                         legend { "Descripción" }
-                        textarea name="og_description" class="no-resize" rows="2" autocomplete="off" cols="10" {
+                        textarea name="og_description" class="no-resize" rows="2" cols="10" {
                             (page.og_description)
                         }
                     }
                     fieldset role="group" {
                         legend { "Diseño" }
-                        select name="layout" autocomplete="off" {
+                        select name="layout_id" {
                             option value="" { "Ninguno" }
                             @for layout in layouts {
-                                option value=(layout.id) { (layout.name) }
+                                option value=(layout.id) selected=[(Some(layout.id) == page.layout_id).then_some("")] { (layout.name) }
                             }
                         }
                     }
+
+                    input name="action" type="hidden" value="save_page_info" {}
+
                     .actions {
                         button type="submit" { "Guardar" }
                     }
                 }
             },
             Some(Model::Layout(layout)) => {
-                form hx-patch="/dashboard/pages/basic" hx-swap="none" {
+                form hx-post="/dashboard/pages" hx-swap="none" {
                     fieldset {
                         legend { "Nombre" }
                         input name="name" required value=(layout.name) {}
                     }
+                    input name="action" type="hidden" value="save_layout_info" {}
                     .actions {
                         button type="submit" { "Guardar" }
                     }
                 }
             },
             Some(Model::Email(email)) => {
-                form hx-patch="/dashboard/pages/basic" hx-swap="none" {
+                form hx-post="/dashboard/pages" hx-swap="none" {
                     fieldset {
                         legend { "Asunto" }
                         textarea name="subject" class="no-resize" required cols="10" {
                             (email.subject)
                         }
                     }
+                    input name="action" type="hidden" value="save_email_info" {}
                     .actions {
                         button type="submit" { "Guardar" }
                     }

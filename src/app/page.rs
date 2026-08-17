@@ -21,6 +21,18 @@ pub struct Page {
     pub updated_at: DateTime<Utc>,
 }
 
+pub struct PageInfo {
+    pub sitemap_id: Id,
+    pub page_id: Id,
+    pub path: String,
+    pub name: String,
+    pub title: String,
+    pub layout_id: Option<Id>,
+    pub og_image: String,
+    pub og_type: String,
+    pub og_description: String,
+}
+
 pub struct Pages {
     pool: DbPool,
 }
@@ -49,7 +61,10 @@ impl Pages {
     }
 
     pub async fn create_from(&self, page: &Page) -> Result<Id, sqlx::Error> {
-        sqlx::query("insert into pages (sitemap_id, layout_id, path, name, title, og_image, og_type, og_description, html, css, js) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)")
+        sqlx::query(r#"
+            insert into pages (sitemap_id, layout_id, path, name, title, og_image, og_type, og_description, html, css, js)
+                values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            "#)
             .bind(&page.sitemap_id)
             .bind(&page.layout_id)
             .bind(&page.path)
@@ -79,6 +94,25 @@ impl Pages {
             .bind(sitemap_id)
             .fetch_all(&self.pool)
             .await
+    }
+
+    pub async fn update_info(&self, info: &PageInfo) -> Result<(), sqlx::Error> {
+        sqlx::query(r#"
+            update pages set path = $1, name = $2, title = $3, layout_id = $4, og_description = $5, og_image = $6, og_type = $7
+                where sitemap_id = $8 and id = $9
+        "#)
+            .bind(&info.path)
+            .bind(&info.name)
+            .bind(&info.title)
+            .bind(&info.layout_id)
+            .bind(&info.og_description)
+            .bind(&info.og_image)
+            .bind(&info.og_type)
+            .bind(&info.sitemap_id)
+            .bind(&info.page_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
     }
 
     pub async fn update_html(
