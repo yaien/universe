@@ -130,15 +130,15 @@ async fn get_view_state(
         },
         None => match session_state.model_type {
             ModelType::Page => pages
-                .get(0)
+                .first()
                 .inspect(|page| session_state.model_id = Some(page.id))
                 .map(|page| Model::Page(page.clone())),
             ModelType::Layout => layouts
-                .get(0)
+                .first()
                 .inspect(|layout| session_state.model_id = Some(layout.id))
                 .map(|layout| Model::Layout(layout.clone())),
             ModelType::Email => emails
-                .get(0)
+                .first()
                 .inspect(|email| session_state.model_id = Some(email.id))
                 .map(|email| Model::Email(email.clone())),
         },
@@ -154,6 +154,7 @@ async fn get_view_state(
         pages: pages,
         layouts: layouts,
         emails: emails,
+        sitemaps: None,
         files: None,
         file: None,
         sitemap_fonts: None,
@@ -167,6 +168,20 @@ async fn get_view_state(
     };
 
     match &view_state.section {
+        Section::Initial => {
+            view_state.sitemaps = app
+                .sitemaps
+                .get_drafts_by_organization_id(&org.id)
+                .await
+                .ok();
+        }
+        Section::Create => {
+            view_state.sitemaps = app
+                .sitemaps
+                .get_drafts_by_organization_id(&org.id)
+                .await
+                .ok();
+        }
         Section::Files => {
             view_state.files = app.files.get_by_organization_id(&org.id).await.ok();
         }

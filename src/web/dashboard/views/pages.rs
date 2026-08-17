@@ -1,3 +1,4 @@
+use image::flat::View;
 use maud::{Markup, html};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -48,6 +49,7 @@ impl Default for SessionState {
 
 pub struct ViewState {
     pub sitemap: Sitemap,
+    pub sitemaps: Option<Vec<Sitemap>>,
     pub model: Option<Model>,
     pub model_type: ModelType,
     pub section: Section,
@@ -82,6 +84,7 @@ pub struct QueryState {
 #[derive(EnumIter, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Section {
     Initial,
+    Edit,
     Create,
     Delete,
     Files,
@@ -100,24 +103,20 @@ impl Section {
     pub fn is_tab(&self) -> bool {
         match &self {
             Self::Initial => true,
-            Self::Create => true,
-            Self::Delete => true,
+            Self::Edit => true,
             Self::Files => true,
             Self::Fonts => true,
             Self::Colors => true,
             Self::EditHTML => true,
             Self::EditScript => true,
             Self::EditStyles => true,
-            Self::Publish => true,
             _ => false,
         }
     }
 
     pub fn is_only_web(&self) -> bool {
         match &self {
-            Self::Create => true,
             Self::Fonts => true,
-            Self::Delete => true,
             Self::Colors => true,
             Self::EditScript => true,
             Self::EditStyles => true,
@@ -128,15 +127,13 @@ impl Section {
     pub fn icon(&self) -> Option<&'static str> {
         match &self {
             Self::Initial => Some("fa-solid fa-house"),
-            Self::Create => Some("fa-solid fa-plus"),
-            Self::Delete => Some("fa-solid fa-trash-can"),
+            Self::Edit => Some("fa-solid fa-pen"),
             Self::Files => Some("fa-solid fa-image"),
             Self::Fonts => Some("fa-solid fa-font"),
             Self::Colors => Some("fa-solid fa-palette"),
             Self::EditHTML => Some("fa-solid fa-code"),
             Self::EditStyles => Some("fa-brands fa-css"),
             Self::EditScript => Some("fa-brands fa-js"),
-            Self::Publish => Some("fa-solid fa-upload"),
             _ => None,
         }
     }
@@ -144,8 +141,10 @@ impl Section {
     pub fn markup(&self, state: &ViewState) -> Markup {
         match &self {
             Section::Initial => initial(state),
-            Section::Create => create(),
-            Section::Delete => delete(),
+            Section::Edit => edit(state),
+            Section::Create => create(state),
+            Section::Delete => delete(state),
+            Section::Publish => publish(),
             Section::Files => files(state),
             Section::File => file(state),
             Section::Fonts => fonts(&state.sitemap_fonts),
@@ -155,8 +154,6 @@ impl Section {
             Section::EditHTML => edit_html(state),
             Section::EditScript => edit_js(state),
             Section::EditStyles => edit_css(state),
-            Section::Publish => publish(),
-            _ => html!(),
         }
     }
 }
@@ -231,11 +228,28 @@ fn tab_button(state: &ViewState, section: &Section) -> Markup {
 }
 
 pub fn initial(state: &ViewState) -> Markup {
-    let selected_is_page = state.model_type == ModelType::Page;
-    let selected_is_layout = state.model_type == ModelType::Layout;
-    let selected_is_email = state.model_type == ModelType::Email;
+    let selected_is_page = (state.model_type == ModelType::Page).then_some("");
+    let selected_is_layout = (state.model_type == ModelType::Layout).then_some("");
+    let selected_is_email = (state.model_type == ModelType::Email).then_some("");
 
     html!(
+        @if let Some(sitemaps) = &state.sitemaps {
+            fieldset role="group" {
+                legend { "Mapa de Sitio"}
+                select
+                    name="section"
+                    autocomplete="off"
+                    hx-get="/dashboard/pages"
+                    hx-target="#content"
+                    hx-swap="outerHTML" {
+
+                    @for sitemap in sitemaps {
+                        option value=(sitemap.id)  { (sitemap.branch) }
+                    }
+                }
+
+            }
+        }
         fieldset role="group" {
             legend { "Tipo de Plantilla" }
             select
@@ -244,9 +258,9 @@ pub fn initial(state: &ViewState) -> Markup {
                 hx-get="/dashboard/pages"
                 hx-target="#content"
                 hx-swap="outerHTML" {
-                option value="page" selected=[selected_is_page.then_some("")] { "Sitio" }
-                option value="layout" selected=[selected_is_layout.then_some("")] { "Diseño" }
-                option value="email" selected=[selected_is_email.then_some("")] { "Correo" }
+                option value="page" selected=[selected_is_page] { "Sitio" }
+                option value="layout" selected=[selected_is_layout] { "Diseño" }
+                option value="email" selected=[selected_is_email] { "Correo" }
             }
         }
         fieldset {
@@ -271,6 +285,192 @@ pub fn initial(state: &ViewState) -> Markup {
                 }
             }
         }
+
+
+
+        div role="group" {
+            button title="Crear" hx-get="/dashboard/pages" hx-target="#editor" hx-swap="outerHTML"  hx-vals=(json!({"section": Section::Create}))  {
+                i.fa-solid.fa-plus {}
+            }
+
+            button title="Eliminar" hx-get="/dashboard/pages" hx-target="#editor" hx-swap="outerHTML"  hx-vals=(json!({"section": Section::Delete}))  {
+                i.fa-solid.fa-trash {}
+            }
+
+            button title="Publicar" hx-get="/dashboard/pages" hx-target="#editor" hx-swap="outerHTML"  hx-vals=(json!({"section": Section::Publish}))  {
+                i.fa-solid.fa-upload {}
+            }
+        }
+
+    )
+}
+
+pub fn create(state: &ViewState) -> Markup {
+    html!(
+        .actions {
+            button
+                type="button"
+                hx-trigger="click, deleted from:body, renamed from:body"
+                hx-get="/dashboard/pages"
+                hx-vals=(json!({ "section": Section::Initial}))
+                hx-target="#editor"
+                hx-swap="outerHTML"
+            {
+                "Volver"
+            }
+        }
+        fieldset x-data="{ modelType: 'page' }" {
+            legend { "Agregar Modelo" }
+            form hx-post="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" {
+                fieldset role="group" {
+                    legend {"Tipo de Plantilla"}
+                    select name="model_type" x-model="modelType" {
+                        option value="page" { "Sitio" }
+                        option value="layout" {"Diseño"}
+                    }
+                }
+
+                template x-if="modelType === 'page'" {
+                    div {
+                        fieldset {
+                            legend { "Path" }
+                            input name="path" required {}
+                        }
+                        fieldset {
+                            legend { "Nombre" }
+                            input name="name" required {}
+                        }
+                        fieldset {
+                            legend { "Titulo" }
+                            input name="title" required {}
+                        }
+                        input name="action" value="create" hidden {}
+                    }
+                }
+
+                template x-if="modelType === 'layout'" {
+                    div {
+                        fieldset {
+                            legend { "Nombre" }
+                            input name="name" required {}
+                        }
+                        input name="action" value="create" hidden {}
+                    }
+                }
+
+                .actions {
+                    button {"Crear"}
+                }
+            }
+        }
+        fieldset {
+            legend { "Sincronizar Mapa de Sitio" }
+            form hx-post="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" {
+                fieldset {
+                    legend { "Nombre" }
+                    input name="name" required {}
+                }
+                fieldset {
+                    legend { "Clonar desde" }
+                    select name="from_sitemap_id" {
+                        option value="" { "desde cero" }
+                        @if let Some(sitemaps) = &state.sitemaps {
+                            @for sitemap in sitemaps {
+                                option value=(sitemap.id) { (sitemap.branch) }
+                            }
+                        }
+                    }
+                }
+
+                input name="action" value="sync_sitemap" hidden {}
+
+                .actions {
+                    button {"Sincronizar"}
+                }
+            }
+        }
+    )
+}
+
+pub fn delete(state: &ViewState) -> Markup {
+    html!(
+        .actions {
+            button
+                type="button"
+                hx-trigger="click, deleted from:body, renamed from:body"
+                hx-get="/dashboard/pages"
+                hx-vals=(json!({ "section": Section::Initial}))
+                hx-target="#editor"
+                hx-swap="outerHTML"
+            {
+                "Volver"
+            }
+        }
+        .delete {
+            fieldset {
+                legend { "Eliminar plantilla" }
+                p {
+                @match &state.model {
+                    Some(Model::Page(page)) => {
+                        "Estás seguro de que deseas eliminar la página " b { (page.name) } "?"
+                    },
+                    Some(Model::Layout(layout)) => {
+                        "Estás seguro de que deseas eliminar el layout " b { (layout.name) } "?"
+                    },
+                    Some(Model::Email(email)) => {
+                        "Estás seguro de que deseas eliminar el email " b { (email.name) } "?"
+                    },
+                    _ => ""
+                }
+                }
+                .actions {
+                    button.danger hx-post="/dashoboard/pages" hx-target="#content" hx-swap="outerHTML" hx-vals=(json!({ "action": "delete_model"})) {
+                        "Eliminar"
+                    }
+                }
+            }
+            fieldset {
+                legend { "Eliminar mapa de sitio" }
+                p {
+                    "Estás seguro de que deseas eliminar el mapa de sitio " b { (state.sitemap.branch) } "?"
+                }
+                .actions {
+                    button.danger hx-post="/dashoboard/pages" hx-target="#content" hx-swap="outerHTML" hx-vals=(json!({ "action": "delete_sitemap"})) {
+                        "Eliminar"
+                    }
+                }
+            }
+        }
+    )
+}
+
+pub fn publish() -> Markup {
+    html!(
+        .actions {
+            button
+                type="button"
+                hx-trigger="click, deleted from:body, renamed from:body"
+                hx-get="/dashboard/pages"
+                hx-vals=(json!({ "section": Section::Initial}))
+                hx-target="#editor"
+                hx-swap="outerHTML"
+            {
+                "Volver"
+            }
+        }
+        .publish {
+            p {
+                "Al publicar el mapa de sitio actual, este estará disponible para los usuarios finales"
+            }
+            .actions {
+                button.warning hx-post="/dashboard/pages" hx-swap="none" hx-vals=(json!({ "action": "publish"})) { "Publicar" }
+            }
+        }
+    )
+}
+
+pub fn edit(state: &ViewState) -> Markup {
+    html!(
         @match &state.model {
             Some(Model::Page(page)) => {
                 form hx-patch="/dashboard/pages/basic" hx-swap="none" {
@@ -345,49 +545,6 @@ pub fn initial(state: &ViewState) -> Markup {
                 }
             },
             None => {}
-        }
-    )
-}
-
-pub fn create() -> Markup {
-    html!(
-        form hx-post="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" {
-            fieldset role="group" {
-                   legend {"Tipo de Plantilla"}
-                select name="type" {
-                       option value="Page" { "Sitio" }
-                    option value="Layout" {"Diseño"}
-                }
-            }
-
-            div {
-                fieldset {
-                       legend { "Nombre" }
-                    input name="name" required {}
-                }
-                fieldset {
-                    legend { "Titulo" }
-                    input name="title" required {}
-                }
-            }
-
-            .actions {
-                button {"Crear"}
-            }
-        }
-    )
-}
-
-pub fn delete() -> Markup {
-    html!(
-        .delete {
-            p {  "¿Estás seguro de que deseas eliminar este sitio?" }
-            .actions {
-                button hx-get="/dashboard/pages" hx-target="#editor" hx-swap="outerHTML" { "Cancelar" }
-                button.danger hx-delete="/dashoboard/pages" hx-target="#content" hx-swap="outerHTML" {
-                    "Eliminar"
-                }
-            }
         }
     )
 }
@@ -851,19 +1008,4 @@ pub fn edit_js(state: &ViewState) -> Markup {
             }
         }
     }
-}
-
-pub fn publish() -> Markup {
-    html!(
-           .publish {
-            p {
-                "¿Estás seguro de que deseas publicar la configuración"
-                br;
-                "Esta estará disponible para los usuarios finales"
-            }
-            .actions {
-                button.warning hx-post="/dashboard/pages" hx-swap="none" hx-vals=(json!({ "action": "publish"})) { "Publicar" }
-            }
-        }
-    )
 }

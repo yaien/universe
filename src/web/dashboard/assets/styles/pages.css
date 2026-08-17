@@ -42,8 +42,14 @@
         overflow: auto;
     }
 
-    .delete p {
-        text-align: center;
+    .delete {
+        p {
+            text-align: center;
+        }
+
+        fieldset {
+            padding: 0 var(--space);
+        }
     }
 
     .publish p {

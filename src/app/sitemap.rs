@@ -162,4 +162,17 @@ impl Sitemaps {
         .fetch_optional(&self.pool)
         .await
     }
+
+    pub async fn get_drafts_by_organization_id(
+        &self,
+        org_id: &Id,
+    ) -> Result<Vec<Sitemap>, sqlx::Error> {
+        sqlx::query_as::<_, Sitemap>(
+            "select * from sitemaps where organization_id = $1 and branch != $2",
+        )
+        .bind(org_id)
+        .bind(Branch::MAIN)
+        .fetch_all(&self.pool)
+        .await
+    }
 }
