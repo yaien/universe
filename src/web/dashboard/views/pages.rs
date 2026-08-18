@@ -5,7 +5,9 @@ use serde_json::json;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::app::{Branch, Color, Email, File, Font, Layout, Page, Sitemap, SitemapFont};
+use crate::app::{
+    Branch, Color, Email, File, Font, Layout, Organization, Page, Sitemap, SitemapFont,
+};
 use crate::infra::Id;
 
 pub enum Model {
@@ -47,7 +49,8 @@ impl Default for SessionState {
     }
 }
 
-pub struct ViewState {
+pub struct ViewState<'a> {
+    pub organization: &'a Organization,
     pub sitemap: Sitemap,
     pub sitemaps: Option<Vec<Sitemap>>,
     pub model: Option<Model>,
@@ -70,6 +73,7 @@ pub struct ViewState {
 
 #[derive(Deserialize, Default)]
 pub struct QueryState {
+    pub sitemap_branch: Option<String>,
     pub section: Option<Section>,
     pub model_type: Option<ModelType>,
     pub model_id: Option<Id>,
@@ -141,7 +145,7 @@ impl Section {
     pub fn markup(&self, state: &ViewState) -> Markup {
         match &self {
             Section::Initial => initial(state),
-            Section::Edit => edit(&state.model, &state.layouts),
+            Section::Edit => edit(&state.model, &state.organization, &state.layouts),
             Section::Create => create(state),
             Section::Delete => delete(state),
             Section::Publish => publish(),
@@ -238,14 +242,14 @@ pub fn initial(state: &ViewState) -> Markup {
                 fieldset role="group" {
                     legend { "Mapa de Sitio"}
                     select
-                        name="section"
+                        name="sitemap_branch"
                         autocomplete="off"
                         hx-get="/dashboard/pages"
                         hx-target="#content"
                         hx-swap="outerHTML" {
 
                         @for sitemap in sitemaps {
-                            option value=(sitemap.id)  { (sitemap.branch) }
+                            option value=(sitemap.branch) selected=[(sitemap.id == state.sitemap.id).then_some("")] { (sitemap.branch) }
                         }
                     }
 
@@ -338,7 +342,10 @@ pub fn create(state: &ViewState) -> Markup {
                     div {
                         fieldset {
                             legend { "Path" }
-                            input name="path" required {}
+                            .group {
+                                span { (state.organization.url) }
+                                input name="path" required {}
+                            }
                         }
                         fieldset {
                             legend { "Nombre" }
@@ -372,21 +379,14 @@ pub fn create(state: &ViewState) -> Markup {
             form hx-post="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" {
                 fieldset {
                     legend { "Nombre" }
-                    input name="name" required {}
-                }
-                fieldset {
-                    legend { "Clonar desde" }
-                    select name="from_sitemap_id" {
-                        option value="" { "desde cero" }
-                        @if let Some(sitemaps) = &state.sitemaps {
-                            @for sitemap in sitemaps {
-                                option value=(sitemap.id) { (sitemap.branch) }
-                            }
-                        }
+                    .group {
+                        span { "draft/"}
+                        input name="name" required {}
                     }
                 }
 
-                input name="action" value="sync_sitemap" hidden {}
+
+                input name="action" value="sync_draft" hidden {}
 
                 .actions {
                     button {"Sincronizar"}
@@ -473,7 +473,7 @@ pub fn publish() -> Markup {
     )
 }
 
-pub fn edit(model: &Option<Model>, layouts: &Vec<Layout>) -> Markup {
+pub fn edit(model: &Option<Model>, org: &Organization, layouts: &Vec<Layout>) -> Markup {
     html!(
         @match model {
             Some(Model::Page(page)) => {
@@ -484,7 +484,10 @@ pub fn edit(model: &Option<Model>, layouts: &Vec<Layout>) -> Markup {
                     }
                     fieldset role="group" {
                         legend { "Url" }
-                        input name="path" required value=(page.path) {}
+                        .group {
+                            span { (org.url) }
+                            input name="path" required value=(page.path) {}
+                        }
                     }
                     fieldset {
                         legend { "Titulo" }

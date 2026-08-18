@@ -19,17 +19,14 @@ use crate::web::dashboard::views::pages::{
 };
 use crate::web::errors::WebError;
 
-async fn get_view_state(
+async fn get_view_state<'a>(
     app: &App,
-    org: &Organization,
-    query: QueryState,
+    org: &'a Organization,
     session: &Session,
-) -> Result<ViewState, Error> {
-    let mut session_state = session
-        .get::<views::pages::SessionState>("pages")
-        .ok()
-        .flatten()
-        .unwrap_or_default();
+    query: QueryState,
+    session_state: SessionState,
+) -> Result<ViewState<'a>, Error> {
+    let mut session_state = session_state;
 
     if let Some(section) = query.section {
         session_state.section = section;
@@ -54,6 +51,13 @@ async fn get_view_state(
 
     if query.sitemap_font_id.is_some() {
         session_state.sitemap_font_id = query.sitemap_font_id
+    }
+
+    if let Some(sitemap_branch) = query.sitemap_branch {
+        session_state.sitemap_branch = sitemap_branch;
+        session_state.model_id = None;
+        session_state.model_type = ModelType::Page;
+        session_state.section = Section::Initial;
     }
 
     let sitemap = match app
@@ -147,6 +151,7 @@ async fn get_view_state(
     session.insert("pages", &session_state).ok();
 
     let mut view_state = ViewState {
+        organization: org,
         sitemap: sitemap,
         model: model,
         model_type: session_state.model_type,
@@ -266,7 +271,9 @@ pub async fn get_index(
         query = QueryState::default();
     }
 
-    let state = get_view_state(app.as_ref(), org.deref(), query, &session).await?;
+    let session_state: SessionState = session.get("pages").ok().flatten().unwrap_or_default();
+
+    let state = get_view_state(&app, &org, &session, query, session_state).await?;
 
     let target = req
         .headers()
@@ -286,8 +293,8 @@ pub async fn get_index(
         _ => Ok(views::layout::layout(&views::layout::Content {
             title: "Pages",
             path: req.path(),
-            org: &org.into_inner(),
-            role: &role.into_inner(),
+            org: &org,
+            role: &role,
             content: views::pages::content(&state),
         })),
     }
@@ -365,6 +372,9 @@ pub enum ActionForm {
     SaveEmailInfo {
         subject: String,
     },
+    SyncDraft {
+        name: String,
+    },
 }
 
 pub async fn exec_action(
@@ -422,7 +432,7 @@ pub async fn exec_action(
                     )
                 })?;
 
-            Ok(views::pages::edit(&Some(Model::Page(page)), &layouts))
+            Ok(views::pages::edit(&Some(Model::Page(page)), &org, &layouts))
         }
 
         CreateLayout { name } => {
@@ -450,7 +460,11 @@ pub async fn exec_action(
                     )
                 })?;
 
-            Ok(views::pages::edit(&Some(Model::Layout(layout)), &layouts))
+            Ok(views::pages::edit(
+                &Some(Model::Layout(layout)),
+                &org,
+                &layouts,
+            ))
         }
 
         SavePageInfo {
@@ -535,6 +549,33 @@ pub async fn exec_action(
                 "Email actualizado correctamente",
                 Variant::Primary,
             ))
+        }
+
+        SyncDraft { name } => {
+            let branch_name = format!("draft/{name}");
+            app.sitemaps
+                .sync_branch(&org.id, &sitemap.id, &branch_name)
+                .await
+                .map_err(|e| {
+                    WebError::Status(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed syncing draft: {e}"),
+                    )
+                })?;
+
+            session_state.sitemap_branch = branch_name;
+            session_state.model_id = None;
+            session_state.model_type = ModelType::Page;
+            session_state.section = Section::Initial;
+
+            let query = QueryState::default();
+
+            let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
+
+            Ok(html! {
+                (views::pages::content(&view_state))
+                (views::layout::toast("Mapa de sitio sincronizado correctamente", Variant::Primary))
+            })
         }
 
         CreateColor => {
