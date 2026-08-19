@@ -12,11 +12,11 @@ use serde::Deserialize;
 
 use crate::app::{App, Branch, Organization, PageInfo, Role};
 use crate::infra::Id;
-use crate::web::dashboard::views;
 use crate::web::dashboard::views::layout::Variant;
 use crate::web::dashboard::views::pages::{
     Model, ModelType, QueryState, Section, SessionState, ViewState,
 };
+use crate::web::dashboard::views::{self, layout};
 use crate::web::errors::WebError;
 
 async fn get_view_state<'a>(
@@ -181,6 +181,13 @@ async fn get_view_state<'a>(
                 .ok();
         }
         Section::Create => {
+            view_state.sitemaps = app
+                .sitemaps
+                .get_drafts_by_organization_id(&org.id)
+                .await
+                .ok();
+        }
+        Section::Delete => {
             view_state.sitemaps = app
                 .sitemaps
                 .get_drafts_by_organization_id(&org.id)
@@ -375,6 +382,9 @@ pub enum ActionForm {
     SyncDraft {
         name: String,
     },
+    DeletePage,
+    DeleteLayout,
+    DeleteSitemap,
 }
 
 pub async fn exec_action(
@@ -575,6 +585,88 @@ pub async fn exec_action(
             Ok(html! {
                 (views::pages::content(&view_state))
                 (views::layout::toast("Mapa de sitio sincronizado correctamente", Variant::Primary))
+            })
+        }
+
+        DeletePage => {
+            if session_state.model_type != ModelType::Page {
+                return Err(WebError::Status(
+                    StatusCode::BAD_REQUEST,
+                    "no page selected".into(),
+                ))?;
+            }
+
+            let Some(page_id) = session_state.model_id else {
+                return Err(WebError::Status(
+                    StatusCode::BAD_REQUEST,
+                    "no page selected".into(),
+                ))?;
+            };
+
+            app.pages
+                .delete_one_by_sitemap_id(&sitemap.id, &page_id)
+                .await?;
+
+            session_state.model_id = None;
+            session_state.model_type = ModelType::Page;
+            session_state.section = Section::Initial;
+
+            let query = QueryState::default();
+
+            let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
+
+            Ok(html! {
+                (views::pages::content(&view_state))
+                (views::layout::toast("Pagina eliminada correctamente", Variant::Primary))
+            })
+        }
+
+        DeleteLayout => {
+            if session_state.model_type != ModelType::Layout {
+                return Err(WebError::Status(
+                    StatusCode::BAD_REQUEST,
+                    "no layout selected".to_string(),
+                ))?;
+            }
+
+            let Some(layout_id) = session_state.model_id else {
+                return Err(WebError::Status(
+                    StatusCode::BAD_REQUEST,
+                    "no layout selected".to_string(),
+                ))?;
+            };
+
+            app.layouts
+                .delete_one_by_sitemap_id(&sitemap.id, &layout_id)
+                .await?;
+
+            session_state.model_id = None;
+            session_state.model_type = ModelType::Layout;
+            session_state.section = Section::Initial;
+
+            let query = QueryState::default();
+
+            let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
+
+            Ok(html! {
+                (views::pages::content(&view_state))
+                (views::layout::toast("Layout eliminado correctamente", Variant::Primary))
+            })
+        }
+        DeleteSitemap => {
+            app.sitemaps
+                .delete_one_by_organization_id(&sitemap.branch, &org.id)
+                .await?;
+
+            let session_state = SessionState::default();
+
+            let query = QueryState::default();
+
+            let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
+
+            Ok(html! {
+                (views::pages::content(&view_state))
+                (views::layout::toast("Sitemap eliminado correctamente", Variant::Primary))
             })
         }
 

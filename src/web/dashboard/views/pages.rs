@@ -411,36 +411,53 @@ pub fn delete(state: &ViewState) -> Markup {
             }
         }
         .delete {
-            fieldset {
-                legend { "Eliminar plantilla" }
-                p {
-                @match &state.model {
-                    Some(Model::Page(page)) => {
-                        "Estás seguro de que deseas eliminar la página " b { (page.name) } "?"
-                    },
-                    Some(Model::Layout(layout)) => {
-                        "Estás seguro de que deseas eliminar el layout " b { (layout.name) } "?"
-                    },
-                    Some(Model::Email(email)) => {
-                        "Estás seguro de que deseas eliminar el email " b { (email.name) } "?"
-                    },
-                    _ => ""
-                }
-                }
-                .actions {
-                    button.danger hx-post="/dashoboard/pages" hx-target="#content" hx-swap="outerHTML" hx-vals=(json!({ "action": "delete_model"})) {
-                        "Eliminar"
+            @let count = match &state.model_type {
+                ModelType::Page => state.pages.len(),
+                ModelType::Layout => state.layouts.len(),
+                _ => 0,
+            };
+
+            @if count > 1 {
+                fieldset {
+                    legend { "Eliminar plantilla" }
+                    p {
+                        @match &state.model {
+                            Some(Model::Page(page)) => {
+                                "Estás seguro de que deseas eliminar la página " b { (page.name) } "?"
+                            },
+                            Some(Model::Layout(layout)) => {
+                                "Estás seguro de que deseas eliminar el layout " b { (layout.name) } "?"
+                            },
+                            Some(Model::Email(email)) => {
+                                "Estás seguro de que deseas eliminar el email " b { (email.name) } "?"
+                            },
+                            _ => ""
+                        }
+                    }
+                    .actions {
+                        @let action = match &state.model_type {
+                            ModelType::Page => "delete_page",
+                            ModelType::Layout => "delete_layout",
+                        _ => "",
+                        };
+                        button.danger hx-post="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" hx-vals=(json!({ "action": action})) {
+                            "Eliminar"
+                        }
                     }
                 }
             }
-            fieldset {
-                legend { "Eliminar mapa de sitio" }
-                p {
-                    "Estás seguro de que deseas eliminar el mapa de sitio " b { (state.sitemap.branch) } "?"
-                }
-                .actions {
-                    button.danger hx-post="/dashoboard/pages" hx-target="#content" hx-swap="outerHTML" hx-vals=(json!({ "action": "delete_sitemap"})) {
-                        "Eliminar"
+            @if let Some(sitemaps) = &state.sitemaps {
+                @if sitemaps.len() > 1 && state.sitemap.branch != Branch::DRAFT {
+                    fieldset {
+                        legend { "Eliminar mapa de sitio" }
+                        p {
+                            "Estás seguro de que deseas eliminar el mapa de sitio " b { (state.sitemap.branch) } "?"
+                        }
+                        .actions {
+                            button.danger hx-post="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" hx-vals=(json!({ "action": "delete_sitemap"})) {
+                                "Eliminar"
+                            }
+                        }
                     }
                 }
             }

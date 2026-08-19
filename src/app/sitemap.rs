@@ -5,7 +5,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use sqlx::prelude::FromRow;
 
-use crate::app::{Colors, Emails, Fonts, Layouts, Pages};
+use crate::app::{self, Colors, Emails, Fonts, Layouts, Pages};
 use crate::infra::{DbPool, Id};
 
 pub struct Branch;
@@ -174,5 +174,25 @@ impl Sitemaps {
         .bind(Branch::MAIN)
         .fetch_all(&self.pool)
         .await
+    }
+
+    pub async fn delete_one_by_organization_id(
+        &self,
+        branch: &str,
+        org_id: &Id,
+    ) -> app::Result<()> {
+        if branch == Branch::MAIN || branch == Branch::DRAFT {
+            return Err(app::Error::Message(
+                "cant delete main or draft branch".to_string(),
+            ));
+        }
+
+        sqlx::query("delete from sitemaps where organization_id = $1 and branch = $2")
+            .bind(org_id)
+            .bind(branch)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
     }
 }

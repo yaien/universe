@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use sqlx::prelude::FromRow;
 
+use crate::app;
 use crate::infra::{DbPool, Id};
 
 #[derive(FromRow, Clone)]
@@ -166,5 +167,28 @@ impl Pages {
             .execute(&self.pool)
             .await
             .map(|_| ())
+    }
+
+    pub async fn delete_one_by_sitemap_id(
+        &self,
+        sitemap_id: &Id,
+        page_id: &Id,
+    ) -> Result<(), app::Error> {
+        let count: i64 = sqlx::query_scalar("select count(*) from pages where sitemap_id = $1")
+            .bind(sitemap_id)
+            .fetch_one(&self.pool)
+            .await?;
+
+        if count == 1 {
+            return Err(app::Error::Message("cannot delete the only page".into()));
+        }
+
+        sqlx::query("delete from pages where sitemap_id = $1 and id = $2")
+            .bind(sitemap_id)
+            .bind(page_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
     }
 }

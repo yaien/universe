@@ -374,6 +374,7 @@ fieldset {
 
         span {
             color: var(--text-muted);
+            text-wrap: nowrap;
         }
 
         input,
