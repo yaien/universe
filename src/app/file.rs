@@ -256,13 +256,7 @@ fn get_dimensions_by_content_type(
 }
 
 fn get_image_dimension(path: &PathBuf) -> Result<Dimensions, anyhow::Error> {
-    let content = std::fs::File::open(path)?;
-
-    let image = ImageReader::new(BufReader::new(content))
-        .with_guessed_format()?
-        .decode()?;
-
-    let (width, height) = image.dimensions();
+    let (width, height) = image::image_dimensions(path)?;
     let variant = max(width, height);
     Ok(Dimensions {
         width,
@@ -351,6 +345,8 @@ impl File {
 #[cfg(test)]
 mod tests {
 
+    use std::time::{Duration, Instant};
+
     use super::*;
 
     #[test]
@@ -430,6 +426,84 @@ mod tests {
             let format = file.get_format(&test.query);
 
             assert_eq!(format.map(|f| f.variant), test.want, "{}", test.name);
+        }
+    }
+
+    #[test]
+    fn get_file_dimensions() {
+        struct Test {
+            name: &'static str,
+            filepath: &'static str,
+            content_type: &'static str,
+            width: u32,
+            height: u32,
+            variant: u32,
+        }
+
+        let tests = [
+            Test {
+                name: "big_photo",
+                filepath: "testdata/files/big_photo.jpg",
+                content_type: "image/jpeg",
+                width: 3303,
+                height: 4954,
+                variant: 4954,
+            },
+            Test {
+                name: "big_video",
+                filepath: "testdata/files/big_video.mp4",
+                content_type: "video/mp4",
+                width: 1920,
+                height: 1080,
+                variant: 1080,
+            },
+        ];
+
+        for test in tests {
+            let filepath = PathBuf::from(test.filepath);
+            let mime: Mime = test.content_type.parse().expect(&format!(
+                "{}: failed at parsing content type: {}",
+                test.name, test.content_type
+            ));
+
+            let start = Instant::now();
+
+            let dimensions = match get_dimensions_by_content_type(&filepath, &mime) {
+                Ok(dimensions) => dimensions,
+                Err(e) => panic!(
+                    "{}: failed at get dimensions file {}: {}",
+                    test.name, test.filepath, e
+                ),
+            };
+
+            assert_eq!(
+                test.width, dimensions.width,
+                "{}: expected width {}, got {}",
+                test.name, test.width, dimensions.width
+            );
+
+            assert_eq!(
+                test.height, dimensions.height,
+                "{}: expected height {}, got {}",
+                test.name, test.height, dimensions.height
+            );
+
+            assert_eq!(
+                test.variant, dimensions.variant,
+                "{}: expected quality {}, got {}",
+                test.name, test.variant, dimensions.variant
+            );
+
+            let duration = start.elapsed();
+            let limit = Duration::from_millis(500);
+
+            assert!(
+                duration < limit,
+                "{}: expected duration to be < {}ms, got {}",
+                test.name,
+                limit.as_millis(),
+                duration.as_millis()
+            );
         }
     }
 }
