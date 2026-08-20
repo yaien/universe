@@ -1,12 +1,11 @@
 use std::cmp::max;
-use std::io::BufReader;
 use std::path::PathBuf;
 use std::process::Command;
 
 use actix_multipart::form::tempfile::TempFile;
 use anyhow::{Context, anyhow, bail};
 use chrono::{DateTime, Utc};
-use image::{GenericImageView, ImageReader};
+use image::image_dimensions;
 use mime::Mime;
 use sqlx::prelude::FromRow;
 
@@ -256,7 +255,7 @@ fn get_dimensions_by_content_type(
 }
 
 fn get_image_dimension(path: &PathBuf) -> Result<Dimensions, anyhow::Error> {
-    let (width, height) = image::image_dimensions(path)?;
+    let (width, height) = image_dimensions(path)?;
     let variant = max(width, height);
     Ok(Dimensions {
         width,
