@@ -13,6 +13,11 @@ mod role;
 mod sitemap;
 mod user;
 
+pub mod file_conversions;
+pub mod file_dimensions;
+pub mod file_processor;
+pub mod file_state;
+
 pub use auth::*;
 pub use color::*;
 pub use email::*;

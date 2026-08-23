@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use actix_multipart::form::MultipartForm;
 use actix_multipart::form::tempfile::TempFile;
 use actix_session::Session;
@@ -12,11 +10,11 @@ use serde::Deserialize;
 
 use crate::app::{App, Branch, Organization, PageInfo, Role};
 use crate::infra::Id;
+use crate::web::dashboard::views;
 use crate::web::dashboard::views::layout::Variant;
 use crate::web::dashboard::views::pages::{
     Model, ModelType, QueryState, Section, SessionState, ViewState,
 };
-use crate::web::dashboard::views::{self, layout};
 use crate::web::errors::WebError;
 
 async fn get_view_state<'a>(
@@ -346,6 +344,10 @@ pub enum ActionForm {
     SaveFont {
         tag: String,
     },
+    SaveFile {
+        name: String,
+    },
+    DeleteFile,
     SaveHtml {
         source: String,
     },
@@ -905,6 +907,68 @@ pub async fn exec_action(
                 "Mapa de sitio publicado correctamente",
                 Variant::Primary,
             ))
+        }
+        SaveFile { name } => {
+            let Some(file_id) = session_state.file_id else {
+                return Err(WebError::Status(
+                    StatusCode::BAD_REQUEST,
+                    "no file id selected".into(),
+                ))?;
+            };
+
+            app.files
+                .update_by_organization_id_and_id(&org.id, &file_id, &name)
+                .await
+                .map_err(|e| {
+                    WebError::Status(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed saving file: {e}"),
+                    )
+                })?;
+
+            Ok(views::layout::toast(
+                "Archivo guardado correctamente",
+                Variant::Primary,
+            ))
+        }
+        DeleteFile => {
+            let Some(file_id) = session_state.file_id else {
+                return Err(WebError::Status(
+                    StatusCode::BAD_REQUEST,
+                    "no file id selected".into(),
+                ))?;
+            };
+
+            session_state.file_id = None;
+            session_state.section = Section::Files;
+
+            session.insert("pages", &session_state).ok();
+
+            app.files
+                .delete_by_organization_id_and_id(&org.id, &file_id)
+                .await
+                .map_err(|e| {
+                    WebError::Status(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed deleting file: {e}"),
+                    )
+                })?;
+
+            let files = app
+                .files
+                .get_by_organization_id(&org.id)
+                .await
+                .map_err(|e| {
+                    WebError::Status(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed listing files: {e}"),
+                    )
+                })?;
+
+            Ok(html! {
+                (views::pages::files(&Some(files)))
+                (views::layout::toast("Archivo eliminado correctamente", Variant::Primary))
+            })
         }
     }
 }

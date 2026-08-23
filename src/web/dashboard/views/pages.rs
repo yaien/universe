@@ -149,7 +149,7 @@ impl Section {
             Section::Create => create(state),
             Section::Delete => delete(state),
             Section::Publish => publish(),
-            Section::Files => files(state),
+            Section::Files => files(&state.files),
             Section::File => file(state),
             Section::Fonts => fonts(&state.sitemap_fonts),
             Section::BrowseFonts => browse_fonts(state),
@@ -584,7 +584,7 @@ pub fn edit(model: &Option<Model>, org: &Organization, layouts: &Vec<Layout>) ->
     )
 }
 
-pub fn files(state: &ViewState) -> Markup {
+pub fn files(files: &Option<Vec<File>>) -> Markup {
     html!(
         .grow.files {
             .actions x-data="progress"{
@@ -595,7 +595,7 @@ pub fn files(state: &ViewState) -> Markup {
                     hx-encoding="multipart/form-data"
                     "@htmx:xhr:progress"="progress($event)"
                 {
-                    input type="file" x-ref="input" hidden name="files" accept="image/*,video/*" multiple {}
+                    input type="file" x-ref="input" hidden name="files" accept="image/png,image/jpeg,image/jpg,video/mp4" multiple {}
                     button type="button" "@click"="$refs.input.click()" class="clear" {
                         i.fa-solid.fa-plus {}
                     }
@@ -607,7 +607,7 @@ pub fn files(state: &ViewState) -> Markup {
                 }
             }
             #files .grid {
-                @if let Some(files) = &state.files {
+                @if let Some(files) = files {
                     (file_grid(files))
                 }
             }
@@ -653,7 +653,7 @@ pub fn file(state: &ViewState) -> Markup {
 
 pub fn file_detail(file: &File) -> Markup {
     html!(
-        .edit {
+        #edit.edit {
             .actions {
                 button
                     type="button"
@@ -694,13 +694,17 @@ pub fn file_detail(file: &File) -> Markup {
                     }
                 }
             }
-            form hx-patch=(format!("/dashboard/files/{}", file.name)) hx-swap="none" {
+            form hx-post="/dashboard/pages" hx-swap="none" {
+                input type="hidden" name="action" value="save_file" {}
+
                 fieldset {
                     legend { "Nombre" }
                     input name="name" value=(file.name) required {}
                 }
                 .actions.around {
-                    button.danger type="button" hx-delete=(format!("/dashboard/files/{}", file.name)) hx-swap="none" class="danger" { "Eliminar" }
+                    button.danger type="button" hx-post="/dashboard/pages" hx-target="#edit" hx-swap="outerHTML" hx-vals=(json!({ "action": "delete_file" })) {
+                        "Eliminar"
+                    }
                     button type="submit" { "Guardar" }
                 }
             }
