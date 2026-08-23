@@ -42,18 +42,22 @@ pub struct Queue {
     pool: DbPool,
 }
 
+pub trait Task: Serialize + DeserializeOwned {
+    fn name() -> &'static str;
+}
+
 impl Queue {
     pub fn new(pool: DbPool, sender: mpsc::Sender<Job>) -> Self {
         Self { sender, pool }
     }
 
-    pub async fn push<T: Serialize>(&self, to: &str, v: &T) -> anyhow::Result<()> {
-        let data = serde_json::to_string(v).context("failed converting value to json")?;
+    pub async fn push<T: Task>(&self, task: T) -> anyhow::Result<()> {
+        let data = serde_json::to_string(&task).context("failed converting value to json")?;
 
         let job = sqlx::query_as::<_, Job>(
             "insert into jobs(name, data, status) values ($1, $2, $3) returning *",
         )
-        .bind(to)
+        .bind(T::name())
         .bind(data)
         .bind(Status::Pending)
         .fetch_one(&self.pool)
@@ -69,7 +73,7 @@ impl Queue {
 pub struct Data(Value);
 
 impl Data {
-    fn try_into<T: DeserializeOwned>(self) -> anyhow::Result<T> {
+    pub fn try_into<T: Task>(self) -> anyhow::Result<T> {
         serde_json::from_value(self.0).context("failed at parsing json")
     }
 }
@@ -190,8 +194,14 @@ mod test {
     use super::*;
 
     #[derive(Serialize, Deserialize)]
-    pub struct Task {
+    pub struct TestTask {
         message: String,
+    }
+
+    impl Task for TestTask {
+        fn name() -> &'static str {
+            "task"
+        }
     }
 
     pub struct Manager;
@@ -207,7 +217,7 @@ mod test {
 
         fn process(&self, data: Data) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>> {
             Box::pin(async move {
-                let task = data.try_into::<Task>()?;
+                let task = data.try_into::<TestTask>()?;
                 println!("Task message: {}", task.message);
                 Ok(())
             })
@@ -230,12 +240,12 @@ mod test {
             worker.work().await;
         });
 
-        let task = &Task {
+        let task = TestTask {
             message: "hello_task".into(),
         };
 
         queue
-            .push(Manager::TASKNAME, task)
+            .push(task)
             .await
             .context("failed pushing tash queue")?;
 
@@ -265,7 +275,7 @@ mod test {
         let (sender, mut receiver) = mpsc::channel(1);
 
         for i in 0..5 {
-            let task = Task {
+            let task = TestTask {
                 message: format!("message from task {i}"),
             };
 

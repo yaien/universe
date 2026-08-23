@@ -320,7 +320,7 @@ pub async fn upload_files(
     app.files
         .upload_many(&org.id, form.files)
         .await
-        .map_err(|e| WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(|e| WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, format!("{:?}", e)))?;
 
     let files = app
         .files

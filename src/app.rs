@@ -79,6 +79,7 @@ impl App {
 
         let files = Arc::new(Files::new(
             mono.pool.clone(),
+            mono.queue.clone(),
             mono.config.storage_path.clone(),
         ));
 

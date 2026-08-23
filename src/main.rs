@@ -15,6 +15,8 @@ use sqlx::migrate;
 
 use infra::Monolith;
 
+use crate::app::FileConversion;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cmd = Args::parse();
@@ -76,9 +78,11 @@ async fn main() -> Result<()> {
             let data = mono.clone();
 
             let worker = mono.worker.clone();
+            let worker_srv = service.clone();
 
             tokio::spawn(async move {
                 let mut w = worker.lock().await;
+                w.procesor(Box::new(FileConversion::new(worker_srv.files.clone())));
                 w.work().await;
             });
 
