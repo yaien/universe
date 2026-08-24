@@ -239,15 +239,13 @@ impl Sitemaps {
             .await
             .context("failed getting colors")?;
 
-        let content = markup(MarkupOptions {
+        markup(MarkupOptions {
             org,
             layout,
             fonts,
             page: Some(page),
             mode: Mode::Inline { colors },
-        });
-
-        Ok(content)
+        })
     }
 
     pub async fn display_layout_inline(
@@ -274,15 +272,13 @@ impl Sitemaps {
             .await
             .context("failed getting colors")?;
 
-        let content = markup(MarkupOptions {
+        markup(MarkupOptions {
             org,
             page: None,
             layout: Some(layout),
             fonts,
             mode: Mode::Inline { colors },
-        });
-
-        Ok(content)
+        })
     }
 
     pub async fn display_email_inline(

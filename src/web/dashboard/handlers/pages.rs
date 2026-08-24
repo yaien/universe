@@ -504,11 +504,10 @@ pub async fn exec_action(
                     )
                 })?;
 
-            Ok(views::pages::edit(
-                &Some(Model::Page(page)),
-                &org,
-                &Some(layouts),
-            ))
+            Ok(html! {
+                (views::pages::edit(&Some(Model::Page(page)), &org, &Some(layouts)))
+                (views::pages::preview(true))
+            })
         }
 
         CreateLayout { name } => {
@@ -536,11 +535,11 @@ pub async fn exec_action(
                     )
                 })?;
 
-            Ok(views::pages::edit(
+            Ok(html!((views::pages::edit(
                 &Some(Model::Layout(layout)),
                 &org,
-                &Some(layouts),
-            ))
+                &Some(layouts)
+            ))(views::pages::preview(true))))
         }
 
         SavePageInfo {
@@ -577,10 +576,10 @@ pub async fn exec_action(
                     )
                 })?;
 
-            Ok(views::layout::toast(
-                "Pagina actualizada correctamente",
-                Variant::Primary,
-            ))
+            Ok(html! {
+                (views::layout::toast("Pagina actualizada correctamente", Variant::Primary))
+                (views::pages::preview(true))
+            })
         }
 
         SaveLayoutInfo { name } => {
@@ -651,6 +650,7 @@ pub async fn exec_action(
             Ok(html! {
                 (views::pages::content(&view_state))
                 (views::layout::toast("Mapa de sitio sincronizado correctamente", Variant::Primary))
+                (views::pages::preview(true))
             })
         }
 
@@ -684,6 +684,7 @@ pub async fn exec_action(
             Ok(html! {
                 (views::pages::content(&view_state))
                 (views::layout::toast("Pagina eliminada correctamente", Variant::Primary))
+                (views::pages::preview(true))
             })
         }
 
@@ -717,6 +718,7 @@ pub async fn exec_action(
             Ok(html! {
                 (views::pages::content(&view_state))
                 (views::layout::toast("Layout eliminado correctamente", Variant::Primary))
+                (views::pages::preview(true))
             })
         }
         DeleteSitemap => {
@@ -733,6 +735,7 @@ pub async fn exec_action(
             Ok(html! {
                 (views::pages::content(&view_state))
                 (views::layout::toast("Sitemap eliminado correctamente", Variant::Primary))
+                (views::pages::preview(true))
             })
         }
 
@@ -875,7 +878,7 @@ pub async fn exec_action(
                 }
             };
 
-            Ok(html!())
+            Ok(views::pages::preview(true))
         }
         SaveCss { source } => {
             let Some(model_id) = session_state.model_id else {
@@ -916,7 +919,7 @@ pub async fn exec_action(
                 }
             };
 
-            Ok(html!())
+            Ok(views::pages::preview(true))
         }
         SaveJS { source } => {
             let Some(model_id) = session_state.model_id else {
@@ -957,7 +960,7 @@ pub async fn exec_action(
                 }
             };
 
-            Ok(html!())
+            Ok(views::pages::preview(true))
         }
         Publish => {
             app.sitemaps
@@ -993,10 +996,10 @@ pub async fn exec_action(
                     )
                 })?;
 
-            Ok(views::layout::toast(
-                "Archivo guardado correctamente",
-                Variant::Primary,
-            ))
+            Ok(html! {
+                (views::layout::toast("Archivo guardado correctamente", Variant::Primary))
+                (views::pages::preview(true))
+            })
         }
         DeleteFile => {
             let Some(file_id) = session_state.file_id else {
@@ -1035,6 +1038,7 @@ pub async fn exec_action(
             Ok(html! {
                 (views::pages::files(&Some(files)))
                 (views::layout::toast("Archivo eliminado correctamente", Variant::Primary))
+                (views::pages::preview(true))
             })
         }
     }
