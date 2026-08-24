@@ -6,10 +6,16 @@ use actix_multipart::form::tempfile::TempFile;
 use anyhow::{Context, anyhow, bail};
 use sqlx::prelude::FromRow;
 
-use crate::app::file_conversions::convert_file;
-use crate::app::file_dimensions::*;
-use crate::app::file_processor::*;
-use crate::app::file_state::*;
+pub mod conversions;
+pub mod dimensions;
+pub mod processor;
+pub mod state;
+
+use conversions::*;
+use dimensions::*;
+use processor::*;
+use state::*;
+
 use crate::infra::{DbPool, Id, Queue};
 
 #[derive(FromRow)]

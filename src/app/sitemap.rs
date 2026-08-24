@@ -1,12 +1,19 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use maud::{Markup, PreEscaped, html};
 use sqlx::prelude::FromRow;
 
-use crate::app::{self, Colors, Emails, Fonts, Layouts, Pages};
+use crate::app::sitemap::markup::{MarkupOptions, Mode, markup};
+use crate::app::{self, AppError, Colors, Emails, Fonts, Layouts, Organization, Page, Pages};
 use crate::infra::{DbPool, Id};
+
+mod links;
+mod markup;
+mod script;
+mod style;
 
 pub struct Branch;
 
@@ -182,7 +189,7 @@ impl Sitemaps {
         org_id: &Id,
     ) -> app::Result<()> {
         if branch == Branch::MAIN || branch == Branch::DRAFT {
-            return Err(app::Error::Message(
+            return Err(app::AppError::Message(
                 "cant delete main or draft branch".to_string(),
             ));
         }
@@ -194,5 +201,101 @@ impl Sitemaps {
             .await?;
 
         Ok(())
+    }
+
+    pub async fn display_page_inline(
+        &self,
+        org: &Organization,
+        sitemap_id: &Id,
+        page_id: &Id,
+    ) -> app::Result<Markup> {
+        let page = self
+            .pages
+            .get_by_id(sitemap_id, page_id)
+            .await
+            .context("failed finding page")?;
+
+        let layout = match page.layout_id {
+            Some(layout_id) => {
+                let layout = self
+                    .layouts
+                    .get_by_id(&sitemap_id, &layout_id)
+                    .await
+                    .context("failed finding layout")?;
+                Some(layout)
+            }
+            None => None,
+        };
+
+        let fonts = self
+            .fonts
+            .get_by_sitemap_id(&sitemap_id)
+            .await
+            .context("failed getting fonts")?;
+
+        let colors = self
+            .colors
+            .get_by_sitemap_id(&sitemap_id)
+            .await
+            .context("failed getting colors")?;
+
+        let content = markup(MarkupOptions {
+            org,
+            layout,
+            fonts,
+            page: Some(page),
+            mode: Mode::Inline { colors },
+        });
+
+        Ok(content)
+    }
+
+    pub async fn display_layout_inline(
+        &self,
+        org: &Organization,
+        sitemap_id: &Id,
+        layout_id: &Id,
+    ) -> app::Result<Markup> {
+        let layout = self
+            .layouts
+            .get_by_id(sitemap_id, layout_id)
+            .await
+            .context("failed finding layout")?;
+
+        let fonts = self
+            .fonts
+            .get_by_sitemap_id(sitemap_id)
+            .await
+            .context("failed getting fonts")?;
+
+        let colors = self
+            .colors
+            .get_by_sitemap_id(sitemap_id)
+            .await
+            .context("failed getting colors")?;
+
+        let content = markup(MarkupOptions {
+            org,
+            page: None,
+            layout: Some(layout),
+            fonts,
+            mode: Mode::Inline { colors },
+        });
+
+        Ok(content)
+    }
+
+    pub async fn display_email_inline(
+        &self,
+        sitemap_id: &Id,
+        email_id: &Id,
+    ) -> app::Result<Markup> {
+        let email = self
+            .emails
+            .get_by_id(sitemap_id, email_id)
+            .await
+            .context("failed getting email")?;
+
+        Ok(html!((PreEscaped(email.body))))
     }
 }

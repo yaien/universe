@@ -56,9 +56,9 @@ pub struct ViewState<'a> {
     pub model: Option<Model>,
     pub model_type: ModelType,
     pub section: Section,
-    pub pages: Vec<Page>,
-    pub layouts: Vec<Layout>,
-    pub emails: Vec<Email>,
+    pub pages: Option<Vec<Page>>,
+    pub layouts: Option<Vec<Layout>>,
+    pub emails: Option<Vec<Email>>,
     pub files: Option<Vec<File>>,
     pub file: Option<File>,
     pub sitemap_fonts: Option<Vec<SitemapFont>>,
@@ -166,7 +166,7 @@ pub fn content(state: &ViewState) -> Markup {
     html!(
         #content "data-scope"="pages" {
             (editor(&state))
-            (preview())
+            (preview(false))
         }
     )
 }
@@ -204,11 +204,11 @@ pub fn editor(state: &ViewState) -> Markup {
     )
 }
 
-pub fn preview() -> Markup {
+pub fn preview(swap: bool) -> Markup {
     html!(
-        #preview.page x-data="preview('/dashboard/pages/preview')" "@render.window.debounce"="render()" {
+        #preview.page hx-swap-oob=[swap.then_some("true")] {
             .resizeable {
-                iframe x-ref="iframe" ":srcdoc"="srcdoc" {}
+                iframe x-ref="iframe" src="/dashboard/pages/preview" {}
             }
         }
     )
@@ -273,18 +273,24 @@ pub fn initial(state: &ViewState) -> Markup {
                 select name="model_id" hx-get="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" required  {
                     @match &state.model {
                         Some(Model::Page(selected)) => {
-                            @for page in &state.pages {
-                                option value=(&page.id) selected=[(page.id == selected.id).then_some("true")] { (page.name) }
+                            @if let Some(pages) = &state.pages {
+                                @for page in pages {
+                                    option value=(&page.id) selected=[(page.id == selected.id).then_some("true")] { (page.name) }
+                                }
                             }
                         }
                         Some(Model::Layout(selected)) => {
-                            @for layout in &state.layouts {
-                                option value=(&layout.id) selected=[(layout.id == selected.id).then_some("")] { (layout.name) }
+                            @if let Some(layouts) = &state.layouts {
+                                @for layout in layouts {
+                                    option value=(&layout.id) selected=[(layout.id == selected.id).then_some("")] { (layout.name) }
+                                }
                             }
                         }
                         Some(Model::Email(selected)) => {
-                            @for email in &state.emails {
-                                option value=(&email.id) selected=[(email.id == selected.id).then_some("")] { (email.name) }
+                            @if let Some(emails) = &state.emails {
+                                @for email in emails {
+                                    option value=(&email.id) selected=[(email.id == selected.id).then_some("")] { (email.name) }
+                                }
                             }
                         }
                         _=> {}
@@ -412,8 +418,8 @@ pub fn delete(state: &ViewState) -> Markup {
         }
         .delete {
             @let count = match &state.model_type {
-                ModelType::Page => state.pages.len(),
-                ModelType::Layout => state.layouts.len(),
+                ModelType::Page => state.pages.as_ref().map(|p| p.len()).unwrap_or(0 as usize),
+                ModelType::Layout => state.layouts.as_ref().map(|l| l.len()).unwrap_or(0 as usize),
                 _ => 0,
             };
 
@@ -490,7 +496,7 @@ pub fn publish() -> Markup {
     )
 }
 
-pub fn edit(model: &Option<Model>, org: &Organization, layouts: &Vec<Layout>) -> Markup {
+pub fn edit(model: &Option<Model>, org: &Organization, layouts: &Option<Vec<Layout>>) -> Markup {
     html!(
         @match model {
             Some(Model::Page(page)) => {
@@ -540,8 +546,10 @@ pub fn edit(model: &Option<Model>, org: &Organization, layouts: &Vec<Layout>) ->
                         legend { "Diseño" }
                         select name="layout_id" {
                             option value="" { "Ninguno" }
-                            @for layout in layouts {
-                                option value=(layout.id) selected=[(Some(layout.id) == page.layout_id).then_some("")] { (layout.name) }
+                            @if let Some(layouts) = layouts {
+                                @for layout in layouts {
+                                    option value=(layout.id) selected=[(Some(layout.id) == page.layout_id).then_some("")] { (layout.name) }
+                                }
                             }
                         }
                     }
@@ -719,7 +727,7 @@ pub fn fonts(sitemap_fonts: &Option<Vec<SitemapFont>>) -> Markup {
                 .list {
                     @for sitemap_font in sitemap_fonts {
                         .font
-                            title=(sitemap_font.font_family)
+                            title=(sitemap_font.family)
                             hx-get="/dashboard/pages"
                             hx-target="#editor"
                             hx-swap="outerHTML"
@@ -728,11 +736,11 @@ pub fn fonts(sitemap_fonts: &Option<Vec<SitemapFont>>) -> Markup {
                             .preview
                                 x-data=(
                                     format!("font({{ family: {:?}, url: {:?} }})",
-                                    sitemap_font.font_family, sitemap_font.font_files["regular"]
+                                    sitemap_font.family, sitemap_font.files["regular"]
                                 ))
                                 ":style"="style"
                             {
-                                (sitemap_font.font_family)
+                                (sitemap_font.family)
                             }
                             span { (sitemap_font.tag) }
                         }

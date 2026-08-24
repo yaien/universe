@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use sqlx::prelude::FromRow;
 
 use crate::app;
@@ -18,8 +17,6 @@ pub struct Page {
     pub html: String,
     pub css: String,
     pub js: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
 }
 
 pub struct PageInfo {
@@ -88,6 +85,15 @@ impl Pages {
             .bind(page_id)
             .fetch_one(&self.pool)
             .await
+    }
+
+    pub async fn get_oldest(&self, sitemap_id: &Id) -> Result<Page, sqlx::Error> {
+        sqlx::query_as::<_, Page>(
+            "select * from pages where sitemap_id = $1 order by id asc limit 1",
+        )
+        .bind(sitemap_id)
+        .fetch_one(&self.pool)
+        .await
     }
 
     pub async fn get_by_sitemap_id(&self, sitemap_id: &Id) -> Result<Vec<Page>, sqlx::Error> {
@@ -173,14 +179,14 @@ impl Pages {
         &self,
         sitemap_id: &Id,
         page_id: &Id,
-    ) -> Result<(), app::Error> {
+    ) -> Result<(), app::AppError> {
         let count: i64 = sqlx::query_scalar("select count(*) from pages where sitemap_id = $1")
             .bind(sitemap_id)
             .fetch_one(&self.pool)
             .await?;
 
         if count == 1 {
-            return Err(app::Error::Message("cannot delete the only page".into()));
+            return Err(app::AppError::Message("cannot delete the only page".into()));
         }
 
         sqlx::query("delete from pages where sitemap_id = $1 and id = $2")

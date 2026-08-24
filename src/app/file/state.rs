@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use anyhow::anyhow;
 
-use crate::app::file_conversions::Preset;
+use crate::app::file::conversions::*;
 use crate::app::{File, FileFormat};
 
 #[derive(Debug)]

@@ -61,6 +61,15 @@ impl Layouts {
             .await
     }
 
+    pub async fn get_oldest(&self, sitemap_id: &Id) -> Result<Layout, sqlx::Error> {
+        sqlx::query_as::<_, Layout>(
+            "select * from layouts where sitemap_id = $1 order by id asc limit 1",
+        )
+        .bind(sitemap_id)
+        .fetch_one(&self.pool)
+        .await
+    }
+
     pub async fn update_name(
         &self,
         sitemap_id: &Id,
@@ -133,14 +142,16 @@ impl Layouts {
         &self,
         sitemap_id: &Id,
         layout_id: &Id,
-    ) -> Result<(), app::Error> {
+    ) -> Result<(), app::AppError> {
         let count: i64 = sqlx::query_scalar("select count(*) from layouts where sitemap_id = $1")
             .bind(sitemap_id)
             .fetch_one(&self.pool)
             .await?;
 
         if count == 1 {
-            return Err(app::Error::Message("cannot delete the only layout".into()));
+            return Err(app::AppError::Message(
+                "cannot delete the only layout".into(),
+            ));
         }
 
         sqlx::query("delete from layouts where sitemap_id = $1 and id = $2")

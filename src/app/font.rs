@@ -8,14 +8,7 @@ use crate::infra::{DbPool, Id};
 #[derive(FromRow)]
 pub struct Font {
     pub id: Id,
-
     pub family: String,
-
-    #[sqlx(json)]
-    pub subsets: Vec<String>,
-
-    #[sqlx(json)]
-    pub variants: Vec<String>,
 
     #[sqlx(json)]
     pub files: HashMap<String, String>,
@@ -26,13 +19,14 @@ pub struct SitemapFont {
     pub id: Id,
     pub tag: String,
     pub font_id: Id,
-    pub font_family: String,
+    pub family: String,
+    pub provider: String,
 
     #[sqlx(json)]
-    pub font_variants: Vec<String>,
+    pub variants: Vec<String>,
 
     #[sqlx(json)]
-    pub font_files: HashMap<String, String>,
+    pub files: HashMap<String, String>,
 }
 
 pub struct Fonts {
@@ -94,7 +88,7 @@ impl Fonts {
     ) -> Result<Vec<SitemapFont>, sqlx::Error> {
         sqlx::query_as::<_, SitemapFont>(
             r#"
-            select sf.id, sf.tag, f.id as font_id, f.family as font_family, f.variants as font_variants, f.files as font_files from sitemaps_fonts sf
+            select sf.id, sf.tag, f.id as font_id, f.family, f.provider, f.variants, f.files from sitemaps_fonts sf
             join fonts f on f.id = sf.font_id
             where sitemap_id = $1
             "#,
@@ -111,7 +105,7 @@ impl Fonts {
     ) -> Result<SitemapFont, sqlx::Error> {
         sqlx::query_as::<_, SitemapFont>(
                     r#"
-                    select sf.id, sf.tag, f.id as font_id, f.family as font_family, f.variants as font_variants, f.files as font_files from sitemaps_fonts sf
+                    select sf.id, sf.tag, f.id as font_id, f.family, f.provider, f.variants, f.files from sitemaps_fonts sf
                     join fonts f on f.id = sf.font_id
                     where sf.sitemap_id = $1 and sf.id = $2
                     "#,

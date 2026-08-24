@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use anyhow::{Result, bail};
 
-use crate::app::file_dimensions::*;
+use crate::app::file::dimensions::*;
 
 #[derive(Debug, PartialEq)]
 pub enum Preset {

@@ -8,7 +8,7 @@ use actix_web::web::{Data, Form, Query, ReqData};
 use maud::{Markup, html};
 use serde::Deserialize;
 
-use crate::app::{App, Branch, Organization, PageInfo, Role};
+use crate::app::{App, AppError, Branch, Organization, PageInfo, Role};
 use crate::infra::Id;
 use crate::web::dashboard::views;
 use crate::web::dashboard::views::layout::Variant;
@@ -73,39 +73,6 @@ async fn get_view_state<'a>(
         }
     };
 
-    let pages = app
-        .pages
-        .get_by_sitemap_id(&sitemap.id)
-        .await
-        .map_err(|e| {
-            WebError::Status(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("failed loading sitemap pages: {e}"),
-            )
-        })?;
-
-    let emails = app
-        .emails
-        .get_by_sitemap_id(&sitemap.id)
-        .await
-        .map_err(|e| {
-            WebError::Status(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("failed loading sitemap emails: {e}"),
-            )
-        })?;
-
-    let layouts = app
-        .layouts
-        .get_by_sitemap_id(&sitemap.id)
-        .await
-        .map_err(|e| {
-            WebError::Status(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("failed loading sitemap layouts: {e}"),
-            )
-        })?;
-
     let model = match session_state.model_id {
         Some(id) => match session_state.model_type {
             ModelType::Page => app
@@ -131,18 +98,27 @@ async fn get_view_state<'a>(
                 .map(|email| Model::Email(email)),
         },
         None => match session_state.model_type {
-            ModelType::Page => pages
-                .first()
+            ModelType::Page => app
+                .pages
+                .get_oldest(&sitemap.id)
+                .await
+                .ok()
                 .inspect(|page| session_state.model_id = Some(page.id))
-                .map(|page| Model::Page(page.clone())),
-            ModelType::Layout => layouts
-                .first()
+                .map(|page| Model::Page(page)),
+            ModelType::Layout => app
+                .layouts
+                .get_oldest(&sitemap.id)
+                .await
+                .ok()
                 .inspect(|layout| session_state.model_id = Some(layout.id))
-                .map(|layout| Model::Layout(layout.clone())),
-            ModelType::Email => emails
-                .first()
+                .map(|layout| Model::Layout(layout)),
+            ModelType::Email => app
+                .emails
+                .get_oldest(&sitemap.id)
+                .await
+                .ok()
                 .inspect(|email| session_state.model_id = Some(email.id))
-                .map(|email| Model::Email(email.clone())),
+                .map(|email| Model::Email(email)),
         },
     };
 
@@ -154,9 +130,9 @@ async fn get_view_state<'a>(
         model: model,
         model_type: session_state.model_type,
         section: session_state.section,
-        pages: pages,
-        layouts: layouts,
-        emails: emails,
+        pages: None,
+        layouts: None,
+        emails: None,
         sitemaps: None,
         files: None,
         file: None,
@@ -177,6 +153,24 @@ async fn get_view_state<'a>(
                 .get_drafts_by_organization_id(&org.id)
                 .await
                 .ok();
+
+            view_state.pages = app
+                .pages
+                .get_by_sitemap_id(&view_state.sitemap.id)
+                .await
+                .ok();
+
+            view_state.emails = app
+                .emails
+                .get_by_sitemap_id(&view_state.sitemap.id)
+                .await
+                .ok();
+
+            view_state.layouts = app
+                .layouts
+                .get_by_sitemap_id(&view_state.sitemap.id)
+                .await
+                .ok();
         }
         Section::Create => {
             view_state.sitemaps = app
@@ -189,6 +183,25 @@ async fn get_view_state<'a>(
             view_state.sitemaps = app
                 .sitemaps
                 .get_drafts_by_organization_id(&org.id)
+                .await
+                .ok();
+
+            view_state.pages = app
+                .pages
+                .get_by_sitemap_id(&view_state.sitemap.id)
+                .await
+                .ok();
+
+            view_state.layouts = app
+                .layouts
+                .get_by_sitemap_id(&view_state.sitemap.id)
+                .await
+                .ok();
+        }
+        Section::Edit => {
+            view_state.layouts = app
+                .layouts
+                .get_by_sitemap_id(&view_state.sitemap.id)
                 .await
                 .ok();
         }
@@ -272,6 +285,7 @@ pub async fn get_index(
     req: HttpRequest,
 ) -> Result<Markup, Error> {
     let mut query = query.into_inner();
+
     if !req.headers().contains_key("hx-request") {
         query = QueryState::default();
     }
@@ -302,6 +316,52 @@ pub async fn get_index(
             role: &role,
             content: views::pages::content(&state),
         })),
+    }
+}
+
+pub async fn get_preview(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+) -> Result<Markup, Error> {
+    let session_state: SessionState = session.get("pages").ok().flatten().unwrap_or_default();
+
+    let Some(model_id) = session_state.model_id else {
+        return Err(WebError::Status(
+            StatusCode::BAD_REQUEST,
+            "model_id is not set".to_string(),
+        ))?;
+    };
+
+    let sitemap = app
+        .sitemaps
+        .get_one_by_branch(&org.id, &session_state.sitemap_branch)
+        .await
+        .map_err(|e| AppError::from(e))?;
+
+    match session_state.model_type {
+        ModelType::Page => {
+            let markup = app
+                .sitemaps
+                .display_page_inline(&org, &sitemap.id, &model_id)
+                .await?;
+            Ok(markup)
+        }
+        ModelType::Layout => {
+            let markup = app
+                .sitemaps
+                .display_layout_inline(&org, &sitemap.id, &model_id)
+                .await?;
+
+            Ok(markup)
+        }
+        ModelType::Email => {
+            let markup = app
+                .sitemaps
+                .display_email_inline(&sitemap.id, &model_id)
+                .await?;
+            Ok(markup)
+        }
     }
 }
 
@@ -444,7 +504,11 @@ pub async fn exec_action(
                     )
                 })?;
 
-            Ok(views::pages::edit(&Some(Model::Page(page)), &org, &layouts))
+            Ok(views::pages::edit(
+                &Some(Model::Page(page)),
+                &org,
+                &Some(layouts),
+            ))
         }
 
         CreateLayout { name } => {
@@ -475,7 +539,7 @@ pub async fn exec_action(
             Ok(views::pages::edit(
                 &Some(Model::Layout(layout)),
                 &org,
-                &layouts,
+                &Some(layouts),
             ))
         }
 
@@ -697,7 +761,7 @@ pub async fn exec_action(
                     )
                 })?;
 
-            Ok(html!())
+            Ok(views::pages::preview(true))
         }
         DeleteColor { id } => {
             let id: Id = id.parse().map_err(|e| {
@@ -710,7 +774,7 @@ pub async fn exec_action(
                     format!("failed updating color: {e}"),
                 )
             })?;
-            Ok(html!())
+            Ok(views::pages::preview(true))
         }
         SaveFont { tag } => {
             let browsed_font_id = session_state.browsed_font_id.ok_or_else(|| {
@@ -761,7 +825,10 @@ pub async fn exec_action(
 
             session.insert("pages", &session_state).ok();
 
-            Ok(views::pages::fonts(&Some(associated_fonts)))
+            Ok(html! {
+                (views::pages::fonts(&Some(associated_fonts)))
+                (views::pages::preview(true))
+            })
         }
         SaveHtml { source } => {
             let Some(model_id) = session_state.model_id else {

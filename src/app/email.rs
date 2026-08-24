@@ -46,6 +46,15 @@ impl Emails {
             .await
     }
 
+    pub async fn get_oldest(&self, sitemap_id: &Id) -> Result<Email, sqlx::Error> {
+        sqlx::query_as::<_, Email>(
+            "select * from emails where sitemap_id = $1 order by id asc limit 1",
+        )
+        .bind(sitemap_id)
+        .fetch_one(&self.pool)
+        .await
+    }
+
     pub async fn update_subject(
         &self,
         sitemap_id: &Id,

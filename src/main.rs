@@ -15,7 +15,7 @@ use sqlx::migrate;
 
 use infra::Monolith;
 
-use crate::app::file_processor::FileProcessor;
+use crate::app::processor::FileProcessor;
 
 #[tokio::main]
 async fn main() -> Result<()> {
