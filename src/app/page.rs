@@ -87,6 +87,14 @@ impl Pages {
             .await
     }
 
+    pub async fn get_by_path(&self, sitemap_id: &Id, path: &str) -> Result<Page, sqlx::Error> {
+        sqlx::query_as::<_, Page>("select * from pages where sitemap_id = $1 and $2 like path order by length(path) desc limit 1")
+            .bind(sitemap_id)
+            .bind(path)
+            .fetch_one(&self.pool)
+            .await
+    }
+
     pub async fn get_oldest(&self, sitemap_id: &Id) -> Result<Page, sqlx::Error> {
         sqlx::query_as::<_, Page>(
             "select * from pages where sitemap_id = $1 order by id asc limit 1",

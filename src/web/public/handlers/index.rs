@@ -3,21 +3,33 @@ use actix_web::Error;
 use actix_web::http::StatusCode;
 use actix_web::http::header::ContentDisposition;
 use actix_web::web::{Data, Path, Query, ReqData};
+use maud::Markup;
 use mime::{APPLICATION_OCTET_STREAM, Mime};
 use serde::Deserialize;
 
-use crate::app::User;
 use crate::app::{App, Organization};
+use crate::app::{AppError, Branch, User};
 use crate::web::errors::WebError;
 
-use std::ops::Deref;
 use std::str::FromStr;
 
-pub async fn get_index(org: ReqData<Organization>, user: ReqData<Option<User>>) -> String {
-    match user.deref() {
-        Some(user) => format!("Hello, World! {}", user.name),
-        None => format!("Hello, World! {}", org.title),
-    }
+pub async fn get_index(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    user: ReqData<Option<User>>,
+    path: Path<String>,
+) -> Result<Markup, AppError> {
+    let sitemap = app
+        .sitemaps
+        .get_one_by_branch(&org.id, Branch::MAIN)
+        .await?;
+    let path = format!("/{path}");
+    let page = app.pages.get_by_path(&sitemap.id, &path).await?;
+    let markup = app
+        .sitemaps
+        .display_page_inline(&org, &sitemap.id, &page.id)
+        .await?;
+    Ok(markup)
 }
 
 #[derive(Debug, Deserialize)]
