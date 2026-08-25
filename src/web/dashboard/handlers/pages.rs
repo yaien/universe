@@ -414,7 +414,7 @@ pub enum ActionForm {
     SaveCss {
         source: String,
     },
-    SaveJS {
+    SaveJs {
         source: String,
     },
     Publish,
@@ -921,7 +921,7 @@ pub async fn exec_action(
 
             Ok(views::pages::preview(true))
         }
-        SaveJS { source } => {
+        SaveJs { source } => {
             let Some(model_id) = session_state.model_id else {
                 return Err(WebError::Status(
                     StatusCode::BAD_REQUEST,
