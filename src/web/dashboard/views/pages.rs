@@ -829,14 +829,15 @@ pub fn browse_fonts_list(
                         hx-swap="outerHTML"
                         hx-vals:append=(json!({ "browsed_font_id": font.id }))
                     {
-                        .preview
-                            x-data=(format!(
-                                "font({{ family: {:?}, url: {:?} }})",
-                                font.family, font.files["regular"]
-                            ))
-                            ":style"="style"
-                        {
-                            (font.family)
+
+
+                        @if let Some(file) = font.files.get("regular").or_else(|| font.files.values().next()) {
+                            .preview
+                                x-data=(format!{"font({{ family: {:?}, url: {:?} }})", font.family, file})
+                                ":style"="style"
+                            {
+                                (font.family)
+                            }
                         }
                     }
                 }
