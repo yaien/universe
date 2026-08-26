@@ -1,8 +1,8 @@
 use actix_files::NamedFile;
-use actix_web::Error;
 use actix_web::http::StatusCode;
 use actix_web::http::header::ContentDisposition;
 use actix_web::web::{Data, Path, Query, ReqData};
+use actix_web::{Error, HttpResponse};
 use maud::Markup;
 use mime::{APPLICATION_OCTET_STREAM, Mime};
 use serde::Deserialize;
@@ -24,6 +24,7 @@ pub async fn get_index(
         .sitemaps
         .get_one_by_branch(&org.id, Branch::MAIN)
         .await?;
+
     let path = format!("/{path}");
 
     let page = app.pages.get_by_path(&sitemap.id, &path).await?;
@@ -35,9 +36,7 @@ pub async fn get_index(
 
     let fonts = app.fonts.get_by_sitemap_id(&sitemap.id).await?;
 
-    let colors = app.colors.get_by_sitemap_id(&sitemap.id).await?;
-
-    let mode = RenderMode::Inline { colors };
+    let mode = RenderMode::External;
 
     let ctx = RegistryContext {
         app: app.into_inner(),
@@ -54,6 +53,22 @@ pub async fn get_index(
     })?;
 
     Ok(content)
+}
+
+pub async fn get_bundled_css(
+    app: Data<App>,
+    org: ReqData<Organization>,
+) -> Result<HttpResponse, WebError> {
+    let css = app.sitemaps.get_bundled_css(&org.id).await?;
+    Ok(HttpResponse::Ok().content_type("text/css").body(css))
+}
+
+pub async fn get_bundled_js(
+    app: Data<App>,
+    org: ReqData<Organization>,
+) -> Result<HttpResponse, WebError> {
+    let js = app.sitemaps.get_bundled_js(&org.id).await?;
+    Ok(HttpResponse::Ok().content_type("text/javascript").body(js))
 }
 
 #[derive(Debug, Deserialize)]

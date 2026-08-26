@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use sqlx::prelude::FromRow;
 
-use crate::app::{self, Colors, Emails, Fonts, Layouts, Pages};
+use crate::app::{self, Colors, Emails, Fonts, Layouts, Pages, bundle_css, bundle_js};
 use crate::infra::{DbPool, Id};
 
 pub struct Branch;
@@ -93,6 +93,13 @@ impl Sitemaps {
         let pages = self.pages.get_by_sitemap_id(from_sitemap_id).await?;
         let fonts = self.fonts.get_by_sitemap_id(from_sitemap_id).await?;
         let colors = self.colors.get_by_sitemap_id(from_sitemap_id).await?;
+
+        if to_branch == Branch::MAIN {
+            let bundled_js = bundle_js(&layouts, &pages);
+            let bundled_css = bundle_css(&layouts, &pages, &fonts, &colors);
+            self.update_bundled(&to_sitemap_id, &bundled_js, &bundled_css)
+                .await?;
+        }
 
         self.layouts.delete_by_sitemap_id(&to_sitemap_id).await?;
         self.pages.delete_by_sitemap_id(&to_sitemap_id).await?;
@@ -190,5 +197,41 @@ impl Sitemaps {
             .await?;
 
         Ok(())
+    }
+
+    async fn update_bundled(
+        &self,
+        sitemap_id: &Id,
+        bundled_js: &str,
+        bundled_css: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("update sitemaps set bundled_js = $1, bundled_css = $2 where id = $3")
+            .bind(bundled_js)
+            .bind(bundled_css)
+            .bind(sitemap_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_bundled_css(&self, org_id: &Id) -> Result<String, sqlx::Error> {
+        sqlx::query_scalar(
+            "select bundled_css from sitemaps where organization_id = $1 and branch = $2",
+        )
+        .bind(org_id)
+        .bind(Branch::MAIN)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn get_bundled_js(&self, org_id: &Id) -> Result<String, sqlx::Error> {
+        sqlx::query_scalar(
+            "select bundled_js from sitemaps where organization_id = $1 and branch = $2",
+        )
+        .bind(org_id)
+        .bind(Branch::MAIN)
+        .fetch_one(&self.pool)
+        .await
     }
 }

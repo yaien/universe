@@ -9,6 +9,9 @@ mod registry;
 mod script;
 mod style;
 
+pub use script::bundle as bundle_js;
+pub use style::bundle as bundle_css;
+
 pub use registry::{RegisterFunctions, RegistryContext};
 
 pub enum RenderMode {
@@ -69,10 +72,11 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
 
                 link rel="icon" type="image/png" href="/assets/landing/favicon.png" {}
 
+
                 @match mode {
                     RenderMode::External => {
-                        link rel="stylesheet" href="/assets/landing/styles.css" {}
-                        script type="text/javascript" src="/assets/landing/script.js" {}
+                        link rel="stylesheet" href="/assets/landing/style.css" {}
+                        script defer src="/assets/landing/script.js" {}
                     }
                     RenderMode::Inline { colors } => {
                         @let layout_css = layout.as_ref().map_or("", |l| l.css.as_str());
@@ -83,12 +87,14 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
                     }
                 }
 
+
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0-beta6" integrity="sha384-6lyVbhrs13b9z7mLOpt/N6R76rtkEBWgCjAXRs/DSWyi2AMnQSs10ijWk+PI8n7W" crossorigin="anonymous" {}
+
             }
 
             body {
-                div data-layout=(layout.as_ref().map_or(0, |l| l.id)) {
+                div data-layout=(layout.as_ref().map_or("", |l| l.name.as_str())) {
                     (PreEscaped(content))
                 }
             }
@@ -105,16 +111,18 @@ fn get_page_content(
         .as_ref()
         .map_or("{% block body %}{% endblock %}", |l| l.html.as_str());
 
+    log::info!("page_id {}", page.id);
+
     let page_template = format!(
         r#"
           {{% extends "layout"%}}
             {{% block body %}}
-                <div data-page="{}">
+                <div data-page={:?}>
                     {}
                 </div>
             {{% endblock %}}
           "#,
-        page.id, page.html
+        page.name, page.html
     );
 
     let mut env = Environment::new();
@@ -167,7 +175,7 @@ pub fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppError> {
                  (script::inline(&layout.js, ""))
             }
             body {
-                div data-layout=(layout.id) {
+                div data-layout=(layout.name) {
                     (PreEscaped(content))
                 }
             }

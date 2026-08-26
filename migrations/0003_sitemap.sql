@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS sitemaps (
     branch TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    bundled_css TEXT,
+    bundled_js TEXT,
 
     FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
     UNIQUE (organization_id, branch)
@@ -28,7 +30,8 @@ CREATE TABLE IF NOT EXISTS pages (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (sitemap_id) REFERENCES sitemaps(id) ON DELETE CASCADE,
     FOREIGN KEY (layout_id) REFERENCES layouts(id) ON DELETE SET NULL,
-    UNIQUE (sitemap_id, path)
+    UNIQUE (sitemap_id, path),
+    UNIQUE (sitemap_id, name)
 );
 
 CREATE INDEX IF NOT EXISTS idx_pages_lookup ON pages(sitemap_id, path);
@@ -55,7 +58,7 @@ CREATE TABLE IF NOT EXISTS emails (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (sitemap_id) REFERENCES sitemaps(id) ON DELETE CASCADE,
-    UNIQUE (sitemap_id, subject)
+    UNIQUE (sitemap_id, name)
 );
 
 

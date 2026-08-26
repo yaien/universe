@@ -1,6 +1,6 @@
 use maud::{Markup, PreEscaped, html};
 
-use crate::app::{Color, SitemapFont};
+use crate::app::{Color, Layout, Page, SitemapFont};
 
 pub const BASE: &str = r#"
 *,
@@ -56,9 +56,7 @@ pub fn inline(
         <style type="text/css">
             {vars}
             {BASE}
-            [data-layout] {{
-                {layout_styles}
-            }}
+            {layout_styles}
             [data-page] {{
                 {page_styles}
             }}
@@ -69,6 +67,33 @@ pub fn inline(
     html! {
         (PreEscaped(prescaped))
     }
+}
+
+// Bundles all layout and page styles into a single CSS string.
+pub fn bundle(
+    layouts: &Vec<Layout>,
+    pages: &Vec<Page>,
+    fonts: &Vec<SitemapFont>,
+    colors: &Vec<Color>,
+) -> String {
+    let mut css = String::new();
+    let vars = root_vars(fonts, colors);
+    css.push_str(&vars);
+    css.push_str("\n");
+    css.push_str(BASE);
+    css.push_str("\n");
+
+    for layout in layouts {
+        css.push_str(&format!("{}\n", layout.css));
+    }
+
+    for page in pages {
+        css.push_str(&format!("[data-page={:?}] {{", page.name));
+        css.push_str(&format!("\n{}\n", page.css));
+        css.push_str("}\n");
+    }
+
+    css
 }
 
 #[cfg(test)]
