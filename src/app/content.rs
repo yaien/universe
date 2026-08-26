@@ -88,7 +88,9 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
             }
 
             body {
-                (PreEscaped(content))
+                div data-layout=(layout.as_ref().map_or(0, |l| l.id)) {
+                    (PreEscaped(content))
+                }
             }
         }
     ))
@@ -106,11 +108,13 @@ fn get_page_content(
     let page_template = format!(
         r#"
           {{% extends "layout"%}}
-          {{% block body %}}
-              {}
-          {{% endblock %}}
+            {{% block body %}}
+                <div data-page="{}">
+                    {}
+                </div>
+            {{% endblock %}}
           "#,
-        page.html
+        page.id, page.html
     );
 
     let mut env = Environment::new();
@@ -163,7 +167,9 @@ pub fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppError> {
                  (script::inline(&layout.js, ""))
             }
             body {
-                (PreEscaped(content))
+                div data-layout=(layout.id) {
+                    (PreEscaped(content))
+                }
             }
         }
     ))

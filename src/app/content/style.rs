@@ -56,8 +56,12 @@ pub fn inline(
         <style type="text/css">
             {vars}
             {BASE}
-            {page_styles}
-            {layout_styles}
+            [data-layout] {{
+                {layout_styles}
+            }}
+            [data-page] {{
+                {page_styles}
+            }}
         </style>
         "#,
     );
