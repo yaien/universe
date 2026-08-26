@@ -7,29 +7,53 @@ use maud::Markup;
 use mime::{APPLICATION_OCTET_STREAM, Mime};
 use serde::Deserialize;
 
-use crate::app::{App, Organization};
-use crate::app::{AppError, Branch, User};
+use crate::app::{App, Organization, RegistryContext, RenderMode, RenderPageOptions, render_page};
+use crate::app::{Branch, User};
 use crate::web::errors::WebError;
 
 use std::str::FromStr;
+use std::sync::Arc;
 
 pub async fn get_index(
     app: Data<App>,
     org: ReqData<Organization>,
     user: ReqData<Option<User>>,
     path: Path<String>,
-) -> Result<Markup, AppError> {
+) -> Result<Markup, WebError> {
     let sitemap = app
         .sitemaps
         .get_one_by_branch(&org.id, Branch::MAIN)
         .await?;
     let path = format!("/{path}");
+
     let page = app.pages.get_by_path(&sitemap.id, &path).await?;
-    let markup = app
-        .sitemaps
-        .display_page_inline(&org, &sitemap.id, &page.id)
-        .await?;
-    Ok(markup)
+
+    let layout = match page.layout_id {
+        Some(layout_id) => Some(app.layouts.get_by_id(&sitemap.id, &layout_id).await?),
+        None => None,
+    };
+
+    let fonts = app.fonts.get_by_sitemap_id(&sitemap.id).await?;
+
+    let colors = app.colors.get_by_sitemap_id(&sitemap.id).await?;
+
+    let mode = RenderMode::Inline { colors };
+
+    let ctx = RegistryContext {
+        app: app.into_inner(),
+        org: Arc::new(org.into_inner()),
+        user: Arc::new(user.into_inner()),
+    };
+
+    let content = render_page(RenderPageOptions {
+        ctx,
+        page,
+        layout,
+        fonts,
+        mode,
+    })?;
+
+    Ok(content)
 }
 
 #[derive(Debug, Deserialize)]

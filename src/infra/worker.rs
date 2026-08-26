@@ -1,7 +1,5 @@
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::pin::Pin;
-use std::sync::Arc;
 
 use anyhow::Context;
 use chrono::{DateTime, Utc};
@@ -11,7 +9,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 use sqlx::prelude::FromRow;
 use sqlx::types::JsonValue;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::mpsc;
 use tokio::time::{Duration, sleep};
 
 use crate::infra::{DbPool, Id};
@@ -33,7 +31,6 @@ pub struct Job {
     pub data: JsonValue,
     pub status: Status,
     pub error: Option<String>,
-    pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
@@ -111,6 +108,14 @@ impl Worker {
 
         job.status = Status::Processing;
         job.updated_at = Utc::now();
+
+        sqlx::query("update jobs set status = $1, updated_at = $2 where id = $3")
+            .bind(&job.status)
+            .bind(&job.updated_at)
+            .bind(&job.id)
+            .execute(&self.pool)
+            .await
+            .ok();
 
         match processor.process(Data(job.data)).await {
             Ok(_) => job.status = Status::Completed,

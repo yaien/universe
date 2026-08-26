@@ -4,9 +4,10 @@ mod handlers;
 pub mod middlewares;
 
 pub fn configure(cfg: &mut ServiceConfig) {
-    cfg.route("/{path:.*}", get().to(handlers::index::get_index))
-        .route(
-            "/assets/dynamic/files/{name}",
-            get().to(handlers::index::download_file),
-        );
+    cfg.route(
+        "/assets/dynamic/files/{name}",
+        get().to(handlers::index::download_file),
+    );
+
+    cfg.route("/{path:.*}", get().to(handlers::index::get_index));
 }

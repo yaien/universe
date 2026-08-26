@@ -3,7 +3,7 @@ use actix_web::http::{StatusCode, header};
 use actix_web::{HttpResponse, HttpResponseBuilder};
 use thiserror::Error;
 
-use crate::app;
+use crate::app::AppError;
 
 #[derive(Debug, Error)]
 pub enum WebError {
@@ -30,28 +30,30 @@ impl ResponseError for WebError {
     }
 }
 
-impl From<&app::AppError> for WebError {
-    fn from(err: &app::AppError) -> Self {
+impl From<AppError> for WebError {
+    fn from(err: AppError) -> Self {
         match err {
-            app::AppError::Message(message) => {
+            AppError::Message(message) => {
                 WebError::Status(StatusCode::BAD_REQUEST, message.clone())
             }
-            app::AppError::Sqlx(err) => {
+            AppError::Sqlx(err) => {
                 WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
             }
-            app::AppError::Any(err) => {
+            AppError::Any(err) => {
                 WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
             }
         }
     }
 }
 
-impl ResponseError for app::AppError {
-    fn error_response(&self) -> HttpResponse {
-        match self {
-            app::AppError::Message(msg) => HttpResponse::BadRequest().body(msg.clone()),
-            app::AppError::Sqlx(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            app::AppError::Any(err) => HttpResponse::InternalServerError().body(err.to_string()),
-        }
+impl From<sqlx::Error> for WebError {
+    fn from(err: sqlx::Error) -> Self {
+        WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+    }
+}
+
+impl From<anyhow::Error> for WebError {
+    fn from(err: anyhow::Error) -> Self {
+        WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
     }
 }

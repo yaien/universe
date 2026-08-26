@@ -1,5 +1,3 @@
-use std::fmt;
-
 use derive_more::Display;
 use maud::{DOCTYPE, Markup, html};
 
@@ -9,8 +7,6 @@ use crate::app::{Organization, Role};
 #[display(rename_all = "lowercase")]
 pub enum Variant {
     Primary,
-    Success,
-    Danger,
 }
 
 pub struct Content<'a> {

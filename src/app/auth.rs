@@ -23,18 +23,10 @@ pub struct OAuthAccountInfo {
 pub struct OAuthAccount {
     pub id: Id,
     pub user_id: Id,
-    pub provider_name: String,
-    pub provider_user_id: String,
-    pub access_token: String,
-    pub refresh_token: Option<String>,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(FromRow)]
 pub struct OAuthState {
-    pub id: Id,
     pub csrf_token: String,
     pub pkce_verifier: String,
     pub created_at: DateTime<Utc>,

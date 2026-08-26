@@ -1,14 +1,21 @@
+use std::ops::Deref;
+use std::sync::Arc;
+
 use actix_multipart::form::MultipartForm;
 use actix_multipart::form::tempfile::TempFile;
 use actix_session::Session;
-use actix_web::Error;
 use actix_web::HttpRequest;
 use actix_web::http::StatusCode;
 use actix_web::web::{Data, Form, Query, ReqData};
+use anyhow::Context;
 use maud::{Markup, html};
+use minijinja::context;
 use serde::Deserialize;
 
-use crate::app::{App, AppError, Branch, Organization, PageInfo, Role};
+use crate::app::{
+    App, AppError, Branch, Organization, PageInfo, RegistryContext, RenderLayoutOptions,
+    RenderMode, RenderPageOptions, Role, User, render_email, render_layout, render_page,
+};
 use crate::infra::Id;
 use crate::web::dashboard::views;
 use crate::web::dashboard::views::layout::Variant;
@@ -23,7 +30,7 @@ async fn get_view_state<'a>(
     session: &Session,
     query: QueryState,
     session_state: SessionState,
-) -> Result<ViewState<'a>, Error> {
+) -> Result<ViewState<'a>, WebError> {
     let mut session_state = session_state;
 
     if let Some(section) = query.section {
@@ -283,7 +290,7 @@ pub async fn get_index(
     query: Query<QueryState>,
     session: Session,
     req: HttpRequest,
-) -> Result<Markup, Error> {
+) -> Result<Markup, WebError> {
     let mut query = query.into_inner();
 
     if !req.headers().contains_key("hx-request") {
@@ -321,46 +328,96 @@ pub async fn get_index(
 
 pub async fn get_preview(
     org: ReqData<Organization>,
+    user: ReqData<Option<User>>,
     app: Data<App>,
     session: Session,
-) -> Result<Markup, Error> {
+) -> Result<Markup, WebError> {
     let session_state: SessionState = session.get("pages").ok().flatten().unwrap_or_default();
 
-    let Some(model_id) = session_state.model_id else {
-        return Err(WebError::Status(
-            StatusCode::BAD_REQUEST,
-            "model_id is not set".to_string(),
-        ))?;
-    };
+    let model_id = session_state.model_id.ok_or_else(|| {
+        WebError::Status(StatusCode::BAD_REQUEST, "model_id is not set".to_string())
+    })?;
 
     let sitemap = app
         .sitemaps
         .get_one_by_branch(&org.id, &session_state.sitemap_branch)
         .await
-        .map_err(|e| AppError::from(e))?;
+        .map_err(|e| WebError::from(e))?;
 
     match session_state.model_type {
         ModelType::Page => {
-            let markup = app
-                .sitemaps
-                .display_page_inline(&org, &sitemap.id, &model_id)
-                .await?;
-            Ok(markup)
+            let page = app.pages.get_by_id(&sitemap.id, &model_id).await?;
+
+            let fonts = app.fonts.get_by_sitemap_id(&sitemap.id).await?;
+
+            let colors = app
+                .colors
+                .get_by_sitemap_id(&sitemap.id)
+                .await
+                .map_err(|e| AppError::from(e))?;
+
+            let layout = match page.layout_id {
+                Some(layout_id) => {
+                    let layout = app.layouts.get_by_id(&sitemap.id, &layout_id).await?;
+
+                    Some(layout)
+                }
+                None => None,
+            };
+
+            let ctx = RegistryContext {
+                app: app.into_inner(),
+                org: Arc::new(org.into_inner()),
+                user: Arc::new(user.into_inner()),
+            };
+
+            let mode = RenderMode::Inline { colors };
+
+            let content = render_page(RenderPageOptions {
+                ctx,
+                page,
+                layout,
+                fonts,
+                mode,
+            })?;
+
+            Ok(content)
         }
         ModelType::Layout => {
-            let markup = app
-                .sitemaps
-                .display_layout_inline(&org, &sitemap.id, &model_id)
-                .await?;
+            let layout = app.layouts.get_by_id(&sitemap.id, &model_id).await?;
 
-            Ok(markup)
+            let fonts = app
+                .fonts
+                .get_by_sitemap_id(&sitemap.id)
+                .await
+                .context("failed getting fonts")?;
+
+            let colors = app.colors.get_by_sitemap_id(&sitemap.id).await?;
+
+            let ctx = RegistryContext {
+                app: app.into_inner(),
+                org: Arc::new(org.into_inner()),
+                user: Arc::new(user.into_inner()),
+            };
+
+            let content = render_layout(RenderLayoutOptions {
+                ctx,
+                layout,
+                fonts,
+                colors,
+            })?;
+
+            Ok(content)
         }
         ModelType::Email => {
-            let markup = app
-                .sitemaps
-                .display_email_inline(&sitemap.id, &model_id)
-                .await?;
-            Ok(markup)
+            let email = app.emails.get_by_id(&sitemap.id, &model_id).await?;
+            let ctx = context! {
+                org => org.deref()
+            };
+
+            let content = render_email(&email, ctx)?;
+
+            Ok(content)
         }
     }
 }
@@ -374,17 +431,13 @@ pub async fn upload_files(
     org: ReqData<Organization>,
     app: Data<App>,
     MultipartForm(form): MultipartForm<UploadFilesForm>,
-) -> Result<Markup, Error> {
+) -> Result<Markup, WebError> {
     app.files
         .upload_many(&org.id, form.files)
         .await
-        .map_err(|e| WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, format!("{:?}", e)))?;
+        .context("failed uploading files")?;
 
-    let files = app
-        .files
-        .get_by_organization_id(&org.id)
-        .await
-        .map_err(|e| WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let files = app.files.get_by_organization_id(&org.id).await?;
 
     Ok(views::pages::file_grid(&files))
 }
@@ -454,7 +507,7 @@ pub async fn exec_action(
     app: Data<App>,
     session: Session,
     Form(form): Form<ActionForm>,
-) -> Result<Markup, Error> {
+) -> Result<Markup, WebError> {
     let mut session_state = session
         .get::<SessionState>("pages")
         .ok()

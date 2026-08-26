@@ -3,15 +3,6 @@ use chrono::{DateTime, Utc};
 
 use crate::infra::{DbPool, Id};
 
-#[derive(sqlx::FromRow)]
-pub struct Invitation {
-    pub id: Id,
-    pub user_email: String,
-    pub organization_id: Id,
-    pub created_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
-}
-
 pub struct Invitations {
     pool: DbPool,
 }
@@ -48,11 +39,11 @@ impl Invitations {
         user_id: &Id,
     ) -> Result<Id, anyhow::Error> {
         let query = r#"
-            select * from invitations
+            select id from invitations
             where organization_id = $1 and user_email = $2 and expires_at > $3
         "#;
 
-        let invitation = sqlx::query_as::<_, Invitation>(query)
+        let invitation_id = sqlx::query_scalar::<_, Id>(query)
             .bind(org_id)
             .bind(user_email)
             .bind(Utc::now())
@@ -69,7 +60,7 @@ impl Invitations {
             .context("failed inserting role")?;
 
         sqlx::query("delete from invitations where id = $1")
-            .bind(invitation.id)
+            .bind(invitation_id)
             .execute(&self.pool)
             .await
             .context("failed deleting invitation")?;

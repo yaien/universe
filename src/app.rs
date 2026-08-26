@@ -1,5 +1,6 @@
 mod auth;
 mod color;
+mod content;
 mod email;
 mod error;
 mod file;
@@ -15,6 +16,7 @@ mod user;
 
 pub use auth::*;
 pub use color::*;
+pub use content::*;
 pub use email::*;
 pub use error::*;
 pub use file::*;

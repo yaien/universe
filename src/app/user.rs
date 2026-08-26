@@ -1,9 +1,10 @@
 use chrono::{DateTime, Utc};
+use serde::Serialize;
 use sqlx::prelude::FromRow;
 
 use crate::infra::{DbPool, Id};
 
-#[derive(FromRow, Clone)]
+#[derive(FromRow, Clone, Serialize)]
 pub struct User {
     pub id: Id,
     pub email: String,

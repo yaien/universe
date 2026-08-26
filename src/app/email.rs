@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use sqlx::prelude::FromRow;
 
 use crate::infra::{DbPool, Id};
@@ -6,12 +5,9 @@ use crate::infra::{DbPool, Id};
 #[derive(FromRow, Clone)]
 pub struct Email {
     pub id: i64,
-    pub sitemap_id: i64,
     pub name: String,
     pub subject: String,
     pub body: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
 }
 
 pub struct Emails {

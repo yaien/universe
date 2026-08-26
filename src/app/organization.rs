@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
+use serde::Serialize;
 use sqlx::prelude::FromRow;
 
 use crate::{
-    app::{Branch, Emails, Layouts, Pages, Sitemaps},
+    app::{Branch, Sitemaps},
     infra::{DbPool, Id},
 };
 
-#[derive(FromRow, Clone)]
+#[derive(FromRow, Clone, Serialize)]
 pub struct Organization {
     pub id: i64,
     pub hostname: String,
@@ -59,7 +60,7 @@ impl Organizations {
 mod tests {
     use sqlx::{Row, SqlitePool};
 
-    use crate::app::{Branch, Colors, Fonts};
+    use crate::app::{Branch, Colors, Emails, Fonts, Layouts, Pages};
 
     use super::*;
 

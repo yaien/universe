@@ -1,4 +1,3 @@
-use image::flat::View;
 use maud::{Markup, html};
 use serde::{Deserialize, Serialize};
 use serde_json::json;

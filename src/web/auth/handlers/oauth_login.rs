@@ -20,7 +20,6 @@ pub async fn login(
         .url();
 
     let state = OAuthState {
-        id: 0,
         csrf_token: csrf_token.into_secret(),
         pkce_verifier: pkce_verifier.into_secret(),
         created_at: chrono::Utc::now(),

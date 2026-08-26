@@ -1,16 +1,11 @@
 use crate::infra::{DbPool, Id};
 
-use chrono::{DateTime, Utc};
 use sqlx::prelude::FromRow;
 
 #[derive(FromRow, Clone)]
 pub struct Role {
-    pub id: Id,
-    pub user_id: Id,
     pub user_name: String,
     pub user_email: String,
-    pub organization_id: Id,
-    pub created_at: DateTime<Utc>,
 }
 
 pub struct Roles {
