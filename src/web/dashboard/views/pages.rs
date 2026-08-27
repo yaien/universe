@@ -196,7 +196,7 @@ pub fn editor(state: &ViewState) -> Markup {
                     (tab_button(&state, &section))
                 }
             }
-            #section style="height: 100%; overflow: hidden;" {
+            #section.section {
                 (state.section.markup(&state))
             }
         }
@@ -514,10 +514,6 @@ pub fn edit(model: &Option<Model>, org: &Organization, layouts: &Option<Vec<Layo
                     fieldset {
                         legend { "Titulo" }
                         input name="title" required value=(page.title) {}
-                    }
-                    fieldset {
-                        legend { "Imagen" }
-                        input name="og_image" value=(page.og_image) {}
                     }
                     fieldset {
                         legend { "Tipo" }

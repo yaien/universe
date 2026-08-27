@@ -483,7 +483,6 @@ pub enum ActionForm {
         name: String,
         title: String,
         path: String,
-        og_image: String,
         og_description: String,
         og_type: String,
         layout_id: String,
@@ -599,7 +598,6 @@ pub async fn exec_action(
             name,
             title,
             path,
-            og_image,
             og_description,
             og_type,
             layout_id,
@@ -617,7 +615,6 @@ pub async fn exec_action(
                     name,
                     title,
                     path,
-                    og_image,
                     og_description,
                     og_type,
                 })

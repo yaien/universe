@@ -54,8 +54,10 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
                 meta name="og:description" content=(page.og_description) {}
                 meta name="og:type" content=(page.og_type) {}
 
-                @if !page.og_image.is_empty() {
-                    meta name="og:image" content=(format!("{}/assets/external/{}/{}", org.url, org.id, page.og_image)) {}
+                meta name="htmx-config" content="transitions:true" {}
+
+                @if let Some(og_image_file_id) = page.og_image_file_id {
+                    meta name="og:image" content=(format!("{}/assets/external/{}/{}", org.url, org.id, og_image_file_id)) {}
                 }
 
                 title {

@@ -37,6 +37,11 @@
         border-radius: 0.5rem;
     }
 
+    .section {
+        height: 100%;
+        overflow: hidden;
+    }
+
     .initial {
         height: 100%;
         overflow: auto;
@@ -142,6 +147,10 @@
         height: 100%;
     }
 
+    .section:has(.files) {
+        overflow: auto;
+    }
+
     .files .grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -198,13 +207,6 @@
         object-fit: cover;
         position: absolute;
     }
-
-    .files .edit .preview, .files .grid .item {
-        background-color: #f9f9fd;
-        opacity: 0.8;
-        background: radial-gradient(circle, transparent 20%, #f9f9fd 20%, #f9f9fd 80%, transparent 80%, transparent), radial-gradient(circle, transparent 20%, #f9f9fd 20%, #f9f9fd 80%, transparent 80%, transparent) 25px 25px, linear-gradient(#c6c9fc 2px, transparent 2px) 0 -1px, linear-gradient(90deg, #c6c9fc 2px, #f9f9fd 2px) -1px 0;
-        background-size: 50px 50px, 50px 50px, 25px 25px, 25px 25px;
-     } 
 
     .files .edit .preview {
         border-radius: var(--border-radius);

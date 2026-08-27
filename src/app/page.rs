@@ -11,7 +11,7 @@ pub struct Page {
     pub path: String,
     pub name: String,
     pub title: String,
-    pub og_image: String,
+    pub og_image_file_id: Option<Id>,
     pub og_type: String,
     pub og_description: String,
     pub html: String,
@@ -26,7 +26,6 @@ pub struct PageInfo {
     pub name: String,
     pub title: String,
     pub layout_id: Option<Id>,
-    pub og_image: String,
     pub og_type: String,
     pub og_description: String,
 }
@@ -68,7 +67,7 @@ impl Pages {
             .bind(&page.path)
             .bind(&page.name)
             .bind(&page.title)
-            .bind(&page.og_image)
+            .bind(&page.og_image_file_id)
             .bind(&page.og_type)
             .bind(&page.og_description)
             .bind(&page.html)
@@ -121,7 +120,6 @@ impl Pages {
             .bind(&info.title)
             .bind(&info.layout_id)
             .bind(&info.og_description)
-            .bind(&info.og_image)
             .bind(&info.og_type)
             .bind(&info.sitemap_id)
             .bind(&info.page_id)

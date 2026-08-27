@@ -6,8 +6,10 @@ CREATE TABLE IF NOT EXISTS sitemaps (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     bundled_css TEXT,
     bundled_js TEXT,
+    favicon_file_id INTEGER,
 
     FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
+    FOREIGN KEY (favicon_file_id) REFERENCES files(id) ON DELETE SET NULL,
     UNIQUE (organization_id, branch)
 );
 
@@ -20,7 +22,7 @@ CREATE TABLE IF NOT EXISTS pages (
     path TEXT NOT NULL,
     name TEXT NOT NULL,
     title TEXT NOT NULL,
-    og_image TEXT,
+    og_image_file_id INTEGER,
     og_description TEXT,
     og_type TEXT,
     html TEXT NOT NULL DEFAULT '',
