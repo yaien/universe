@@ -15,6 +15,11 @@ pub fn configure(cfg: &mut ServiceConfig) {
     );
 
     cfg.route(
+        "/assets/dynamic/favicon.ico",
+        get().to(handlers::index::get_favicon),
+    );
+
+    cfg.route(
         "/assets/landing/script.js",
         get().to(handlers::index::get_bundled_js),
     );

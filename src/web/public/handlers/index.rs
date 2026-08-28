@@ -48,6 +48,7 @@ pub async fn get_index(
         ctx,
         page,
         layout,
+        sitemap,
         fonts,
         mode,
     })?;
@@ -61,6 +62,39 @@ pub async fn get_bundled_css(
 ) -> Result<HttpResponse, WebError> {
     let css = app.sitemaps.get_bundled_css(&org.id).await?;
     Ok(HttpResponse::Ok().content_type("text/css").body(css))
+}
+
+pub async fn get_favicon(app: Data<App>, org: ReqData<Organization>) -> Result<NamedFile, Error> {
+    let file_id = app
+        .sitemaps
+        .get_favicon_file_id(&org.id)
+        .await
+        .map_err(|err| WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+
+    let Some(file_id) = file_id else {
+        return Err(WebError::Status(
+            StatusCode::NOT_FOUND,
+            "favicon not found".to_string(),
+        ))?;
+    };
+
+    let mut file = app
+        .files
+        .get_one_by_organization_id_and_id(&org.id, &file_id)
+        .await
+        .map_err(|err| WebError::Status(StatusCode::NOT_FOUND, "favicon not found".to_string()))?;
+
+    let (path, format) = app
+        .files
+        .get_path_and_format(&mut file, &0)
+        .await
+        .map_err(|err| WebError::Status(StatusCode::NOT_FOUND, "favicon not found".to_string()))?;
+
+    let named = NamedFile::open(path)?
+        .set_content_type(Mime::from_str(&format.content_type).unwrap_or(APPLICATION_OCTET_STREAM))
+        .set_content_disposition(ContentDisposition::attachment(file.name));
+
+    Ok(named)
 }
 
 pub async fn get_bundled_js(

@@ -218,6 +218,15 @@
         position: relative;
         width: 300px;
         height: 300px;
+        position: relative;
+    }
+
+    .files .setup {
+        position: absolute;
+        top: 0;
+        left: 0;
+        margin: 5px;
+        z-index: 10;
     }
 
     .files .edit .preview img,

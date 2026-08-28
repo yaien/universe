@@ -670,6 +670,14 @@ pub fn file_detail(file: &File) -> Markup {
                 }
             }
             .preview {
+                .setup role="group" {
+                    button hx-post="/dashboard/pages" hx-vals=(json!({ "action": "update_favicon", "file_id": file.id })) hx-swap="none" {
+                        i.fa-solid.fa-globe {}
+                    }
+                    button hx-post="/dashboard/pages" hx-vals=(json!({ "action": "update_og_image", "file_id": file.id })) hx-swap="none" {
+                        i.fa-solid.fa-link {}
+                    }
+                }
                 @if file.preset == "image" {
                         img src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) {}
                 }

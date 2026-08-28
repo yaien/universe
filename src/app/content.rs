@@ -2,7 +2,7 @@ use anyhow::Context;
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 use minijinja::{Environment, Value, context};
 
-use crate::app::{AppError, Color, Email, Layout, Page, SitemapFont};
+use crate::app::{AppError, Color, Email, Layout, Page, Sitemap, SitemapFont};
 
 mod links;
 mod registry;
@@ -20,6 +20,7 @@ pub enum RenderMode {
 }
 
 pub struct RenderPageOptions {
+    pub sitemap: Sitemap,
     pub page: Page,
     pub layout: Option<Layout>,
     pub fonts: Vec<SitemapFont>,
@@ -33,6 +34,7 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
         ctx,
         page,
         layout,
+        sitemap,
         fonts,
         mode,
     } = options;
@@ -60,6 +62,10 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
                     meta name="og:image" content=(format!("{}/assets/external/{}/{}", org.url, org.id, og_image_file_id)) {}
                 }
 
+                @if let Some(favicon_file_id) = sitemap.favicon_file_id {
+                    link rel="icon" href=(format!("/assets/dynamic/favicon.ico?id={}", favicon_file_id)) {}
+                }
+
                 title {
                     @if page.title.is_empty() {
                         (org.title)
@@ -68,11 +74,8 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
                     }
                 }
 
-
-
                 (links::fonts(&fonts))
 
-                link rel="icon" type="image/png" href="/assets/landing/favicon.png" {}
 
 
                 @match mode {

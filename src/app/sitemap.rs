@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use sqlx::prelude::FromRow;
 
-use crate::app::{self, Colors, Emails, Fonts, Layouts, Pages, bundle_css, bundle_js};
+use crate::app::{self, Colors, Emails, Fonts, Layouts, Pages, bundle_css, bundle_js, sitemap};
 use crate::infra::{DbPool, Id};
 
 pub struct Branch;
@@ -18,6 +18,7 @@ impl Branch {
 pub struct Sitemap {
     pub id: Id,
     pub branch: String,
+    pub favicon_file_id: Option<Id>,
 }
 
 pub struct Sitemaps {
@@ -81,7 +82,7 @@ impl Sitemaps {
     pub async fn sync_branch(
         &self,
         org_id: &Id,
-        from_sitemap_id: &Id,
+        from_sitemap: &Sitemap,
         to_branch: &str,
     ) -> Result<Id, sqlx::Error> {
         let to_sitemap_id = match self.get_one_by_branch_optional(org_id, to_branch).await? {
@@ -89,16 +90,21 @@ impl Sitemaps {
             None => self.create(org_id, to_branch).await?,
         };
 
-        let layouts = self.layouts.get_by_sitemap_id(from_sitemap_id).await?;
-        let pages = self.pages.get_by_sitemap_id(from_sitemap_id).await?;
-        let fonts = self.fonts.get_by_sitemap_id(from_sitemap_id).await?;
-        let colors = self.colors.get_by_sitemap_id(from_sitemap_id).await?;
+        let layouts = self.layouts.get_by_sitemap_id(&from_sitemap.id).await?;
+        let pages = self.pages.get_by_sitemap_id(&from_sitemap.id).await?;
+        let fonts = self.fonts.get_by_sitemap_id(&from_sitemap.id).await?;
+        let colors = self.colors.get_by_sitemap_id(&from_sitemap.id).await?;
 
         if to_branch == Branch::MAIN {
             let bundled_js = bundle_js(&layouts, &pages);
             let bundled_css = bundle_css(&layouts, &pages, &fonts, &colors);
-            self.update_bundled(&to_sitemap_id, &bundled_js, &bundled_css)
-                .await?;
+            self.update(
+                &to_sitemap_id,
+                &bundled_js,
+                &bundled_css,
+                &from_sitemap.favicon_file_id,
+            )
+            .await?;
         }
 
         self.layouts.delete_by_sitemap_id(&to_sitemap_id).await?;
@@ -199,15 +205,31 @@ impl Sitemaps {
         Ok(())
     }
 
-    async fn update_bundled(
+    async fn update(
         &self,
         sitemap_id: &Id,
         bundled_js: &str,
         bundled_css: &str,
+        favicon_file_id: &Option<Id>,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query("update sitemaps set bundled_js = $1, bundled_css = $2 where id = $3")
+        sqlx::query("update sitemaps set bundled_js = $1, bundled_css = $2, favicon_file_id = $3 where id = $4")
             .bind(bundled_js)
             .bind(bundled_css)
+            .bind(favicon_file_id)
+            .bind(sitemap_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn update_favicon_file_id(
+        &self,
+        sitemap_id: &Id,
+        file_id: &Id,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("update sitemaps set favicon_file_id = $1 where id = $2")
+            .bind(file_id)
             .bind(sitemap_id)
             .execute(&self.pool)
             .await?;
@@ -228,6 +250,16 @@ impl Sitemaps {
     pub async fn get_bundled_js(&self, org_id: &Id) -> Result<String, sqlx::Error> {
         sqlx::query_scalar(
             "select bundled_js from sitemaps where organization_id = $1 and branch = $2",
+        )
+        .bind(org_id)
+        .bind(Branch::MAIN)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn get_favicon_file_id(&self, org_id: &Id) -> Result<Option<Id>, sqlx::Error> {
+        sqlx::query_scalar(
+            "select favicon_file_id from sitemaps where organization_id = $1 and branch = $2",
         )
         .bind(org_id)
         .bind(Branch::MAIN)

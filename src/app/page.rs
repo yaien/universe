@@ -59,7 +59,7 @@ impl Pages {
 
     pub async fn create_from(&self, page: &Page) -> Result<Id, sqlx::Error> {
         sqlx::query(r#"
-            insert into pages (sitemap_id, layout_id, path, name, title, og_image, og_type, og_description, html, css, js)
+            insert into pages (sitemap_id, layout_id, path, name, title, og_image_file_id, og_type, og_description, html, css, js)
                 values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             "#)
             .bind(&page.sitemap_id)
@@ -112,8 +112,8 @@ impl Pages {
 
     pub async fn update_info(&self, info: &PageInfo) -> Result<(), sqlx::Error> {
         sqlx::query(r#"
-            update pages set path = $1, name = $2, title = $3, layout_id = $4, og_description = $5, og_image = $6, og_type = $7
-                where sitemap_id = $8 and id = $9
+            update pages set path = $1, name = $2, title = $3, layout_id = $4, og_description = $5, og_type = $6
+                where sitemap_id = $7 and id = $8
         "#)
             .bind(&info.path)
             .bind(&info.name)
@@ -166,6 +166,21 @@ impl Pages {
     ) -> Result<(), sqlx::Error> {
         sqlx::query("update pages set js = $1 where sitemap_id = $2 and id = $3")
             .bind(js)
+            .bind(sitemap_id)
+            .bind(page_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn update_og_image_file_id(
+        &self,
+        sitemap_id: &Id,
+        page_id: &Id,
+        file_id: &Id,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("update pages set og_image_file_id = $1 where sitemap_id = $2 and id = $3")
+            .bind(file_id)
             .bind(sitemap_id)
             .bind(page_id)
             .execute(&self.pool)

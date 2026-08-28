@@ -377,6 +377,7 @@ pub async fn get_preview(
                 ctx,
                 page,
                 layout,
+                sitemap,
                 fonts,
                 mode,
             })?;
@@ -470,6 +471,9 @@ pub enum ActionForm {
     SaveJs {
         source: String,
     },
+    UpdateOgImage {
+        file_id: String,
+    },
     Publish,
     CreatePage {
         path: String,
@@ -499,6 +503,9 @@ pub enum ActionForm {
     DeletePage,
     DeleteLayout,
     DeleteSitemap,
+    UpdateFavicon {
+        file_id: String,
+    },
 }
 
 pub async fn exec_action(
@@ -679,7 +686,7 @@ pub async fn exec_action(
         SyncDraft { name } => {
             let branch_name = format!("draft/{name}");
             app.sitemaps
-                .sync_branch(&org.id, &sitemap.id, &branch_name)
+                .sync_branch(&org.id, &sitemap, &branch_name)
                 .await
                 .map_err(|e| {
                     WebError::Status(
@@ -1014,7 +1021,7 @@ pub async fn exec_action(
         }
         Publish => {
             app.sitemaps
-                .sync_branch(&org.id, &sitemap.id, Branch::MAIN)
+                .sync_branch(&org.id, &sitemap, Branch::MAIN)
                 .await
                 .map_err(|e| {
                     WebError::Status(
@@ -1090,6 +1097,54 @@ pub async fn exec_action(
                 (views::layout::toast("Archivo eliminado correctamente", Variant::Primary))
                 (views::pages::preview(true))
             })
+        }
+        UpdateOgImage { file_id } => {
+            if session_state.model_type != ModelType::Page {
+                return Err(WebError::Status(
+                    StatusCode::FORBIDDEN,
+                    "only pages can update og image".to_string(),
+                ));
+            }
+
+            let Some(page_id) = session_state.model_id else {
+                return Err(WebError::Status(
+                    StatusCode::FORBIDDEN,
+                    "only pages can update og image".to_string(),
+                ));
+            };
+
+            let file_id: Id = file_id.parse().map_err(|e| {
+                WebError::Status(StatusCode::BAD_REQUEST, format!("invalid file id: {e}"))
+            })?;
+
+            app.pages
+                .update_og_image_file_id(&sitemap.id, &page_id, &file_id)
+                .await
+                .map_err(|e| {
+                    WebError::Status(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed updating og image: {e}"),
+                    )
+                })?;
+
+            Ok(html!())
+        }
+        UpdateFavicon { file_id } => {
+            let file_id: Id = file_id.parse().map_err(|e| {
+                WebError::Status(StatusCode::BAD_REQUEST, format!("invalid file id: {e}"))
+            })?;
+
+            app.sitemaps
+                .update_favicon_file_id(&sitemap.id, &file_id)
+                .await
+                .map_err(|e| {
+                    WebError::Status(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed updating favicon: {e}"),
+                    )
+                })?;
+
+            Ok(html!())
         }
     }
 }
