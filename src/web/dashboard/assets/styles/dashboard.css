@@ -37,10 +37,10 @@
     --warning-color-hover: oklch(from var(--warning-color) calc(l + 0.15) c h);
     --warning-color-light: oklch(from var(--warning-color) calc(l + 0.2) c h);
     --warning-color-dark: oklch(from var(--warning-color) calc(l - 0.15) calc(c + 0.06) h);
-    --success-color: #2dd55b;
-    --success-color-hover: oklch(from var(--success-color) calc(l + 0.1) calc(c - 0.04) h);
-    --success-color-light: oklch(from var(--success-color) calc(l + 0.1) calc(c - 0.08) h);
-    --success-color-dark: oklch(from var(--success-color) calc(l - 0.2) calc(c + 0.06) h);
+    --success-color: #6dd52d;
+    --success-color-hover: #43af23;
+    --success-color-light: #86dc50;
+    --success-color-dark: #45881b;
     --light-color: #fafffb;
     --light-color-hover: oklch(from var(--light-color) calc(l + 0.25) calc(c - 0.12) h);
     --light-color-light: oklch(from var(--light-color) calc(l + 0.3) calc(c - 0.15) h);
@@ -64,6 +64,12 @@
         --primary-color: #fefeff;
         --primary-color-light: #094fc2;
         --primary-color-hover: #0b5ee7;
+        --secondary-color: #dbdbdb;
+        --secondary-color-light: #525252;
+        --secondary-color-hover: #696969;
+        --success-color: #f0fbea;
+        --success-color-light: #45881b;
+        --success-color-hover: #58af23;
         --danger-color: #fff;
         --danger-color-light: #a50e0e;
         --danger-color-hover: #e01313;
@@ -426,6 +432,11 @@ button,
         pointer-events: none;
     }
 
+    &.noclick {
+        pointer-events: none;
+        cursor: default;
+    }
+
     &.small {
         padding: 0.5rem;
         font-size: 0.8rem;
@@ -530,9 +541,23 @@ button,
         }
     }
 
+    &.secondary {
+        background: var(--secondary-color-light);
+        color: var(--secondary-color);
+        &:hover {
+            background-color: var(--secondary-color-hover);
+        }
+        &.clear {
+            color: var(--secondary-color);
+            &:hover {
+                color: var(--secondary-color-dark);
+            }
+        }
+    }
+
     &.light {
         background: var(--light-color-light);
-        color: var(--dark-color);
+        color: var(--light-color);
         &:hover {
             background-color: var(--light-color-hover);
         }

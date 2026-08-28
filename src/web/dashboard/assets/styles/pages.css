@@ -227,6 +227,13 @@
         left: 0;
         margin: 5px;
         z-index: 10;
+
+        &.small {
+            button {
+                font-size: 0.8rem;
+                padding: 0.25rem;
+            }
+        }
     }
 
     .files .edit .preview img,

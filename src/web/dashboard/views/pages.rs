@@ -148,8 +148,8 @@ impl Section {
             Section::Create => create(state),
             Section::Delete => delete(state),
             Section::Publish => publish(),
-            Section::Files => files(&state.files),
-            Section::File => file(state),
+            Section::Files => files(&state),
+            Section::File => file(&state),
             Section::Fonts => fonts(&state.sitemap_fonts),
             Section::BrowseFonts => browse_fonts(state),
             Section::ConfigureFont => configure_font(state),
@@ -587,7 +587,7 @@ pub fn edit(model: &Option<Model>, org: &Organization, layouts: &Option<Vec<Layo
     )
 }
 
-pub fn files(files: &Option<Vec<File>>) -> Markup {
+pub fn files(state: &ViewState) -> Markup {
     html!(
         .grow.files {
             .actions x-data="progress"{
@@ -610,15 +610,17 @@ pub fn files(files: &Option<Vec<File>>) -> Markup {
                 }
             }
             #files .grid {
-                @if let Some(files) = files {
-                    (file_grid(files))
-                }
+                (file_grid(&state))
             }
         }
     )
 }
 
-pub fn file_grid(files: &Vec<File>) -> Markup {
+pub fn file_grid(state: &ViewState) -> Markup {
+    let Some(files) = &state.files else {
+        return html!();
+    };
+
     html!(
         @for file in files {
             .item id=(file.id)  {
@@ -631,6 +633,19 @@ pub fn file_grid(files: &Vec<File>) -> Markup {
                         hx-vals=(json!({ "file_id": file.id, "section": Section::File }))
                         "@mouseenter"="$refs.video?.play()"
                         "@mouseleave"="$refs.video?.pause()"  {}
+
+                    .setup.small role="group" {
+                        @if Some(file.id) == state.sitemap.favicon_file_id {
+                            (file_favicon_active_button())
+                        }
+                        @if let Some(Model::Page(page)) = &state.model {
+                            @if Some(file.id) == page.og_image_file_id {
+                                (file_og_image_active_button())
+                            }
+                        }
+                    }
+
+
 
                     @if file.preset == "image" {
                         img src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) {}
@@ -645,83 +660,114 @@ pub fn file_grid(files: &Vec<File>) -> Markup {
 }
 
 pub fn file(state: &ViewState) -> Markup {
-    html! (
-        .grow.files {
-            @if let Some(file) = &state.file {
-                (file_detail(file))
-            }
-        }
-    )
-}
+    let Some(file) = &state.file else {
+        return html! {};
+    };
 
-pub fn file_detail(file: &File) -> Markup {
     html!(
-        #edit.edit {
-            .actions {
-                button
-                    type="button"
-                    hx-trigger="click, deleted from:body, renamed from:body"
-                    hx-get="/dashboard/pages"
-                    hx-vals=(json!({ "section": Section::Files }))
-                    hx-target="#editor"
-                    hx-swap="outerHTML"
-                {
-                    "Volver"
-                }
-            }
-            .preview {
-                .setup role="group" {
-                    button hx-post="/dashboard/pages" hx-vals=(json!({ "action": "update_favicon", "file_id": file.id })) hx-swap="none" {
-                        i.fa-solid.fa-globe {}
-                    }
-                    button hx-post="/dashboard/pages" hx-vals=(json!({ "action": "update_og_image", "file_id": file.id })) hx-swap="none" {
-                        i.fa-solid.fa-link {}
+        .grow.files {
+            #edit.edit {
+                .actions {
+                    button
+                        type="button"
+                        hx-trigger="click, deleted from:body, renamed from:body"
+                        hx-get="/dashboard/pages"
+                        hx-vals=(json!({ "section": Section::Files }))
+                        hx-target="#editor"
+                        hx-swap="outerHTML"
+                    {
+                        "Volver"
                     }
                 }
-                @if file.preset == "image" {
-                        img src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) {}
-                }
-                @if file.preset == "video" {
-                    video src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) controls {}
-                }
-            }
-            table.compact {
-                thead {
-                    tr {
-                        th { "Variante" }
-                        th { "Dimensiones" }
-                        th { "Tamaño" }
-                        th { "Tipo" }
+                .preview {
+                    .setup role="group" {
+                        @if Some(file.id) == state.sitemap.favicon_file_id {
+                            (file_favicon_active_button())
+                        } @else {
+                            button.secondary hx-post="/dashboard/pages" hx-vals=(json!({ "action": "update_favicon", "file_id": file.id })) hx-swap="outerHTML" {
+                                i.fa-solid.fa-globe {}
+                            }
+                        }
+
+                        @if let Some(Model::Page(page)) = &state.model {
+                            @if Some(file.id) == page.og_image_file_id {
+                                (file_og_image_active_button())
+                            } @else {
+                                button.secondary hx-post="/dashboard/pages" hx-vals=(json!({ "action": "update_og_image", "file_id": file.id })) hx-swap="outerHTML" {
+                                    i.fa-solid.fa-link {}
+                                }
+                            }
+                        }
+                    }
+                    @if file.preset == "image" {
+                            img src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) {}
+                    }
+                    @if file.preset == "video" {
+                        video src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) controls {}
                     }
                 }
-                tbody {
-                    @for format in file.formats.iter() {
+                table.compact {
+                    thead {
                         tr {
-                            td { (format.variant) }
-                            td { (format.width) "x" (format.height) }
-                                td x-data=(format!("filesize({})", format.size)) x-text="size" {}
-                            td { (format.content_type) }
+                            th { "Variante" }
+                            th { "Dimensiones" }
+                            th { "Tamaño" }
+                            th { "Tipo" }
+                        }
+                    }
+                    tbody {
+                        @for format in file.formats.iter() {
+                            tr {
+                                td { (format.variant) }
+                                td { (format.width) "x" (format.height) }
+                                    td x-data=(format!("filesize({})", format.size)) x-text="size" {}
+                                td { (format.content_type) }
+                            }
                         }
                     }
                 }
-            }
-            form hx-post="/dashboard/pages" hx-swap="none" {
-                input type="hidden" name="action" value="save_file" {}
+                form hx-post="/dashboard/pages" hx-swap="none" {
+                    input type="hidden" name="action" value="save_file" {}
 
-                fieldset {
-                    legend { "Nombre" }
-                    input name="name" value=(file.name) required {}
-                }
-                .actions.around {
-                    button.danger type="button" hx-post="/dashboard/pages" hx-target="#edit" hx-swap="outerHTML" hx-vals=(json!({ "action": "delete_file" })) {
-                        "Eliminar"
+                    fieldset {
+                        legend { "Nombre" }
+                        input name="name" value=(file.name) required {}
                     }
-                    button type="submit" { "Guardar" }
+                    .actions.around {
+                        button.danger type="button" hx-post="/dashboard/pages" hx-target="#edit" hx-swap="outerHTML" hx-vals=(json!({ "action": "delete_file" })) {
+                            "Eliminar"
+                        }
+                        button type="submit" { "Guardar" }
+                    }
                 }
             }
         }
     )
 }
+
+macro_rules! file_active_button {
+    ($func:ident, $icon:expr, $title:expr) => {
+        pub fn $func() -> Markup {
+            html!(
+                button.noclick title=($title) {
+                    i.($icon) {}
+                }
+            )
+        }
+    };
+}
+
+file_active_button!(
+    file_og_image_active_button,
+    "fa-solid fa-link",
+    "Imagen de la página"
+);
+
+file_active_button!(
+    file_favicon_active_button,
+    "fa-solid fa-globe",
+    "Icono de pestaña"
+);
 
 pub fn fonts(sitemap_fonts: &Option<Vec<SitemapFont>>) -> Markup {
     html! (

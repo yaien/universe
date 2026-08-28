@@ -431,6 +431,7 @@ pub struct UploadFilesForm {
 pub async fn upload_files(
     org: ReqData<Organization>,
     app: Data<App>,
+    session: Session,
     MultipartForm(form): MultipartForm<UploadFilesForm>,
 ) -> Result<Markup, WebError> {
     app.files
@@ -438,9 +439,17 @@ pub async fn upload_files(
         .await
         .context("failed uploading files")?;
 
-    let files = app.files.get_by_organization_id(&org.id).await?;
+    let query = QueryState::default();
 
-    Ok(views::pages::file_grid(&files))
+    let session_state = session
+        .get::<SessionState>("pages")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+
+    let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
+
+    Ok(views::pages::file_grid(&view_state))
 }
 
 #[derive(Deserialize)]
@@ -1081,19 +1090,12 @@ pub async fn exec_action(
                     )
                 })?;
 
-            let files = app
-                .files
-                .get_by_organization_id(&org.id)
-                .await
-                .map_err(|e| {
-                    WebError::Status(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("failed listing files: {e}"),
-                    )
-                })?;
+            let query = QueryState::default();
+
+            let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
 
             Ok(html! {
-                (views::pages::files(&Some(files)))
+                (views::pages::files(&view_state))
                 (views::layout::toast("Archivo eliminado correctamente", Variant::Primary))
                 (views::pages::preview(true))
             })
@@ -1127,7 +1129,7 @@ pub async fn exec_action(
                     )
                 })?;
 
-            Ok(html!())
+            Ok(views::pages::file_og_image_active_button())
         }
         UpdateFavicon { file_id } => {
             let file_id: Id = file_id.parse().map_err(|e| {
@@ -1144,7 +1146,7 @@ pub async fn exec_action(
                     )
                 })?;
 
-            Ok(html!())
+            Ok(views::pages::file_favicon_active_button())
         }
     }
 }
