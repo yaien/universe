@@ -24,7 +24,14 @@ pub trait RegisterFunctions {
 }
 
 impl RegisterFunctions for Environment<'_> {
-    fn register_functions(&mut self, RegistryContext { app, org, user }: &RegistryContext) {
+    fn register_functions(
+        &mut self,
+        RegistryContext {
+            app: _app,
+            org,
+            user: _user,
+        }: &RegistryContext,
+    ) {
         register!(file_url, self);
         register!(external_file_url, self, org);
     }

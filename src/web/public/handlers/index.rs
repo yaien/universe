@@ -82,13 +82,17 @@ pub async fn get_favicon(app: Data<App>, org: ReqData<Organization>) -> Result<N
         .files
         .get_one_by_organization_id_and_id(&org.id, &file_id)
         .await
-        .map_err(|err| WebError::Status(StatusCode::NOT_FOUND, "favicon not found".to_string()))?;
+        .map_err(|err| {
+            WebError::Status(StatusCode::NOT_FOUND, format!("favicon not found: {}", err))
+        })?;
 
     let (path, format) = app
         .files
         .get_path_and_format(&mut file, &0)
         .await
-        .map_err(|err| WebError::Status(StatusCode::NOT_FOUND, "favicon not found".to_string()))?;
+        .map_err(|err| {
+            WebError::Status(StatusCode::NOT_FOUND, format!("favicon not found: {}", err))
+        })?;
 
     let named = NamedFile::open(path)?
         .set_content_type(Mime::from_str(&format.content_type).unwrap_or(APPLICATION_OCTET_STREAM))
