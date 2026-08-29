@@ -89,7 +89,7 @@ body {
 }
 
 /* Aside Styles */
-@scope (body > aside) {
+body > aside {
     width: var(--aside-width);
     height: 100%;
     position: fixed;
@@ -183,7 +183,7 @@ body {
 }
 
 /* Main Content Styles */
-@scope (body > main) {
+body > main {
     padding-left: calc(var(--aside-width-closed) + var(--aside-space));
     padding-top: var(--header-height);
     background-color: var(--background-color);
@@ -203,7 +203,7 @@ body {
 }
 
 /* Header Styles */
-@scope (body > header) {
+body > header {
     padding-left: calc(var(--aside-width-closed) + var(--aside-space));
     color: var(--primary-color);
     height: var(--header-height);

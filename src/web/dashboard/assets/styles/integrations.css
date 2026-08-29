@@ -1,4 +1,4 @@
-@scope ([data-scope="integrations"]) {
+[data-scope="integrations"] {
     /* List Styles */
     .list {
         list-style: none;

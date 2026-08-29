@@ -1,4 +1,4 @@
-@scope ([data-scope="roles"]) {
+[data-scope="roles"] {
     .actions {
         margin: auto;
         text-align: center;

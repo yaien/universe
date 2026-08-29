@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use sqlx::prelude::FromRow;
 
-use crate::app::{self, Colors, Emails, Fonts, Layouts, Pages, bundle_css, bundle_js, sitemap};
+use crate::app::{self, Colors, Emails, Fonts, Layouts, Pages, bundle_css, bundle_js};
 use crate::infra::{DbPool, Id};
 
 pub struct Branch;

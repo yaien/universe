@@ -1,4 +1,4 @@
-@scope ([data-scope="products"]) {
+[data-scope="products"] {
     .actions {
         text-align: center;
     }
@@ -23,13 +23,13 @@
     }
 }
 
-@scope ([data-scope="product"]) {
-    & {
-        padding: var(--space);
-        display: flex;
-        gap: var(--space);
-        justify-content: center;
-    }
+[data-scope="product"] {
+    
+    padding: var(--space);
+    display: flex;
+    gap: var(--space);
+    justify-content: center;
+    
 
     .forms {
         display: flex;
