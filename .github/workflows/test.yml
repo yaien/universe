@@ -1,0 +1,25 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: Test
+on:
+    pull_request:
+        branches:
+            - main
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+    test:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+            - name: Setup dependencies
+              run: |
+                sudo apt update
+                sudo apt install -y ffmpeg libvips libvips-tools
+            - name: Cache
+              uses: Swatinem/rust-cache@v2.9.2
+            - name: Test
+              run: cargo test
