@@ -17,6 +17,6 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v6
             - name: Setup dependencies
-              run: apt install ffmpeg libvips libvips-tools
+              run: apt install -y ffmpeg libvips libvips-tools
             - name: Test
               run: cargo test
