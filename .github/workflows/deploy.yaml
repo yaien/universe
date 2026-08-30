@@ -39,3 +39,5 @@ jobs:
                   name: universe
             - name: Copy Binary
               run: scp universe ${{ secrets.VPS_SCP_TARGET }}
+            - name: Restart Service
+              run: ssh ${{ secrets.VPS_DEPLOY_COMMAND }}
