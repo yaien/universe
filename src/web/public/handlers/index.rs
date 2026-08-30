@@ -25,8 +25,6 @@ pub async fn get_index(
         .get_one_by_branch(&org.id, Branch::MAIN)
         .await?;
 
-    let path = format!("/{path}");
-
     let page = app.pages.get_by_path(&sitemap.id, &path).await?;
 
     let layout = match page.layout_id {

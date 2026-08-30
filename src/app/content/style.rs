@@ -12,9 +12,9 @@ pub const BASE: &str = r#"
 body {
     margin: 0;
     padding: 0;
-    background-color: var(--color-background);
-    color: var(--color-text);
-    font-family: var(--font-primary);
+    background-color: var(--background-color);
+    color: var(--text-color);
+    font-family: var(--primary-font-family);
 }
 
 h1,
@@ -23,7 +23,7 @@ h3,
 h4,
 h5,
 h6 {
-    font-family: var(--font-headings);
+    font-family: var(--headings-font-family);
 }
 "#;
 
@@ -31,11 +31,14 @@ pub fn root_vars(fonts: &Vec<SitemapFont>, colors: &Vec<Color>) -> String {
     let mut prescaped = String::from("\n:root {\n");
 
     for font in fonts {
-        prescaped.push_str(&format!("  --font-{}: {:?};\n", font.tag, font.family));
+        prescaped.push_str(&format!(
+            "  --{}-font-family: {:?};\n",
+            font.tag, font.family
+        ));
     }
 
     for color in colors {
-        prescaped.push_str(&format!("  --color-{}: {};\n", color.tag, color.value));
+        prescaped.push_str(&format!("  --{}-color: {};\n", color.tag, color.value));
     }
 
     prescaped.push_str("}\n");
@@ -133,10 +136,10 @@ mod tests {
         let result = root_vars(&fonts, &colors);
         let expected = r##"
             :root {
-               --font-primary: "Arial";
-               --font-secondary: "Helvetica";
-               --color-primary: #000000;
-               --color-secondary: #FFFFFF;
+               --primary-font-family: "Arial";
+               --secondary-font-family: "Helvetica";
+               --primary-color: #000000;
+               --secondary-color: #FFFFFF;
             }
         "##;
 

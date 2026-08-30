@@ -67,7 +67,7 @@ impl Sitemaps {
 
         // create default pages
         self.pages
-            .create(&sitemap_id, "/", "inicio", "Inicio")
+            .create(&sitemap_id, "", "inicio", "Inicio")
             .await?;
 
         // create default emails

@@ -507,13 +507,13 @@ pub fn edit(model: &Option<Model>, org: &Organization, layouts: &Option<Vec<Layo
                     fieldset role="group" {
                         legend { "Url" }
                         .group {
-                            span { (org.url) }
-                            input name="path" required value=(page.path) {}
+                            span { (org.url)"/" }
+                            input name="path" value=(page.path) {}
                         }
                     }
                     fieldset {
                         legend { "Titulo" }
-                        input name="title" required value=(page.title) {}
+                        input name="title" value=(page.title) {}
                     }
                     fieldset {
                         legend { "Tipo" }
@@ -1004,9 +1004,7 @@ pub fn color(color: &Color) -> Markup {
             small.hint {
                 .css {
                     i.fa-brands.fa-css {}
-                    pre {
-                        "var(--color--" span x-text="tag" { (color.tag) } ")"
-                    }
+                    pre x-text="`var(--${tag}--color)`" {}
                 }
                 button.clear.danger
                     type="button"

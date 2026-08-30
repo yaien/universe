@@ -105,7 +105,7 @@ mod tests {
                     .unwrap()
                     .get(0);
 
-            sqlx::query("select id from pages where sitemap_id = $1 and path = '/'")
+            sqlx::query("select id from pages where sitemap_id = $1 and path = ''")
                 .bind(sitemap_id)
                 .fetch_one(&pool)
                 .await
