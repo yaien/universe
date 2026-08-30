@@ -38,4 +38,4 @@ jobs:
               with:
                   name: universe
             - name: Copy Binary
-              run: scp universe ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:universe/universe
+              run: scp universe ${{ secrets.VPS_SCP_TARGET }}

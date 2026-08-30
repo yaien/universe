@@ -16,9 +16,9 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v6
             - name: Setup dependencies
-              uses: awalsh128/cache-apt-pkgs-action@v1
-              with:
-                packages: ffmpeg libvips libvips-tools
+              run: |
+                sudo apt update
+                sudo apt install -y ffmpeg libvips libvips-tools
             - name: Cache
               uses: Swatinem/rust-cache@v2.9.2
             - name: Test
