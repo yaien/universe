@@ -15,7 +15,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v6
             - name: Setup dependencies
-              uses: walsh128/cache-apt-pkgs-action@v1.6.3
+              uses: awalsh128/cache-apt-pkgs-action@v1
               with:
                 packages: ffmpeg libvips libvips-tools
             - name: Cache
