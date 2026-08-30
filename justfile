@@ -11,4 +11,4 @@ run: esbuild
     cargo run
 
 watch:
-    watchexec -r --bell -e rs,ts,css just run
+    watchexec -r --bell -e rs,ts,css -w src just run

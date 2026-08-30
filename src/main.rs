@@ -14,6 +14,7 @@ use rustls::crypto;
 use sqlx::migrate;
 
 use infra::Monolith;
+use url::Url;
 
 use crate::app::processor::FileProcessor;
 
@@ -33,15 +34,10 @@ async fn main() -> Result<()> {
     let service = Service::new(&mono);
 
     match &cmd.command {
-        Some(Command::Create {
-            url,
-            hostname,
-            title,
-            email,
-        }) => {
+        Some(Command::Create { url, title, email }) => {
             let org_id = service
                 .organizations
-                .create(url, hostname, title)
+                .create(&url, title)
                 .await
                 .context("failed creating organization")?;
 

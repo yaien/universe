@@ -1,4 +1,5 @@
 pub use clap::{Parser, Subcommand};
+use url::Url;
 
 #[derive(Parser, Debug)]
 #[command(version = "1.0")]
@@ -12,10 +13,7 @@ pub enum Command {
     #[command(about = "Create a new organization with admin user")]
     Create {
         #[arg()]
-        url: String,
-
-        #[arg()]
-        hostname: String,
+        url: Url,
 
         #[arg()]
         title: String,

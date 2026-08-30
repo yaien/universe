@@ -17,7 +17,7 @@ jobs:
             - name: Build Binary
               run: cargo build --release
             - name: Upload Binary
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: universe
                   path: target/release/universe
@@ -34,7 +34,7 @@ jobs:
                   mkdir -p ~/.ssh
                   ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
             - name: Download Binary
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v8
               with:
                   name: universe
             - name: Copy Binary

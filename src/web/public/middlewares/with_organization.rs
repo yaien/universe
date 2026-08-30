@@ -14,10 +14,10 @@ pub async fn with_organization(
     req: ServiceRequest,
     next: Next<impl MessageBody>,
 ) -> Result<ServiceResponse<impl MessageBody>, Error> {
-    let Some(host) = req.uri().host() else {
+    let Some(host) = req.request().full_url().host().map(|h| h.to_string()) else {
         return Err(WebError::Status(
             StatusCode::BAD_REQUEST,
-            format!("host not found in uri {}", req.request().uri()),
+            format!("host not found in uri {}", req.request().full_url()),
         ))?;
     };
 

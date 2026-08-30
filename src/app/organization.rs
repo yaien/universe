@@ -3,7 +3,9 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::prelude::FromRow;
+use url::Url;
 
+use crate::app::AppError;
 use crate::{
     app::{Branch, Sitemaps},
     infra::{DbPool, Id},
@@ -29,10 +31,14 @@ impl Organizations {
         Self { pool, sitemaps }
     }
 
-    pub async fn create(&self, url: &str, hostname: &str, title: &str) -> Result<Id, sqlx::Error> {
+    pub async fn create(&self, url: &Url, title: &str) -> Result<Id, AppError> {
+        let hostname = url
+            .host_str()
+            .ok_or_else(|| AppError::Message("url does not have a hostname".to_string()))?;
+
         let organization_id =
             sqlx::query("insert into organizations (url, hostname, title) values ($1, $2, $3)")
-                .bind(url)
+                .bind(url.as_str())
                 .bind(hostname)
                 .bind(title)
                 .execute(&self.pool)
@@ -80,10 +86,9 @@ mod tests {
 
         let organizations = Organizations::new(pool.clone(), sitemaps.clone());
 
-        let organization_id = organizations
-            .create("http://localhost:3000", "localhost:3000", "Localhost")
-            .await
-            .unwrap();
+        let url = Url::parse("http://localhost:3000").unwrap();
+
+        let organization_id = organizations.create(&url, "Localhost").await.unwrap();
 
         let organization_count: u64 =
             sqlx::query("select count(*) from organizations where hostname = $1")
