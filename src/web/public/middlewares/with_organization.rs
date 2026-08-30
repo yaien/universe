@@ -17,7 +17,7 @@ pub async fn with_organization(
     let Some(host) = req.uri().host() else {
         return Err(WebError::Status(
             StatusCode::BAD_REQUEST,
-            String::from("host not found"),
+            format!("host not found in uri {}", req.request().uri()),
         ))?;
     };
 
