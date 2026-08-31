@@ -7,7 +7,7 @@ pub fn product_list(products: Vec<Product>) -> Markup {
     html!(
         .container data-scope="products" {
             .actions {
-                button.clear hx-get="/dashboard/products/create" hx-target=".container" hx-swap="beforeend" {
+                button.clear hx-get="/dashboard/products?fragment=create" hx-target=".container" hx-swap="beforeend" {
                     .fa-solid.fa-plus {}
                 }
             }
@@ -37,7 +37,7 @@ pub fn create_modal() -> Markup {
         html!(
             form hx-post="/dashboard/products" hx-target="dialog" hx-swap="outerHTML swap:250ms" hx-disable="find button"{
                 fieldset {
-                    legend { "Mombre" }
+                    legend { "Nombre" }
                     input name="name" required {}
                 }
                 .actions.text-center {

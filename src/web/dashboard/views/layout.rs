@@ -137,7 +137,7 @@ pub fn modal(title: &str, content: Markup) -> Markup {
                 header {
                     strong class="title" { (title) }
                     button class="close" {
-                        i class="fa-solid fa-xmark";
+                        i class="fa-solid fa-xmark" {}
                     }
                 }
                 (content)

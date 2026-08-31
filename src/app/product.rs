@@ -74,13 +74,14 @@ impl Products {
             ));
         }
 
-        let inserted_id = sqlx::query("insert into products(organization_id, name, slug)")
-            .bind(organization_id)
-            .bind(name)
-            .bind(&slug)
-            .execute(&self.db)
-            .await
-            .map(|r| r.last_insert_rowid())?;
+        let inserted_id =
+            sqlx::query("insert into products(organization_id, name, slug) values ($1, $2, $3)")
+                .bind(organization_id)
+                .bind(name)
+                .bind(&slug)
+                .execute(&self.db)
+                .await
+                .map(|r| r.last_insert_rowid())?;
 
         Ok(inserted_id)
     }

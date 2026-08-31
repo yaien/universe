@@ -17,6 +17,7 @@ pub fn configure(config: &mut ServiceConfig) {
                 .route("/pages/files", post().to(handlers::pages::upload_files))
                 .route("/pages/preview", get().to(handlers::pages::get_preview))
                 .route("/products", get().to(handlers::products::products))
+                .route("/products", post().to(handlers::products::products_actions))
                 .wrap(from_fn(middlewares::role)),
         )
         .route(
