@@ -10,6 +10,7 @@ mod invitation;
 mod layout;
 mod organization;
 mod page;
+mod product;
 mod role;
 mod sitemap;
 mod user;
@@ -25,6 +26,7 @@ pub use invitation::*;
 pub use layout::*;
 pub use organization::*;
 pub use page::*;
+pub use product::*;
 pub use role::*;
 pub use sitemap::*;
 pub use user::*;
@@ -45,6 +47,7 @@ pub struct App {
     pub files: Arc<Files>,
     pub fonts: Arc<Fonts>,
     pub colors: Arc<Colors>,
+    pub products: Arc<Products>,
 }
 
 impl App {
@@ -84,6 +87,8 @@ impl App {
             mono.config.storage_path.clone(),
         ));
 
+        let products = Arc::new(Products::new(mono.pool.clone()));
+
         Self {
             users,
             pages,
@@ -97,6 +102,7 @@ impl App {
             files,
             fonts,
             colors,
+            products,
         }
     }
 }
