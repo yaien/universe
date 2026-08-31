@@ -18,6 +18,10 @@ pub fn configure(config: &mut ServiceConfig) {
                 .route("/pages/preview", get().to(handlers::pages::get_preview))
                 .route("/products", get().to(handlers::products::products))
                 .route("/products", post().to(handlers::products::products_actions))
+                .route(
+                    "/products/{id}",
+                    get().to(handlers::products::product_detail),
+                )
                 .wrap(from_fn(middlewares::role)),
         )
         .route(

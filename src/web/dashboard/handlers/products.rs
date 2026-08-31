@@ -1,10 +1,11 @@
 use actix_web::http::StatusCode;
-use actix_web::web::{Data, Form, Query, ReqData};
+use actix_web::web::{Data, Form, Path, Query, ReqData};
 use actix_web::{HttpRequest, HttpResponse, Responder};
 use maud::Markup;
 use serde::Deserialize;
 
 use crate::app::{App, Organization, Role};
+use crate::infra::Id;
 use crate::web::dashboard::views;
 use crate::web::dashboard::views::layout::Content;
 use crate::web::errors::WebError;
@@ -63,4 +64,35 @@ pub async fn products_actions(
     Ok(HttpResponse::Ok()
         .insert_header(("HX-Location", product_url))
         .finish())
+}
+
+#[derive(Deserialize)]
+pub struct ProductDetailQuery {
+    pub presentation_id: Option<Id>,
+}
+
+pub async fn product_detail(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    role: ReqData<Role>,
+    req: HttpRequest,
+    product_id: Path<Id>,
+    query: Query<ProductDetailQuery>,
+) -> Result<Markup, WebError> {
+    let product = app
+        .products
+        .get_one_by_organization_id_and_id(&org.id, &product_id)
+        .await?;
+
+    let presentation = query
+        .presentation_id
+        .and_then(|id| product.presentations.iter().find(|p| p.id == id));
+
+    Ok(views::layout::layout(&Content {
+        title: "Product Details",
+        path: req.path(),
+        org: &org,
+        role: &role,
+        content: views::products::product_detail(&product, &presentation),
+    }))
 }

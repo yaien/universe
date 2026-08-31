@@ -15,7 +15,7 @@ pub fn product_list(products: Vec<Product>) -> Markup {
                 @for product in products {
                     a.detail role="article" href=(format!("/dashboard/products/{}", product.id)) hx-boost="true" {
                         header {
-                            @if let Some(content) = product.presentations.first().map(|p| p.contents.first()).flatten() {
+                            @if let Some(content) = product.presentations.first().and_then(|p| p.contents.first()) {
                                 img src=(format!("/assets/dynamic/files/{}", content.file_id)){}
                             } @else {
                                 .placeholder {}
@@ -64,7 +64,7 @@ pub fn delete_modal(product: &Product) -> Markup {
     )
 }
 
-pub fn product_detail(product: &Product, presentation: &Option<Presentation>) -> Markup {
+pub fn product_detail(product: &Product, presentation: &Option<&Presentation>) -> Markup {
     html!(
         #product data-scope="product" {
             .forms {
@@ -77,7 +77,10 @@ pub fn product_detail(product: &Product, presentation: &Option<Presentation>) ->
                         }
                         fieldset {
                             legend { "Publicado" }
-                            input type="checkbox" name="published" checked=(product.published) {}
+                            select name="published" {
+                                option value="true" selected=[product.published.then_some("")] { "Sí" }
+                                option value="false" selected=[(!product.published).then_some("")] { "No" }
+                            }
                         }
                         .actions {
                             button.danger type="button" hx-get=(format!("/dashboard/products/{}/delete", product.id)) hx-target="#product" hx-swap="beforeend" {
@@ -94,7 +97,7 @@ pub fn product_detail(product: &Product, presentation: &Option<Presentation>) ->
     )
 }
 
-pub fn presentations(product: &Product, presentation: &Option<Presentation>) -> Markup {
+pub fn presentations(product: &Product, presentation: &Option<&Presentation>) -> Markup {
     html!(
         article #presentations {
             h4 { "Presentaciones" }
@@ -153,7 +156,7 @@ pub fn presentation_form(_product: &Product, presentation: &Presentation) -> Mar
 
 pub fn pictures(
     product: &Product,
-    presentation: &Option<Presentation>,
+    presentation: &Option<&Presentation>,
     content: &Option<Content>,
     swapobb: bool,
 ) -> Markup {

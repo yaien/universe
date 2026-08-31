@@ -12,10 +12,10 @@
     --aside-padding: 10px;
     --aside-space: 20px;
     --aside-border-color: transparent;
-    --aside-background-color: var(--light-color-light);
+    --aside-background-color: var(--background-color);
     --header-height: 60px;
     --header-border-color: var(--border-color);
-    --header-background-color: var(--light-color-light);
+    --header-background-color: var(--background-color);
     --shadow-color: rgba(0, 0, 0, 0.1);
     --box-shadow: 0 2px 4px var(--shadow-color);
     --border-color: #e5e7eb;
@@ -41,14 +41,15 @@
     --success-color-hover: #43af23;
     --success-color-light: #86dc50;
     --success-color-dark: #45881b;
-    --light-color: #fafffb;
-    --light-color-hover: oklch(from var(--light-color) calc(l + 0.25) calc(c - 0.12) h);
-    --light-color-light: oklch(from var(--light-color) calc(l + 0.3) calc(c - 0.15) h);
-    --light-color-dark: oklch(from var(--light-color) calc(l - 0.01) c h);
-    --dark-color: #111827;
-    --dark-color-hover: oklch(from var(--dark-color) calc(l + 0.25) calc(c - 0.12) h);
-    --dark-color-light: oklch(from var(--dark-color) calc(l + 0.3) calc(c - 0.15) h);
-    --dark-color-dark: oklch(from var(--dark-color) calc(l - 0.15) calc(c + 0.06) h);
+    --light-color: #f7f7f7;
+    --light-color-hover: #dedede;
+    --light-color-light: #f8f8f8;
+    --light-color-dark: #b2b2b2;
+    --dark-color: #141414;
+    --dark-color-hover: #1c1c1c;
+    --dark-color-light: #242424;
+    --dark-color-dark: #101010;
+    --placeholder-color: var(--light-color);
 }
 
 /* Dark Theme (prefer scheme dark)*/
@@ -61,6 +62,7 @@
         --hover-color: #1a1a1a;
         --text-color: #f1f1f1;
         --text-muted: #ccc;
+        --placeholder-color: var(--dark-color);
         --primary-color: #fefeff;
         --primary-color-light: #094fc2;
         --primary-color-hover: #0b5ee7;
@@ -86,6 +88,7 @@ body {
     font-optical-sizing: auto;
     margin: 0;
     color: var(--text-color);
+    background-color: var(--background-color);
 }
 
 /* Aside Styles */
@@ -291,7 +294,7 @@ body > header {
 }
 
 .placeholder {
-    background-color: var(--secondary-color-light);
+    background-color: var(--placeholder-color);
 }
 
 .grid {
@@ -836,7 +839,7 @@ article,
         .placeholder {
             width: 150px;
             height: 150px;
-            background-color: var(--secondary-color-light);
+            background-color: var(--placeholder-color);
             border: none;
             object-fit: cover;
             object-position: center;
