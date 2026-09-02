@@ -1,7 +1,9 @@
 use maud::{Markup, html};
 use serde_json::json;
 
-use crate::app::store::{Content, Presentation, Presentations, Product};
+use crate::app::store::{
+    Content, MAX_CONTENTS_PER_PRESENTATION, Presentation, Presentations, Product,
+};
 use crate::web::dashboard::views;
 
 pub fn product_list(products: Vec<Product>) -> Markup {
@@ -93,7 +95,7 @@ pub fn product_detail(product: &Product, presentation: &Option<&Presentation>) -
                 }
                 (presentations(product, presentation))
             }
-            (pictures(product, presentation, &None, false))
+            (pictures(product, presentation, &None))
         }
     )
 }
@@ -158,16 +160,27 @@ pub fn presentation_form(_product: &Product, presentation: &Presentation) -> Mar
 pub fn pictures(
     product: &Product,
     presentation: &Option<&Presentation>,
-    content: &Option<Content>,
-    swapobb: bool,
+    content: &Option<&Content>,
 ) -> Markup {
     html!(
-        article #pictures .pictures hx-swap-oob=[swapobb.then_some("")] {
+        article #pictures .pictures {
             @if let Some(presentation) = presentation {
                 (pictures_section(product, presentation, content))
             } @else {
                 (pictures_placeholder_section())
             }
+        }
+    )
+}
+
+pub fn pictures_partial(
+    product: &Product,
+    presentation: &Option<&Presentation>,
+    content: &Option<&Content>,
+) -> Markup {
+    html!(
+        hx-partial hx-target="#pictures" hx-swap="outerHTML" {
+            (pictures(product, presentation, content))
         }
     )
 }
@@ -186,11 +199,11 @@ pub fn pictures_placeholder_section() -> Markup {
 }
 
 pub fn pictures_section(
-    _product: &Product,
+    product: &Product,
     presentation: &Presentation,
-    content: &Option<Content>,
+    content: &Option<&Content>,
 ) -> Markup {
-    let selected = content.as_ref().or(presentation.contents.first());
+    let selected = content.or(presentation.contents.first());
 
     html!(
         .pictures {
@@ -207,19 +220,28 @@ pub fn pictures_section(
             .flex {
                 form.flex {
                     @for content in &presentation.contents {
-                        .placeholder.small.draggable {
+                        .placeholder.small.draggable
+                            hx-get=(format!("/dashboard/products/{}?presentation_id={}&content_id={}", product.id, presentation.id, content.id))
+                            hx-target="#pictures"
+                            hx-swap="outerHTML" {
                             img src=(format!("/assets/dynamic/files/{}", content.file_id)) {}
                         }
                     }
                 }
-                @for _ in 0..(Presentations::MAX_CONTENTS - presentation.contents.len() - 1) {
+                @for _ in 0..(MAX_CONTENTS_PER_PRESENTATION - presentation.contents.len() as i64 - 1) {
                     .placeholder.small {}
                 }
-                @if presentation.contents.len() < Presentations::MAX_CONTENTS {
+                @if MAX_CONTENTS_PER_PRESENTATION > presentation.contents.len() as i64 {
                     .placeholder.small {
-                        form x-data {
-                            input type="file" name="file" hidden="true" accept="image/*" x-ref="file" {}
-                            button.clear "@click"="$refs.file.click()" {
+                        form x-data
+                            hx-post=(format!("/dashboard/products/{}/presentations/{}/contents", product.id, presentation.id))
+                            hx-trigger="change from:input changed"
+                            hx-target="#pictures"
+                            hx-swap="outerHTML"
+                            hx-encoding="multipart/form-data"
+                            {
+                            input type="file" name="files" hidden="true" accept="image/*" x-ref="file" multiple {}
+                            button.clear type="button" "@click"="$refs.file.click()" {
                                 .fa-solid.fa-plus {}
                             }
                         }

@@ -29,8 +29,6 @@
     display: flex;
     gap: var(--space);
     justify-content: center;
-    height: 98%;
-
 
     .forms {
         display: flex;
@@ -71,7 +69,7 @@
             aspect-ratio: 1;
 
             &.big {
-                height: 75%;
+                height: 450px;
                 margin-bottom: var(--space);
                 position: relative;
 

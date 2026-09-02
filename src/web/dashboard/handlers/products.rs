@@ -1,10 +1,10 @@
-use actix_web::http::header;
-use actix_web::web::{Data, Form, Header, Path, Query, ReqData};
+use actix_multipart::form::MultipartForm;
+use actix_multipart::form::tempfile::TempFile;
+use actix_web::web::{Data, Form, Path, Query, ReqData};
 use actix_web::{HttpRequest, HttpResponse, Responder};
-use maud::Markup;
+use maud::{Markup, html};
 use serde::Deserialize;
 
-use crate::app::store::{Presentation, Product};
 use crate::app::{App, Organization, Role};
 use crate::infra::Id;
 use crate::web::dashboard::views;
@@ -70,6 +70,7 @@ pub async fn exec_index_actions(
 #[derive(Deserialize)]
 pub struct ProductDetailQuery {
     pub presentation_id: Option<Id>,
+    pub content_id: Option<Id>,
 }
 
 pub async fn get_details(
@@ -91,10 +92,19 @@ pub async fn get_details(
         .and_then(|id| product.presentations.iter().find(|p| p.id == id))
         .or(product.presentations.first());
 
+    let content = query
+        .content_id
+        .and_then(|id| presentation.map(|p| p.contents.iter().find(|c| c.id == id)))
+        .flatten();
+
     match req.headers().get("HX-Target").and_then(|h| h.to_str().ok()) {
-        Some("article#presentations") => {
-            Ok(views::products::presentations(&product, &presentation))
-        }
+        Some("article#pictures") => Ok(html! {
+            (views::products::pictures(&product, &presentation, &content))
+        }),
+        Some("article#presentations") => Ok(html! {
+            (views::products::presentations(&product, &presentation))
+            (views::products::pictures_partial(&product, &presentation, &None))
+        }),
         _ => Ok(views::layout::layout(&Content {
             title: "Product Details",
             path: req.path(),
@@ -132,4 +142,38 @@ pub async fn exec_detail_actions(
             ))
         }
     }
+}
+
+#[derive(Debug, MultipartForm)]
+pub struct UploadForm {
+    pub files: Vec<TempFile>,
+}
+
+pub async fn upload_content(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    path: Path<(Id, Id)>,
+    MultipartForm(form): MultipartForm<UploadForm>,
+) -> Result<Markup, WebError> {
+    let (product_id, presentation_id) = path.into_inner();
+
+    app.store
+        .contents
+        .upload_many(&org.id, &product_id, &presentation_id, form.files)
+        .await?;
+
+    let product = app
+        .store
+        .products
+        .get_one_by_organization_id_and_id(&org.id, &product_id)
+        .await?;
+
+    let presentation = product
+        .presentations
+        .iter()
+        .find(|p| p.id == presentation_id);
+
+    let content = presentation.and_then(|p| p.contents.last());
+
+    Ok(views::products::pictures(&product, &presentation, &content))
 }

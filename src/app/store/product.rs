@@ -85,7 +85,7 @@ impl Products {
         .await?;
 
         let contents = QueryBuilder::new(
-                 "select c.id, c.presentation_id, c.number, c.file_id, f.preset from contents c join files f on f.id = c.file_id where c.presentation_id in ",
+                 "select c.id, c.presentation_id, c.number, c.file_id, f.preset as file_preset from contents c join files f on f.id = c.file_id where c.presentation_id in ",
             ).push_tuples(&product.presentations, |mut b, p| {
                 b.push_bind(p.id);
             })
@@ -130,7 +130,7 @@ impl Products {
                 .fetch_all(&self.db)
                 .await?;
 
-        let contents = QueryBuilder::new("select c.id, c.presentation_id, c.file_id, f.preset from contents c join files f on f.id = c.file_id where c.presentation_id in ")
+        let contents = QueryBuilder::new("select c.id, c.presentation_id, c.file_id, f.preset as file_preset, c.number from contents c join files f on f.id = c.file_id where c.presentation_id in ")
             .push_tuples(&presentations, |mut b, p| {
                 b.push_bind(p.id);
             })

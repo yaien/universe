@@ -22,6 +22,10 @@ pub fn configure(config: &mut ServiceConfig) {
                 .route("/products", post().to(products::exec_index_actions))
                 .route("/products/{id}", get().to(products::get_details))
                 .route("/products/{id}", post().to(products::exec_detail_actions))
+                .route(
+                    "/products/{id}/presentations/{pid}/contents",
+                    post().to(products::upload_content),
+                )
                 .wrap(from_fn(middlewares::role)),
         )
         .route(

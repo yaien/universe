@@ -23,8 +23,6 @@ pub struct Presentations {
 }
 
 impl Presentations {
-    pub const MAX_CONTENTS: usize = 5;
-
     pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }

@@ -9,6 +9,7 @@ use serde::Deserialize;
 
 use crate::app::{App, Organization, RegistryContext, RenderMode, RenderPageOptions, render_page};
 use crate::app::{Branch, User};
+use crate::infra::Id;
 use crate::web::errors::WebError;
 
 use std::str::FromStr;
@@ -112,17 +113,24 @@ pub struct FileQuery {
     variant: Option<u32>,
 }
 
-pub async fn download_file(
+pub async fn get_file(
     app: Data<App>,
     org: ReqData<Organization>,
     name: Path<String>,
     query: Query<FileQuery>,
 ) -> Result<NamedFile, Error> {
-    let mut file = app
-        .files
-        .get_one_by_organization_id_and_name(&org.id, &name)
-        .await
-        .map_err(|e| WebError::Status(StatusCode::NOT_FOUND, e.to_string()))?;
+    let mut file = match name.parse::<Id>() {
+        Ok(id) => app
+            .files
+            .get_one_by_organization_id_and_id(&org.id, &id)
+            .await
+            .map_err(|e| WebError::Status(StatusCode::NOT_FOUND, e.to_string()))?,
+        Err(_) => app
+            .files
+            .get_one_by_organization_id_and_name(&org.id, &name)
+            .await
+            .map_err(|e| WebError::Status(StatusCode::NOT_FOUND, e.to_string()))?,
+    };
 
     let variant = query.variant.unwrap_or(0);
 

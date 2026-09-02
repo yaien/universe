@@ -22,4 +22,16 @@ impl From<anyhow::Error> for AppError {
     }
 }
 
+impl From<&str> for AppError {
+    fn from(message: &str) -> Self {
+        AppError::Message(message.to_string())
+    }
+}
+
+impl From<String> for AppError {
+    fn from(message: String) -> Self {
+        AppError::Message(message)
+    }
+}
+
 pub type Result<T> = std::result::Result<T, AppError>;

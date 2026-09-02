@@ -127,15 +127,16 @@ impl Files {
         &self,
         organization_id: &Id,
         files: Vec<TempFile>,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<Vec<Id>, anyhow::Error> {
+        let mut result = Vec::new();
         for file in files.into_iter() {
-            self.upload(organization_id, file).await?;
+            result.push(self.upload(organization_id, file).await?);
         }
 
-        Ok(())
+        Ok(result)
     }
 
-    pub async fn upload(&self, organization_id: &Id, temp: TempFile) -> Result<(), anyhow::Error> {
+    pub async fn upload(&self, organization_id: &Id, temp: TempFile) -> Result<Id, anyhow::Error> {
         let temp_file_name = temp.file_name.ok_or(anyhow!("missing filename"))?;
 
         let (name, extension) = temp_file_name
@@ -196,7 +197,7 @@ impl Files {
             })
             .await?;
 
-        Ok(())
+        Ok(file_id)
     }
 
     pub async fn delete_by_organization_id_and_id(

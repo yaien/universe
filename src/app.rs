@@ -88,7 +88,7 @@ impl App {
             mono.config.storage_path.clone(),
         ));
 
-        let store = Arc::new(Store::new(mono.pool.clone()));
+        let store = Arc::new(Store::new(mono.pool.clone(), files.clone()));
 
         Self {
             users,
