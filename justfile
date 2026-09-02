@@ -5,6 +5,7 @@ test:
     cargo test
 
 esbuild:
+    npm install
     npx esbuild src/web/dashboard/assets/dashboard.ts --bundle --outfile=data/dist/dashboard.min.js --minify --sourcemap  --format=esm
 
 run: esbuild

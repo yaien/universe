@@ -20,11 +20,9 @@ jobs:
                 sudo apt update
                 sudo apt install -y ffmpeg libvips libvips-tools just
             - name: Setup Node.js environment
-              uses: actions/setup-node@v6.5.0
+              uses: actions/setup-node@v7
             - name: Build Assets
-              run: |
-                  npm install
-                  just build
+              run: just build
             - name: Cache
               uses: Swatinem/rust-cache@v2.9.2
             - name: Test
