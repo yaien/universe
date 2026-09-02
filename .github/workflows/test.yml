@@ -18,7 +18,13 @@ jobs:
             - name: Setup dependencies
               run: |
                 sudo apt update
-                sudo apt install -y ffmpeg libvips libvips-tools
+                sudo apt install -y ffmpeg libvips libvips-tools just
+            - name: Setup Node.js environment
+              uses: actions/setup-node@v6.5.0
+            - name: Build Assets
+              run: |
+                  npm install
+                  just build
             - name: Cache
               uses: Swatinem/rust-cache@v2.9.2
             - name: Test
