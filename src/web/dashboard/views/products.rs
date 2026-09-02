@@ -1,6 +1,7 @@
 use maud::{Markup, html};
+use serde_json::json;
 
-use crate::app::{Content, Presentation, Product, Products};
+use crate::app::store::{Content, Presentation, Presentations, Product};
 use crate::web::dashboard::views;
 
 pub fn product_list(products: Vec<Product>) -> Markup {
@@ -101,26 +102,26 @@ pub fn presentations(product: &Product, presentation: &Option<&Presentation>) ->
     html!(
         article #presentations {
             h4 { "Presentaciones" }
-            form {
-                div role="group" {
-                    @for p in &product.presentations {
-                        @if presentation.as_ref().map_or(false, |p| p.id == p.id) {
-                            button.draggable.active
-                                hx-get=(format!("/dashboard/products/{}?presentation={}", product.id, p.id))
-                                hx-target="#presentations"
-                                hx-swap="outerHTML"
-                                hx-push-url="true" {
-                                (p.name)
-                            }
-                        } @else {
-                            button.draggable {
-                                (p.name)
-                            }
+            div role="group" {
+                @for p in &product.presentations {
+                    @if presentation.as_ref().map_or(false, |selected| selected.id == p.id) {
+                        button.draggable.active { (p.name) }
+                    } @else {
+                        button.draggable
+                            hx-get=(format!("/dashboard/products/{}?presentation_id={}", product.id, p.id))
+                            hx-target="#presentations"
+                            hx-swap="outerHTML"
+                            hx-push-url="true" {
+                            (p.name)
                         }
                     }
-                    button.icon hx-post=(format!("/dashboard/products/{}/presentations", product.id)) hx-target="#presentations" hx-swap="outerHTML" {
-                        .fa-solid.fa-plus {}
-                    }
+                }
+                button.icon
+                    hx-post=(format!("/dashboard/products/{}", product.id))
+                    hx-target="#presentations"
+                    hx-swap="outerHTML"
+                    hx-vals=(json!({ "action": "create_presentation" })) {
+                    .fa-solid.fa-plus {}
                 }
             }
             @if let Some(presentation) = presentation {
@@ -211,19 +212,16 @@ pub fn pictures_section(
                         }
                     }
                 }
-                @for _ in 0..(Products::MAX_CONTENTS_PER_PRESENTATION - presentation.contents.len()) {
+                @for _ in 0..(Presentations::MAX_CONTENTS - presentation.contents.len() - 1) {
                     .placeholder.small {}
                 }
-                @if presentation.contents.len() < Products::MAX_CONTENTS_PER_PRESENTATION {
+                @if presentation.contents.len() < Presentations::MAX_CONTENTS {
                     .placeholder.small {
-                        .progress {
-                            div {}
-                        }
-                    }
-                    form {
-                        input type="file" name="file" hidden="true" accept="image/*" {}
-                        button.clear {
-                            .fa-solid.fa-plus {}
+                        form x-data {
+                            input type="file" name="file" hidden="true" accept="image/*" x-ref="file" {}
+                            button.clear "@click"="$refs.file.click()" {
+                                .fa-solid.fa-plus {}
+                            }
                         }
                     }
                 }

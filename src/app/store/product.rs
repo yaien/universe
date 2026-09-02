@@ -7,6 +7,8 @@ use sqlx::prelude::FromRow;
 use crate::app::AppError;
 use crate::infra::{DbPool, Id};
 
+use super::{Content, Presentation};
+
 #[derive(FromRow)]
 pub struct Product {
     pub id: Id,
@@ -18,35 +20,11 @@ pub struct Product {
     pub presentations: Vec<Presentation>,
 }
 
-#[derive(FromRow)]
-pub struct Presentation {
-    pub id: Id,
-    pub product_id: Id,
-    pub name: String,
-    pub quantity: i64,
-    pub price: f64,
-    pub number: i64,
-
-    #[sqlx(skip)]
-    pub contents: Vec<Content>,
-}
-
-#[derive(FromRow)]
-pub struct Content {
-    pub id: Id,
-    pub number: i64,
-    pub presentation_id: Id,
-    pub file_id: Id,
-    pub file_preset: String,
-}
-
 pub struct Products {
     db: DbPool,
 }
 
 impl Products {
-    pub const MAX_CONTENTS_PER_PRESENTATION: usize = 5;
-
     pub fn new(db: DbPool) -> Self {
         Self { db }
     }

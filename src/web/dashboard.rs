@@ -6,22 +6,22 @@ mod views;
 use actix_web::middleware::from_fn;
 use actix_web::web::{ServiceConfig, get, post, scope};
 
+use handlers::*;
+
 pub fn configure(config: &mut ServiceConfig) {
     config
         .service(
             scope("/dashboard")
-                .route("", get().to(handlers::home::home))
-                .route("/empty", get().to(handlers::home::empty))
-                .route("/pages", get().to(handlers::pages::get_index))
-                .route("/pages", post().to(handlers::pages::exec_action))
-                .route("/pages/files", post().to(handlers::pages::upload_files))
-                .route("/pages/preview", get().to(handlers::pages::get_preview))
-                .route("/products", get().to(handlers::products::products))
-                .route("/products", post().to(handlers::products::products_actions))
-                .route(
-                    "/products/{id}",
-                    get().to(handlers::products::product_detail),
-                )
+                .route("", get().to(home::home))
+                .route("/empty", get().to(home::empty))
+                .route("/pages", get().to(pages::get_index))
+                .route("/pages", post().to(pages::exec_action))
+                .route("/pages/files", post().to(pages::upload_files))
+                .route("/pages/preview", get().to(pages::get_preview))
+                .route("/products", get().to(products::get_index))
+                .route("/products", post().to(products::exec_index_actions))
+                .route("/products/{id}", get().to(products::get_details))
+                .route("/products/{id}", post().to(products::exec_detail_actions))
                 .wrap(from_fn(middlewares::role)),
         )
         .route(
