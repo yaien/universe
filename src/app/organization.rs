@@ -92,7 +92,7 @@ mod tests {
 
         let organization_count: u64 =
             sqlx::query("select count(*) from organizations where hostname = $1")
-                .bind("localhost:3000")
+                .bind("localhost")
                 .fetch_one(&pool)
                 .await
                 .unwrap()
