@@ -1,3 +1,4 @@
+use actix_multipart::form::json;
 use maud::{Markup, html};
 use serde_json::json;
 
@@ -211,22 +212,39 @@ pub fn pictures_section(
                 @if let Some(selected) = selected {
                     img src=(format!("/assets/dynamic/files/{}", selected.file_id)) {}
                     .actions {
-                        button.danger {
+                        button.danger
+                            hx-post=(format!("/dashboard/products/{}", product.id))
+                            hx-target="#pictures"
+                            hx-swap="outerHTML"
+                            hx-vals=(json!({ "action": "delete_content", "content_id": selected.id, "presentation_id": presentation.id })) {
                             i.fa-regular.fa-trash-can {}
                         }
                     }
                 }
             }
             .flex {
-                form.flex {
+                .flex
+                    x-data="drag"
+                    hx-post=(format!("/dashboard/products/{}", product.id))
+                    hx-trigger="dragged"
+                    hx-swap="none"
+                    hx-include="find input" {
+
+                    input type="hidden" name="action" value="sort_content" {}
+                    input type="hidden" name="presentation_id" value=(presentation.id) {}
+                    input type="hidden" name="toggled_content_id" x-bind:value="id" {}
+                    input type="hidden" name="toggled_new_number" x-bind:value="number" {}
+
+
                     @for content in &presentation.contents {
-                        .placeholder.small.draggable
+                        #(content.id).placeholder.small.draggable
                             hx-get=(format!("/dashboard/products/{}?presentation_id={}&content_id={}", product.id, presentation.id, content.id))
                             hx-target="#pictures"
                             hx-swap="outerHTML" {
                             img src=(format!("/assets/dynamic/files/{}", content.file_id)) {}
                         }
                     }
+
                 }
                 @for _ in 0..(MAX_CONTENTS_PER_PRESENTATION - presentation.contents.len() as i64 - 1) {
                     .placeholder.small {}

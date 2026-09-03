@@ -1,7 +1,9 @@
 use actix_multipart::form::MultipartForm;
 use actix_multipart::form::tempfile::TempFile;
+use actix_web::http::StatusCode;
 use actix_web::web::{Data, Form, Path, Query, ReqData};
 use actix_web::{HttpRequest, HttpResponse, Responder};
+use anyhow::Context;
 use maud::{Markup, html};
 use serde::Deserialize;
 
@@ -119,6 +121,15 @@ pub async fn get_details(
 #[serde(rename_all = "snake_case", tag = "action")]
 pub enum ProductDetailAction {
     CreatePresentation,
+    DeleteContent {
+        presentation_id: String,
+        content_id: String,
+    },
+    SortContent {
+        presentation_id: Id,
+        toggled_content_id: Id,
+        toggled_new_number: i64,
+    },
 }
 
 pub async fn exec_detail_actions(
@@ -141,6 +152,47 @@ pub async fn exec_detail_actions(
                 &Some(&presentation),
             ))
         }
+        DeleteContent {
+            presentation_id,
+            content_id,
+        } => {
+            let presentation_id: Id = presentation_id.parse().map_err(|e| {
+                WebError::Status(
+                    StatusCode::BAD_REQUEST,
+                    format!("invalid presentation id: {}", e),
+                )
+            })?;
+
+            let content_id: Id = content_id.parse().map_err(|e| {
+                WebError::Status(
+                    StatusCode::BAD_REQUEST,
+                    format!("invalid content id: {}", e),
+                )
+            })?;
+
+            app.store
+                .contents
+                .delete(&org.id, &product_id, &presentation_id, &content_id)
+                .await?;
+
+            let product = app
+                .store
+                .products
+                .get_one_by_organization_id_and_id(&org.id, &product_id)
+                .await?;
+
+            let presentation = product
+                .presentations
+                .iter()
+                .find(|p| p.id == presentation_id);
+
+            Ok(views::products::pictures(&product, &presentation, &None))
+        }
+        SortContent {
+            presentation_id,
+            toggled_content_id,
+            toggled_new_number,
+        } => Ok(html!()),
     }
 }
 
