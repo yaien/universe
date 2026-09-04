@@ -3,7 +3,7 @@ use std::sync::Arc;
 use actix_multipart::form::tempfile::TempFile;
 use sqlx::prelude::FromRow;
 
-use crate::app::{AppError, Files};
+use crate::app::{AppError, Files, Scope};
 use crate::infra::{DbPool, Id};
 
 #[derive(FromRow)]
@@ -70,7 +70,10 @@ impl Contents {
             ))?;
         }
 
-        let files_id = self.files.upload_many(organization_id, files).await?;
+        let files_id = self
+            .files
+            .upload_many(organization_id, files, Scope::PRODUCTS)
+            .await?;
 
         let mut content_ids = Vec::new();
 

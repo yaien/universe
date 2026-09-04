@@ -14,7 +14,7 @@ use serde::Deserialize;
 
 use crate::app::{
     App, AppError, Branch, Organization, PageInfo, RegistryContext, RenderLayoutOptions,
-    RenderMode, RenderPageOptions, Role, User, render_email, render_layout, render_page,
+    RenderMode, RenderPageOptions, Role, Scope, User, render_email, render_layout, render_page,
 };
 use crate::infra::Id;
 use crate::web::dashboard::views;
@@ -213,7 +213,11 @@ async fn get_view_state<'a>(
                 .ok();
         }
         Section::Files => {
-            view_state.files = app.files.get_by_organization_id(&org.id).await.ok();
+            view_state.files = app
+                .files
+                .get_by_organization_id(&org.id, Scope::PAGES)
+                .await
+                .ok();
         }
         Section::File => {
             if let Some(file_id) = session_state.file_id {
@@ -435,7 +439,7 @@ pub async fn upload_files(
     MultipartForm(form): MultipartForm<UploadFilesForm>,
 ) -> Result<Markup, WebError> {
     app.files
-        .upload_many(&org.id, form.files)
+        .upload_many(&org.id, form.files, Scope::PAGES)
         .await
         .context("failed uploading files")?;
 
