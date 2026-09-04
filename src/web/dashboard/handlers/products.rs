@@ -126,9 +126,9 @@ pub enum ProductDetailAction {
         content_id: String,
     },
     SortContent {
-        presentation_id: Id,
-        toggled_content_id: Id,
-        toggled_new_number: i64,
+        presentation_id: String,
+        content_id: String,
+        new_number: String,
     },
 }
 
@@ -190,9 +190,30 @@ pub async fn exec_detail_actions(
         }
         SortContent {
             presentation_id,
-            toggled_content_id,
-            toggled_new_number,
-        } => Ok(html!()),
+            content_id,
+            new_number,
+        } => {
+            let presentation_id: Id = presentation_id
+                .parse()
+                .context("failed to parse presentation_id")?;
+
+            let content_id: Id = content_id.parse().context("failed to parse content_id")?;
+
+            let new_number: i64 = new_number.parse().context("failed to parse new_number")?;
+
+            app.store
+                .contents
+                .sort(
+                    &org.id,
+                    &product_id,
+                    &presentation_id,
+                    &content_id,
+                    &new_number,
+                )
+                .await?;
+
+            Ok(html!())
+        }
     }
 }
 

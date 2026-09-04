@@ -232,8 +232,8 @@ pub fn pictures_section(
 
                     input type="hidden" name="action" value="sort_content" {}
                     input type="hidden" name="presentation_id" value=(presentation.id) {}
-                    input type="hidden" name="toggled_content_id" x-bind:value="id" {}
-                    input type="hidden" name="toggled_new_number" x-bind:value="number" {}
+                    input type="hidden" name="content_id" x-bind:value="id" {}
+                    input type="hidden" name="new_number" x-bind:value="number" {}
 
 
                     @for content in &presentation.contents {

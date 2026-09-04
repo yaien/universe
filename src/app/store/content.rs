@@ -1,11 +1,9 @@
-use std::fmt::format;
 use std::sync::Arc;
 
 use actix_multipart::form::tempfile::TempFile;
 use sqlx::prelude::FromRow;
 
-use crate::app::store::presentation;
-use crate::app::{AppError, Files, organization};
+use crate::app::{AppError, Files};
 use crate::infra::{DbPool, Id};
 
 #[derive(FromRow)]
@@ -137,39 +135,39 @@ impl Contents {
         organization_id: &Id,
         product_id: &Id,
         presentation_id: &Id,
-        content_ids: &[Id],
+        content_id: &Id,
+        new_number: &i64,
     ) -> Result<(), AppError> {
-        let mut contents = sqlx::query_as::<_, Content>(r#"
+        let content = sqlx::query_as::<_, Content>(r#"
             select contents.id, contents.number, contents.presentation_id, contents.file_id, files.preset as file_preset
                 from contents
                 join files on contents.file_id = files.id
                 join presentations on contents.presentation_id = presentations.id
                 join products on presentations.product_id = products.id
                 join organizations on products.organization_id = organizations.id
-                where organizations.id = $1 and products.id = $2 and presentations.id = $3
+                where organizations.id = $1 and products.id = $2 and presentations.id = $3 and contents.id = $4
         "#)
         .bind(organization_id)
         .bind(product_id)
         .bind(presentation_id)
-        .fetch_all(&self.pool)
+        .bind(content_id)
+        .fetch_one(&self.pool)
         .await?;
 
-        for (number, content_id) in content_ids.iter().enumerate() {
-            let Some(content) = contents.iter_mut().find(|c| c.id == *content_id) else {
-                let message = format!("no se encuentra el contenido con el id: {}", content_id);
-                return Err(message)?;
-            };
+        // set current content number to the content that already has the new number
+        sqlx::query("update contents set number = $1 where presentation_id = $2 and number = $3")
+            .bind(content.number)
+            .bind(presentation_id)
+            .bind(new_number)
+            .execute(&self.pool)
+            .await?;
 
-            content.number = number as i64;
-        }
-
-        for content in contents {
-            sqlx::query("update contents set number = $1 where id = $2")
-                .bind(content.number)
-                .bind(content.id)
-                .execute(&self.pool)
-                .await?;
-        }
+        // set the new number to the current content
+        sqlx::query("update contents set number = $1 where id = $2")
+            .bind(new_number)
+            .bind(content.id)
+            .execute(&self.pool)
+            .await?;
 
         Ok(())
     }
