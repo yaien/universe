@@ -7,10 +7,11 @@ use anyhow::Context;
 use maud::{Markup, html};
 use serde::Deserialize;
 
+use crate::app::store::UpdatePresentationArgs;
 use crate::app::{App, Organization, Role};
 use crate::infra::Id;
 use crate::web::dashboard::views;
-use crate::web::dashboard::views::layout::Content;
+use crate::web::dashboard::views::layout::{Content, Variant, toast};
 use crate::web::errors::WebError;
 
 #[derive(Deserialize, Default)]
@@ -121,6 +122,19 @@ pub async fn get_details(
 #[serde(rename_all = "snake_case", tag = "action")]
 pub enum ProductDetailAction {
     CreatePresentation,
+    UpdatePresentation {
+        presentation_id: String,
+        name: String,
+        quantity: String,
+        price: String,
+    },
+    DeletePresentation {
+        presentation_id: String,
+    },
+    SortPresentation {
+        presentation_id: String,
+        new_number: String,
+    },
     DeleteContent {
         presentation_id: String,
         content_id: String,
@@ -147,10 +161,96 @@ pub async fn exec_detail_actions(
                 .products
                 .get_one_by_organization_id_and_id(&org.id, &product_id)
                 .await?;
-            Ok(views::products::presentations(
-                &product,
-                &Some(&presentation),
-            ))
+            Ok(html! {
+                (views::products::presentations(&product, &Some(&presentation)))
+                (views::products::pictures_partial(&product, &Some(&presentation), &None))
+            })
+        }
+        UpdatePresentation {
+            presentation_id,
+            name,
+            quantity,
+            price,
+        } => {
+            let presentation_id: Id = presentation_id
+                .parse()
+                .context("failed parsing presentation id")?;
+
+            let quantity: i64 = quantity.parse().context("failed parsing quantity")?;
+
+            let price: i64 = price.parse().context("failed parsing price")?;
+
+            app.store
+                .presentations
+                .update(UpdatePresentationArgs {
+                    organization_id: &org.id,
+                    product_id: &product_id,
+                    presentation_id: &presentation_id,
+                    name: &name,
+                    quantity: &quantity,
+                    price: &price,
+                })
+                .await?;
+
+            let product = app
+                .store
+                .products
+                .get_one_by_organization_id_and_id(&org.id, &product_id)
+                .await?;
+
+            let presentation = product
+                .presentations
+                .iter()
+                .find(|p| p.id == presentation_id);
+
+            Ok(html! {
+                (views::products::presentations(&product, &presentation))
+                (toast("presentación actualizada", Variant::Primary))
+            })
+        }
+        DeletePresentation { presentation_id } => {
+            app.store
+                .presentations
+                .delete(
+                    &org.id,
+                    &product_id,
+                    &presentation_id
+                        .parse()
+                        .context("failed parsing presentation id")?,
+                )
+                .await?;
+
+            let product = app
+                .store
+                .products
+                .get_one_by_organization_id_and_id(&org.id, &product_id)
+                .await?;
+
+            let presentation = product.presentations.first();
+
+            Ok(html! {
+                (views::products::presentations(&product, &presentation))
+                (views::products::pictures_partial(&product, &presentation, &None))
+            })
+        }
+        SortPresentation {
+            presentation_id,
+            new_number,
+        } => {
+            let presentation_id: Id = presentation_id
+                .parse()
+                .context("fallo en parseo de el id de presentación")?;
+
+            let new_number: Id = new_number
+                .parse()
+                .context("fallo en parseo de el nuevo número")?;
+
+            app.store
+                .presentations
+                .sort(&org.id, &product_id, &presentation_id, &new_number)
+                .await?;
+
+            Ok(html!())
         }
         DeleteContent {
             presentation_id,

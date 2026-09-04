@@ -3,6 +3,8 @@ mod handlers;
 mod middlewares;
 mod views;
 
+pub use views::layout::{Variant, toast};
+
 use actix_web::middleware::from_fn;
 use actix_web::web::{ServiceConfig, get, post, scope};
 

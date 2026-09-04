@@ -12,7 +12,6 @@ use super::{Content, Presentation};
 #[derive(FromRow)]
 pub struct Product {
     pub id: Id,
-    pub slug: String,
     pub name: String,
     pub published: bool,
 
@@ -39,7 +38,7 @@ impl Products {
         let slug = slugify(name);
 
         let exists: bool = sqlx::query_scalar(
-            "select count(*) > 0 from products where organization_id = $1 and slug = $2",
+            "select count(*) > 0 from products where organization_id = $1 and slug = $2 and deleted_at is null",
         )
         .bind(organization_id)
         .bind(&slug)
@@ -70,7 +69,7 @@ impl Products {
         product_id: &Id,
     ) -> Result<Product, AppError> {
         let mut product = sqlx::query_as::<_, Product>(
-            "select * from products where organization_id = $1 and id = $2",
+            "select * from products where organization_id = $1 and id = $2 and deleted_at is null",
         )
         .bind(organization_id)
         .bind(product_id)
@@ -78,14 +77,14 @@ impl Products {
         .await?;
 
         product.presentations = sqlx::query_as::<_, Presentation>(
-            "select * from presentations where product_id = $1 order by number",
+            "select * from presentations where product_id = $1 and deleted_at is null order by number",
         )
         .bind(&product.id)
         .fetch_all(&self.db)
         .await?;
 
         let contents = QueryBuilder::new(
-                 "select c.id, c.presentation_id, c.number, c.file_id, f.preset as file_preset from contents c join files f on f.id = c.file_id where c.presentation_id in ",
+                 "select c.*, f.preset as file_preset from contents c join files f on f.id = c.file_id where c.presentation_id in ",
             ).push_tuples(&product.presentations, |mut b, p| {
                 b.push_bind(p.id);
             })
@@ -121,22 +120,32 @@ impl Products {
         .fetch_all(&self.db)
         .await?;
 
-        let mut presentations =
-            QueryBuilder::new("select * from presentations where product_id in ")
-                .push_tuples(&products, |mut b, p| {
-                    b.push_bind(p.id);
-                })
-                .build_query_as::<Presentation>()
-                .fetch_all(&self.db)
-                .await?;
+        let mut presentations = QueryBuilder::new(
+            "select * from presentations where deleted_at is null and product_id in ",
+        )
+        .push_tuples(&products, |mut b, p| {
+            b.push_bind(p.id);
+        })
+        .push(" order by number")
+        .build_query_as::<Presentation>()
+        .fetch_all(&self.db)
+        .await?;
 
-        let contents = QueryBuilder::new("select c.id, c.presentation_id, c.file_id, f.preset as file_preset, c.number from contents c join files f on f.id = c.file_id where c.presentation_id in ")
-            .push_tuples(&presentations, |mut b, p| {
-                b.push_bind(p.id);
-            })
-            .build_query_as::<Content>()
-            .fetch_all(&self.db)
-            .await?;
+        let contents = QueryBuilder::new(
+            r#"
+                select c.*, f.preset as file_preset
+                from contents c
+                join files f on f.id = c.file_id
+                where c.presentation_id in
+            "#,
+        )
+        .push_tuples(&presentations, |mut b, p| {
+            b.push_bind(p.id);
+        })
+        .push(" order by number")
+        .build_query_as::<Content>()
+        .fetch_all(&self.db)
+        .await?;
 
         let mut presentations_map: HashMap<Id, &mut Presentation> =
             presentations.iter_mut().map(|p| (p.id, p)).collect();

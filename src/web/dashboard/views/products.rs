@@ -105,26 +105,39 @@ pub fn presentations(product: &Product, presentation: &Option<&Presentation>) ->
     html!(
         article #presentations {
             h4 { "Presentaciones" }
-            div role="group" {
-                @for p in &product.presentations {
-                    @if presentation.as_ref().map_or(false, |selected| selected.id == p.id) {
-                        button.draggable.active { (p.name) }
-                    } @else {
-                        button.draggable
-                            hx-get=(format!("/dashboard/products/{}?presentation_id={}", product.id, p.id))
-                            hx-target="#presentations"
-                            hx-swap="outerHTML"
-                            hx-push-url="true" {
-                            (p.name)
+
+            div
+                hx-post=(format!("/dashboard/products/{}", product.id))
+                hx-trigger="dragged"
+                hx-swap="none"
+                hx-include="find input" {
+
+                    div role="group" x-data="drag"{
+                        input hidden name="action" value="sort_presentation" {}
+                        input hidden name="presentation_id" x-bind:value="id" {}
+                        input hidden name="new_number"  x-bind:value="number" {}
+
+                    @for p in &product.presentations {
+                        @if presentation.as_ref().map_or(false, |selected| selected.id == p.id) {
+                            button.draggable.active #(p.id) { (p.name) }
+                        } @else {
+                            button.draggable #(p.id)
+                                hx-get=(format!("/dashboard/products/{}?presentation_id={}", product.id, p.id))
+                                hx-target="#presentations"
+                                hx-swap="outerHTML"
+                                hx-push-url="true" {
+                                (p.name)
+                            }
                         }
                     }
-                }
-                button.icon
-                    hx-post=(format!("/dashboard/products/{}", product.id))
-                    hx-target="#presentations"
-                    hx-swap="outerHTML"
-                    hx-vals=(json!({ "action": "create_presentation" })) {
-                    .fa-solid.fa-plus {}
+
+                    button.icon
+                        hx-post=(format!("/dashboard/products/{}", product.id))
+                        hx-target="#presentations"
+                        hx-swap="outerHTML"
+                        hx-vals=(json!({ "action": "create_presentation" })) {
+                        .fa-solid.fa-plus {}
+                    }
                 }
             }
             @if let Some(presentation) = presentation {
@@ -134,9 +147,12 @@ pub fn presentations(product: &Product, presentation: &Option<&Presentation>) ->
     )
 }
 
-pub fn presentation_form(_product: &Product, presentation: &Presentation) -> Markup {
+pub fn presentation_form(product: &Product, presentation: &Presentation) -> Markup {
     html!(
-        form {
+        form hx-post=(format!("/dashboard/products/{}", product.id)) hx-swap="outerHTML" hx-target="#presentations" {
+            input hidden name="action" value="update_presentation" {}
+            input hidden name="presentation_id" value=(presentation.id) {}
+
             fieldset {
                 legend { "Nombre" }
                 input name="name" value=(presentation.name) {}
@@ -150,7 +166,16 @@ pub fn presentation_form(_product: &Product, presentation: &Presentation) -> Mar
                 input name="price" type="number" min="0" value=(presentation.price) {}
             }
             .actions {
-                button.danger type="button" { "Eliminar" }
+                button.danger
+                    type="button"
+                    hx-post=(format!("/dashboard/products/{}", product.id))
+                    hx-target="#presentations"
+                    hx-swap="outerHTML"
+                    hx-vals=(json!({ "action": "delete_presentation", "presentation_id": presentation.id })){
+                        "Eliminar"
+                    }
+
+
                 button { "Guardar" }
             }
 
@@ -253,7 +278,7 @@ pub fn pictures_section(
                     .placeholder.small {
                         form x-data
                             hx-post=(format!("/dashboard/products/{}/presentations/{}/contents", product.id, presentation.id))
-                            hx-trigger="change from:input changed"
+                            hx-trigger="change from:'find input' changed"
                             hx-target="#pictures"
                             hx-swap="outerHTML"
                             hx-encoding="multipart/form-data"

@@ -40,6 +40,7 @@ impl Contents {
                     join products on presentations.product_id = products.id
                     join organizations on products.organization_id = organizations.id
                     where organizations.id = $1 and products.id = $2 and presentations.id = $3
+                        and presentations.deleted_at is null and products.deleted_at is null
             )"#,
         )
         .bind(organization_id)
@@ -100,7 +101,7 @@ impl Contents {
         content_id: &Id,
     ) -> Result<(), AppError> {
         let content = sqlx::query_as::<_, Content>(r#"
-                select contents.id, contents.number, contents.presentation_id, contents.file_id, files.preset as file_preset
+                select contents.*, files.preset as file_preset
                     from contents
                     join files on contents.file_id = files.id
                     join presentations on contents.presentation_id = presentations.id

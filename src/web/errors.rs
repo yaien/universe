@@ -4,6 +4,7 @@ use actix_web::{HttpResponse, HttpResponseBuilder};
 use thiserror::Error;
 
 use crate::app::AppError;
+use crate::web::dashboard::{Variant, toast};
 
 #[derive(Debug, Error)]
 pub enum WebError {
@@ -12,6 +13,9 @@ pub enum WebError {
 
     #[error("status {0}: {1}")]
     Status(StatusCode, String),
+
+    #[error("{0}")]
+    Message(String),
 }
 
 impl ResponseError for WebError {
@@ -25,7 +29,11 @@ impl ResponseError for WebError {
                 .finish(),
 
             // Return a status code and message
-            Status(code, msg) => HttpResponseBuilder::new(*code).body(msg.clone()),
+            Status(code, msg) => HttpResponseBuilder::new(*code).body(toast(&msg, Variant::Danger)),
+
+            // Return a message
+            Message(msg) => HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
+                .body(toast(&msg, Variant::Warning)),
         }
     }
 }
@@ -33,9 +41,7 @@ impl ResponseError for WebError {
 impl From<AppError> for WebError {
     fn from(err: AppError) -> Self {
         match err {
-            AppError::Message(message) => {
-                WebError::Status(StatusCode::BAD_REQUEST, message.clone())
-            }
+            AppError::Message(message) => WebError::Message(message),
             AppError::Sqlx(err) => {
                 WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
             }

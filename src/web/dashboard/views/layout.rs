@@ -7,6 +7,8 @@ use crate::app::{Organization, Role};
 #[display(rename_all = "lowercase")]
 pub enum Variant {
     Primary,
+    Danger,
+    Warning,
 }
 
 pub struct Content<'a> {
@@ -116,7 +118,7 @@ pub fn link(suffix: &str, path: &str, text: &str, icon: &str) -> Markup {
 
 pub fn toast(message: &str, variant: Variant) -> Markup {
     html!(
-        div hx-swap-oob="beforeend:body" {
+        hx-partial hx-target="body" hx-swap="beforeend" {
             .toast.(variant) hx-trigger="click, load delay:5s" hx-get="/dashboard/empty" hx-swap="outerHTML swap:100ms" {
                 span { (message) }
                 button class="close" {
