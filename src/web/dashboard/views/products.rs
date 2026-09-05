@@ -18,14 +18,14 @@ pub fn product_list(products: Vec<Product>) -> Markup {
             .products {
                 @for product in products {
                     a.detail role="article" href=(format!("/dashboard/products/{}", product.id)) hx-boost="true" {
-                        header {
+                        .header {
                             @if let Some(content) = product.presentations.first().and_then(|p| p.contents.first()) {
                                 img src=(format!("/assets/dynamic/files/{}", content.file_id)){}
                             } @else {
                                 .placeholder {}
                             }
                         }
-                        div {
+                        .body {
                             h4 { (product.name) }
                         }
                     }

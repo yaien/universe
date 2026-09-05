@@ -818,31 +818,36 @@ article,
     box-shadow: var(--box-shadow);
     border-radius: var(--border-radius);
     border: var(--border);
-    padding: 1rem;
     position: relative;
     text-decoration: none;
     color: var(--text-color);
+    overflow: hidden;
 
     &.detail:hover {
         box-shadow: 0 4px 8px var(--shadow-color);
         cursor: pointer;
     }
 
-    & > header {
-        margin: -1rem -1rem 1rem -1rem;
+    & > .header {
         border-bottom: var(--border);
         background-color: var(--background-color);
         border-top-left-radius: var(--border-radius);
         border-top-right-radius: var(--border-radius);
+        width: 100%;
+        display: contents;
 
         img,
         .placeholder {
-            width: 150px;
-            height: 150px;
             background-color: var(--placeholder-color);
             border: none;
             object-fit: cover;
             object-position: center;
+            width: 100%;
         }
+    }
+
+    & > .body {
+        padding: 1rem;
+        overflow: scroll;
     }
 }

@@ -10,6 +10,15 @@
         flex-wrap: wrap;
     }
 
+    .article, [role="article"] {
+        width: 200px;
+
+        .header {
+            height: 200px;
+        }
+
+    }
+
     .title {
         text-align: center;
     }
