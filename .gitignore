@@ -1,7 +1,4 @@
 /target
 /.env
-/data/certs
-/data/db
-/data/storage
-/data/tmp
+/data
 /node_modules

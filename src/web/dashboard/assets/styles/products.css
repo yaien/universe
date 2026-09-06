@@ -10,6 +10,15 @@
         flex-wrap: wrap;
     }
 
+    .article, [role="article"] {
+        width: 200px;
+
+        .header {
+            height: 200px;
+        }
+
+    }
+
     .title {
         text-align: center;
     }
@@ -19,22 +28,22 @@
         justify-content: center;
         align-items: center;
         width: 100%;
-        color: var(--secondary-color-light);
+        color: var(--placeholder-color);
     }
 }
 
 [data-scope="product"] {
-    
+
     padding: var(--space);
     display: flex;
     gap: var(--space);
     justify-content: center;
-    
 
     .forms {
         display: flex;
         flex-direction: column;
         gap: var(--space);
+        width: 40%;
 
         h4 {
             margin: 0;
@@ -46,6 +55,10 @@
             display: flex;
             justify-content: space-around;
         }
+
+        #presentations {
+            flex-grow: 1;
+        }
     }
 
     .pictures {
@@ -54,16 +67,18 @@
         align-items: center;
         justify-content: center;
         gap: var(--space);
+        flex-grow: 1;
 
         .list {
             display: flex;
+            gap: var(--space);
         }
 
         .placeholder {
             aspect-ratio: 1;
 
             &.big {
-                width: 450px;
+                height: 450px;
                 margin-bottom: var(--space);
                 position: relative;
 

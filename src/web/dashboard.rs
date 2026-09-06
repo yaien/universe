@@ -3,19 +3,37 @@ mod handlers;
 mod middlewares;
 mod views;
 
+pub use views::layout::{Variant, toast};
+
 use actix_web::middleware::from_fn;
-use actix_web::web::{ServiceConfig, get, post, scope};
+use actix_web::web::{ServiceConfig, delete, get, post, put, scope};
+
+use handlers::*;
 
 pub fn configure(config: &mut ServiceConfig) {
     config
         .service(
             scope("/dashboard")
-                .route("", get().to(handlers::home::home))
-                .route("/empty", get().to(handlers::home::empty))
-                .route("/pages", get().to(handlers::pages::get_index))
-                .route("/pages", post().to(handlers::pages::exec_action))
-                .route("/pages/files", post().to(handlers::pages::upload_files))
-                .route("/pages/preview", get().to(handlers::pages::get_preview))
+                .route("", get().to(home::home))
+                .route("/empty", get().to(home::empty))
+                .route("/pages", get().to(pages::get_index))
+                .route("/pages", post().to(pages::exec_action))
+                .route("/pages/files", post().to(pages::upload_files))
+                .route("/pages/preview", get().to(pages::get_preview))
+                .route("/products", get().to(products::get_index))
+                .route("/products", post().to(products::exec_index_actions))
+                .route("/products/{id}", get().to(products::get_details))
+                .route("/products/{id}", post().to(products::exec_detail_actions))
+                .route(
+                    "/products/{id}/delete",
+                    get().to(products::delete_product_modal),
+                )
+                .route("/products/{id}", delete().to(products::delete_product))
+                .route("/products/{id}", put().to(products::update_product))
+                .route(
+                    "/products/{id}/presentations/{pid}/contents",
+                    post().to(products::upload_content),
+                )
                 .wrap(from_fn(middlewares::role)),
         )
         .route(

@@ -39,6 +39,13 @@ pub struct FileFormat {
     pub content_type: String,
 }
 
+pub struct Scope;
+
+impl Scope {
+    pub const PAGES: &'static str = "pages";
+    pub const PRODUCTS: &'static str = "products";
+}
+
 pub struct Files {
     pool: DbPool,
     path: PathBuf,
@@ -53,9 +60,11 @@ impl Files {
     pub async fn get_by_organization_id(
         &self,
         organization_id: &Id,
+        scope: &str,
     ) -> Result<Vec<File>, sqlx::Error> {
-        sqlx::query_as::<_, File>("select * from files where organization_id = $1")
+        sqlx::query_as::<_, File>("select * from files where organization_id = $1 and scope = $2")
             .bind(organization_id)
+            .bind(scope)
             .fetch_all(&self.pool)
             .await
     }
@@ -127,15 +136,22 @@ impl Files {
         &self,
         organization_id: &Id,
         files: Vec<TempFile>,
-    ) -> Result<(), anyhow::Error> {
+        scope: &str,
+    ) -> Result<Vec<Id>, anyhow::Error> {
+        let mut result = Vec::new();
         for file in files.into_iter() {
-            self.upload(organization_id, file).await?;
+            result.push(self.upload(organization_id, file, scope).await?);
         }
 
-        Ok(())
+        Ok(result)
     }
 
-    pub async fn upload(&self, organization_id: &Id, temp: TempFile) -> Result<(), anyhow::Error> {
+    pub async fn upload(
+        &self,
+        organization_id: &Id,
+        temp: TempFile,
+        scope: &str,
+    ) -> Result<Id, anyhow::Error> {
         let temp_file_name = temp.file_name.ok_or(anyhow!("missing filename"))?;
 
         let (name, extension) = temp_file_name
@@ -143,17 +159,23 @@ impl Files {
             .filter(|(name, ext)| name.len() > 0 && ext.len() > 0)
             .ok_or(anyhow!("missing name or extension"))?;
 
-        let count: u8 = sqlx::query_scalar(
-            "select count(*) from files where organization_id = $1 and name = $2 limit 1",
-        )
-        .bind(organization_id)
-        .bind(&name)
-        .fetch_one(&self.pool)
-        .await
-        .context("failed checking if filename exists")?;
+        let mut name = name.to_string();
 
-        if count > 0 {
-            return Err(anyhow!("file with name {} already exists", name));
+        for idx in 0.. {
+            let not_exists: bool = sqlx::query_scalar(
+                "select not exists(select 1 from files where organization_id = $1 and name = $2)",
+            )
+            .bind(organization_id)
+            .bind(&name)
+            .fetch_one(&self.pool)
+            .await
+            .context("failed checking if filename exists")?;
+
+            if not_exists {
+                break;
+            }
+
+            name = format!("{name}_{idx}");
         }
 
         let content_type = temp.content_type.ok_or(anyhow!("missing content type"))?;
@@ -168,15 +190,17 @@ impl Files {
             .persist(self.path.join(&file_name))
             .map_err(|e| anyhow!("failed persisting file: {}", e.error))?;
 
-        let file_id =
-            sqlx::query("insert into files(name, preset, organization_id) values ($1, $2, $3)")
-                .bind(&name)
-                .bind(content_type.type_().as_str())
-                .bind(organization_id)
-                .execute(&self.pool)
-                .await
-                .context("failed inserting file in db")?
-                .last_insert_rowid();
+        let file_id = sqlx::query(
+            "insert into files(name, preset, scope, organization_id) values ($1, $2, $3, $4)",
+        )
+        .bind(&name)
+        .bind(content_type.type_().as_str())
+        .bind(scope)
+        .bind(organization_id)
+        .execute(&self.pool)
+        .await
+        .context("failed inserting file in db")?
+        .last_insert_rowid();
 
         sqlx::query("insert into files_formats(file_id, file_name, size, variant, width, height, content_type) values ($1, $2, $3, $4, $5, $6, $7)")
             .bind(&file_id)
@@ -196,7 +220,7 @@ impl Files {
             })
             .await?;
 
-        Ok(())
+        Ok(file_id)
     }
 
     pub async fn delete_by_organization_id_and_id(

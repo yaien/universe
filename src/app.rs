@@ -12,7 +12,10 @@ mod organization;
 mod page;
 mod role;
 mod sitemap;
+pub mod store;
 mod user;
+
+use store::Store;
 
 pub use auth::*;
 pub use color::*;
@@ -45,6 +48,7 @@ pub struct App {
     pub files: Arc<Files>,
     pub fonts: Arc<Fonts>,
     pub colors: Arc<Colors>,
+    pub store: Arc<Store>,
 }
 
 impl App {
@@ -84,6 +88,8 @@ impl App {
             mono.config.storage_path.clone(),
         ));
 
+        let store = Arc::new(Store::new(mono.pool.clone(), files.clone()));
+
         Self {
             users,
             pages,
@@ -97,6 +103,7 @@ impl App {
             files,
             fonts,
             colors,
+            store,
         }
     }
 }
