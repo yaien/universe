@@ -6,7 +6,7 @@ mod views;
 pub use views::layout::{Variant, toast};
 
 use actix_web::middleware::from_fn;
-use actix_web::web::{ServiceConfig, get, post, scope};
+use actix_web::web::{ServiceConfig, delete, get, post, put, scope};
 
 use handlers::*;
 
@@ -24,6 +24,12 @@ pub fn configure(config: &mut ServiceConfig) {
                 .route("/products", post().to(products::exec_index_actions))
                 .route("/products/{id}", get().to(products::get_details))
                 .route("/products/{id}", post().to(products::exec_detail_actions))
+                .route(
+                    "/products/{id}/delete",
+                    get().to(products::delete_product_modal),
+                )
+                .route("/products/{id}", delete().to(products::delete_product))
+                .route("/products/{id}", put().to(products::update_product))
                 .route(
                     "/products/{id}/presentations/{pid}/contents",
                     post().to(products::upload_content),

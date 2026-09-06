@@ -136,13 +136,15 @@ pub fn modal(title: &str, content: Markup) -> Markup {
             hx-get="/dashboard/empty"
             hx-swap="outerHTML swap:100ms" {
             article {
-                header {
+                .header {
                     strong class="title" { (title) }
                     button class="close" {
                         i class="fa-solid fa-xmark" {}
                     }
                 }
-                (content)
+                .body {
+                    (content)
+                }
             }
         }
     )

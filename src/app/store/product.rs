@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use chrono::Utc;
 use slug::slugify;
 use sqlx::QueryBuilder;
 use sqlx::prelude::FromRow;
@@ -166,5 +167,43 @@ impl Products {
         }
 
         Ok(products)
+    }
+
+    pub async fn update(
+        &self,
+        organization_id: &Id,
+        product_id: &Id,
+        name: &str,
+        published: &bool,
+    ) -> Result<(), AppError> {
+        let res = sqlx::query("update products set name = $1, published = $2, updated_at = $3 where id = $4 and organization_id = $5 and deleted_at is null")
+            .bind(&name)
+            .bind(&published)
+            .bind(Utc::now())
+            .bind(&product_id)
+            .bind(&organization_id)
+            .execute(&self.db)
+            .await?;
+
+        if res.rows_affected() == 0 {
+            return Err("no se pudo actualizar el producto")?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn delete(&self, organization_id: &Id, product_id: &Id) -> Result<(), AppError> {
+        let res = sqlx::query("update products set deleted_at = $1 where id = $2 and organization_id = $3 and deleted_at is null")
+            .bind(Utc::now())
+            .bind(&product_id)
+            .bind(&organization_id)
+            .execute(&self.db)
+            .await?;
+
+        if res.rows_affected() == 0 {
+            return Err("no se pudo eliminar el producto")?;
+        }
+
+        Ok(())
     }
 }

@@ -689,25 +689,25 @@ dialog {
             transform: scale(0.95);
             opacity: 0;
         }
-    }
 
-    header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-    .title {
-        margin: 0 0.8rem;
-    }
+        .title {
+            margin: 0 0.8rem;
+        }
 
-    .close {
-        border: none;
-        box-shadow: none;
-        background: none;
-
-        &:hover {
+        .close {
+            border: none;
+            box-shadow: none;
             background: none;
+
+            &:hover {
+                background: none;
+            }
         }
     }
 }
@@ -834,7 +834,7 @@ article,
         border-top-left-radius: var(--border-radius);
         border-top-right-radius: var(--border-radius);
         width: 100%;
-        display: contents;
+        display: flex;
 
         img,
         .placeholder {
@@ -849,5 +849,15 @@ article,
     & > .body {
         padding: 1rem;
         overflow: scroll;
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            text-align: center;
+            margin: 0;
+        }
     }
 }

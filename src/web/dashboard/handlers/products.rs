@@ -146,6 +146,54 @@ pub enum ProductDetailAction {
     },
 }
 
+#[derive(Deserialize)]
+pub struct UpdateProductFrom {
+    name: String,
+    published: bool,
+}
+
+pub async fn update_product(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    product_id: Path<Id>,
+    form: Form<UpdateProductFrom>,
+) -> Result<Markup, WebError> {
+    app.store
+        .products
+        .update(&org.id, &product_id, &form.name, &form.published)
+        .await?;
+    Ok(toast(
+        "producto actualizado correctamente",
+        Variant::Primary,
+    ))
+}
+
+pub async fn delete_product_modal(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    product_id: Path<Id>,
+) -> Result<Markup, WebError> {
+    let product = app
+        .store
+        .products
+        .get_one_by_organization_id_and_id(&org.id, &product_id)
+        .await?;
+    Ok(views::products::delete_modal(&product))
+}
+
+pub async fn delete_product(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    product_id: Path<Id>,
+) -> Result<HttpResponse, WebError> {
+    app.store.products.delete(&org.id, &product_id).await?;
+
+    Ok(HttpResponse::Ok()
+        .insert_header(("HX-Location", "/dashboard/products"))
+        .insert_header(("HX-Replace-Url", "/dashboard/products"))
+        .finish())
+}
+
 pub async fn exec_detail_actions(
     app: Data<App>,
     org: ReqData<Organization>,
