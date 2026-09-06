@@ -1,9 +1,7 @@
 use actix_multipart::form::MultipartForm;
 use actix_multipart::form::tempfile::TempFile;
-use actix_web::http::StatusCode;
 use actix_web::web::{Data, Form, Path, Query, ReqData};
-use actix_web::{HttpRequest, HttpResponse, Responder};
-use anyhow::Context;
+use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, patch, post, put};
 use maud::{Markup, html};
 use serde::Deserialize;
 
@@ -16,16 +14,11 @@ use crate::web::errors::WebError;
 
 #[derive(Deserialize, Default)]
 pub struct ProductsQuery {
-    pub fragment: Option<ProductsFragment>,
+    pub fragment: Option<String>,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ProductsFragment {
-    Create,
-}
-
-pub async fn get_index(
+#[get("/products")]
+pub async fn get_products(
     app: Data<App>,
     org: ReqData<Organization>,
     role: ReqData<Role>,
@@ -37,8 +30,9 @@ pub async fn get_index(
         query = ProductsQuery::default();
     }
 
-    match query.fragment {
-        Some(ProductsFragment::Create) => Ok(views::products::create_modal()),
+    match query.fragment.as_deref() {
+        Some("create") => Ok(views::products::create_modal()),
+
         _ => {
             let products = app.store.products.get_by_organization_id(&org.id).await?;
 
@@ -58,7 +52,8 @@ pub struct CreateProductForm {
     pub name: String,
 }
 
-pub async fn exec_index_actions(
+#[post("/products")]
+pub async fn create_product(
     app: Data<App>,
     org: ReqData<Organization>,
     form: Form<CreateProductForm>,
@@ -74,9 +69,11 @@ pub async fn exec_index_actions(
 pub struct ProductDetailQuery {
     pub presentation_id: Option<Id>,
     pub content_id: Option<Id>,
+    pub fragment: Option<String>,
 }
 
-pub async fn get_details(
+#[get("/products/{id}")]
+pub async fn get_product(
     app: Data<App>,
     org: ReqData<Organization>,
     role: ReqData<Role>,
@@ -100,14 +97,18 @@ pub async fn get_details(
         .and_then(|id| presentation.map(|p| p.contents.iter().find(|c| c.id == id)))
         .flatten();
 
-    match req.headers().get("HX-Target").and_then(|h| h.to_str().ok()) {
-        Some("article#pictures") => Ok(html! {
+    match query.fragment.as_deref() {
+        Some("pictures") => Ok(html! {
             (views::products::pictures(&product, &presentation, &content))
         }),
-        Some("article#presentations") => Ok(html! {
+
+        Some("presentations") => Ok(html! {
             (views::products::presentations(&product, &presentation))
             (views::products::pictures_partial(&product, &presentation, &None))
         }),
+
+        Some("delete") => Ok(views::products::delete_modal(&product)),
+
         _ => Ok(views::layout::layout(&Content {
             title: "Product Details",
             path: req.path(),
@@ -119,39 +120,12 @@ pub async fn get_details(
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "snake_case", tag = "action")]
-pub enum ProductDetailAction {
-    CreatePresentation,
-    UpdatePresentation {
-        presentation_id: String,
-        name: String,
-        quantity: String,
-        price: String,
-    },
-    DeletePresentation {
-        presentation_id: String,
-    },
-    SortPresentation {
-        presentation_id: String,
-        new_number: String,
-    },
-    DeleteContent {
-        presentation_id: String,
-        content_id: String,
-    },
-    SortContent {
-        presentation_id: String,
-        content_id: String,
-        new_number: String,
-    },
-}
-
-#[derive(Deserialize)]
 pub struct UpdateProductFrom {
     name: String,
     published: bool,
 }
 
+#[put("/products/{id}")]
 pub async fn update_product(
     app: Data<App>,
     org: ReqData<Organization>,
@@ -168,19 +142,7 @@ pub async fn update_product(
     ))
 }
 
-pub async fn delete_product_modal(
-    app: Data<App>,
-    org: ReqData<Organization>,
-    product_id: Path<Id>,
-) -> Result<Markup, WebError> {
-    let product = app
-        .store
-        .products
-        .get_one_by_organization_id_and_id(&org.id, &product_id)
-        .await?;
-    Ok(views::products::delete_modal(&product))
-}
-
+#[delete("/products/{id}")]
 pub async fn delete_product(
     app: Data<App>,
     org: ReqData<Organization>,
@@ -194,175 +156,116 @@ pub async fn delete_product(
         .finish())
 }
 
-pub async fn exec_detail_actions(
+#[post("/products/{id}/presentations")]
+pub async fn create_presentation(
     app: Data<App>,
     org: ReqData<Organization>,
     product_id: Path<Id>,
-    action: Form<ProductDetailAction>,
 ) -> Result<Markup, WebError> {
-    use ProductDetailAction::*;
-    match action.into_inner() {
-        CreatePresentation => {
-            let presentation = app.store.presentations.create(&org.id, &product_id).await?;
-            let product = app
-                .store
-                .products
-                .get_one_by_organization_id_and_id(&org.id, &product_id)
-                .await?;
-            Ok(html! {
-                (views::products::presentations(&product, &Some(&presentation)))
-                (views::products::pictures_partial(&product, &Some(&presentation), &None))
-            })
-        }
-        UpdatePresentation {
-            presentation_id,
-            name,
-            quantity,
-            price,
-        } => {
-            let presentation_id: Id = presentation_id
-                .parse()
-                .context("failed parsing presentation id")?;
+    let presentation = app.store.presentations.create(&org.id, &product_id).await?;
+    let product = app
+        .store
+        .products
+        .get_one_by_organization_id_and_id(&org.id, &product_id)
+        .await?;
+    Ok(html! {
+        (views::products::presentations(&product, &Some(&presentation)))
+        (views::products::pictures_partial(&product, &Some(&presentation), &None))
+    })
+}
 
-            let quantity: i64 = quantity.parse().context("failed parsing quantity")?;
+#[derive(Deserialize)]
+pub struct UpdatePresentationForm {
+    name: String,
+    quantity: i64,
+    price: i64,
+}
 
-            let price: i64 = price.parse().context("failed parsing price")?;
+#[put("/products/{id}/presentations/{pid}")]
+pub async fn update_presentation(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    path: Path<(Id, Id)>,
+    form: Form<UpdatePresentationForm>,
+) -> Result<Markup, WebError> {
+    let (product_id, presentation_id) = path.into_inner();
 
-            app.store
-                .presentations
-                .update(UpdatePresentationArgs {
-                    organization_id: &org.id,
-                    product_id: &product_id,
-                    presentation_id: &presentation_id,
-                    name: &name,
-                    quantity: &quantity,
-                    price: &price,
-                })
-                .await?;
+    app.store
+        .presentations
+        .update(UpdatePresentationArgs {
+            organization_id: &org.id,
+            product_id: &product_id,
+            presentation_id: &presentation_id,
+            name: &form.name,
+            quantity: &form.quantity,
+            price: &form.price,
+        })
+        .await?;
 
-            let product = app
-                .store
-                .products
-                .get_one_by_organization_id_and_id(&org.id, &product_id)
-                .await?;
+    let product = app
+        .store
+        .products
+        .get_one_by_organization_id_and_id(&org.id, &product_id)
+        .await?;
 
-            let presentation = product
-                .presentations
-                .iter()
-                .find(|p| p.id == presentation_id);
+    let presentation = product
+        .presentations
+        .iter()
+        .find(|p| p.id == presentation_id);
 
-            Ok(html! {
-                (views::products::presentations(&product, &presentation))
-                (toast("presentación actualizada", Variant::Primary))
-            })
-        }
-        DeletePresentation { presentation_id } => {
-            app.store
-                .presentations
-                .delete(
-                    &org.id,
-                    &product_id,
-                    &presentation_id
-                        .parse()
-                        .context("failed parsing presentation id")?,
-                )
-                .await?;
+    Ok(html! {
+        (views::products::presentations(&product, &presentation))
+        (toast("presentación actualizada", Variant::Primary))
+    })
+}
 
-            let product = app
-                .store
-                .products
-                .get_one_by_organization_id_and_id(&org.id, &product_id)
-                .await?;
+#[delete("/products/{id}/presentations/{pid}")]
+pub async fn delete_presentation(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    path: Path<(Id, Id)>,
+) -> Result<Markup, WebError> {
+    let (product_id, presentation_id) = path.into_inner();
 
-            let presentation = product.presentations.first();
+    app.store
+        .presentations
+        .delete(&org.id, &product_id, &presentation_id)
+        .await?;
 
-            Ok(html! {
-                (views::products::presentations(&product, &presentation))
-                (views::products::pictures_partial(&product, &presentation, &None))
-            })
-        }
-        SortPresentation {
-            presentation_id,
-            new_number,
-        } => {
-            let presentation_id: Id = presentation_id
-                .parse()
-                .context("fallo en parseo de el id de presentación")?;
+    let product = app
+        .store
+        .products
+        .get_one_by_organization_id_and_id(&org.id, &product_id)
+        .await?;
 
-            let new_number: Id = new_number
-                .parse()
-                .context("fallo en parseo de el nuevo número")?;
+    let presentation = product.presentations.first();
 
-            app.store
-                .presentations
-                .sort(&org.id, &product_id, &presentation_id, &new_number)
-                .await?;
+    Ok(html! {
+        (views::products::presentations(&product, &presentation))
+        (views::products::pictures_partial(&product, &presentation, &None))
+    })
+}
 
-            Ok(html!())
-        }
-        DeleteContent {
-            presentation_id,
-            content_id,
-        } => {
-            let presentation_id: Id = presentation_id.parse().map_err(|e| {
-                WebError::Status(
-                    StatusCode::BAD_REQUEST,
-                    format!("invalid presentation id: {}", e),
-                )
-            })?;
+#[derive(Deserialize)]
+pub struct SortPresentationForm {
+    number: i64,
+}
 
-            let content_id: Id = content_id.parse().map_err(|e| {
-                WebError::Status(
-                    StatusCode::BAD_REQUEST,
-                    format!("invalid content id: {}", e),
-                )
-            })?;
+#[patch("/products/{id}/presentations/{pid}/number")]
+pub async fn sort_presentation(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    path: Path<(Id, Id)>,
+    form: Form<SortPresentationForm>,
+) -> Result<Markup, WebError> {
+    let (product_id, presentation_id) = path.into_inner();
 
-            app.store
-                .contents
-                .delete(&org.id, &product_id, &presentation_id, &content_id)
-                .await?;
+    app.store
+        .presentations
+        .sort(&org.id, &product_id, &presentation_id, &form.number)
+        .await?;
 
-            let product = app
-                .store
-                .products
-                .get_one_by_organization_id_and_id(&org.id, &product_id)
-                .await?;
-
-            let presentation = product
-                .presentations
-                .iter()
-                .find(|p| p.id == presentation_id);
-
-            Ok(views::products::pictures(&product, &presentation, &None))
-        }
-        SortContent {
-            presentation_id,
-            content_id,
-            new_number,
-        } => {
-            let presentation_id: Id = presentation_id
-                .parse()
-                .context("failed to parse presentation_id")?;
-
-            let content_id: Id = content_id.parse().context("failed to parse content_id")?;
-
-            let new_number: i64 = new_number.parse().context("failed to parse new_number")?;
-
-            app.store
-                .contents
-                .sort(
-                    &org.id,
-                    &product_id,
-                    &presentation_id,
-                    &content_id,
-                    &new_number,
-                )
-                .await?;
-
-            Ok(html!())
-        }
-    }
+    Ok(html!())
 }
 
 #[derive(Debug, MultipartForm)]
@@ -370,6 +273,7 @@ pub struct UploadForm {
     pub files: Vec<TempFile>,
 }
 
+#[post("/products/{id}/presentations/{pid}/contents")]
 pub async fn upload_content(
     app: Data<App>,
     org: ReqData<Organization>,
@@ -397,4 +301,59 @@ pub async fn upload_content(
     let content = presentation.and_then(|p| p.contents.last());
 
     Ok(views::products::pictures(&product, &presentation, &content))
+}
+
+#[delete("/products/{id}/presentations/{pid}/contents/{cid}")]
+pub async fn delete_content(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    path: Path<(Id, Id, Id)>,
+) -> Result<Markup, WebError> {
+    let (product_id, presentation_id, content_id) = path.into_inner();
+
+    app.store
+        .contents
+        .delete(&org.id, &product_id, &presentation_id, &content_id)
+        .await?;
+
+    let product = app
+        .store
+        .products
+        .get_one_by_organization_id_and_id(&org.id, &product_id)
+        .await?;
+
+    let presentation = product
+        .presentations
+        .iter()
+        .find(|p| p.id == presentation_id);
+
+    Ok(views::products::pictures(&product, &presentation, &None))
+}
+
+#[derive(Deserialize)]
+pub struct SortContentForm {
+    pub number: i64,
+}
+
+#[patch("/products/{id}/presentations/{pid}/contents/{cid}/number")]
+pub async fn sort_content(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    path: Path<(Id, Id, Id)>,
+    form: Form<SortContentForm>,
+) -> Result<Markup, WebError> {
+    let (product_id, presentation_id, content_id) = path.into_inner();
+
+    app.store
+        .contents
+        .sort(
+            &org.id,
+            &product_id,
+            &presentation_id,
+            &content_id,
+            &form.number,
+        )
+        .await?;
+
+    Ok(html!())
 }
