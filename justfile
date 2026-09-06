@@ -1,13 +1,13 @@
-build: esbuild
+build: build-assets
     cargo build
 
 test:
     cargo test
 
-esbuild:
+build-assets:
     npx esbuild src/web/dashboard/assets/dashboard.ts --bundle --outfile=data/dist/dashboard.min.js --minify --sourcemap  --format=esm
 
-run: esbuild
+run: build-assets
     cargo run
 
 watch:

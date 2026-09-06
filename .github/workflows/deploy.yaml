@@ -21,7 +21,7 @@ jobs:
       - name: Build Assets
         run: |
           npm install
-          just esbuild
+          just build-assets
       - name: Cache
         uses: Swatinem/rust-cache@v2.9.2
       - name: Build Binary
