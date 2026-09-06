@@ -1,10 +1,7 @@
-use actix_multipart::form::json;
 use maud::{Markup, html};
 use serde_json::json;
 
-use crate::app::store::{
-    Content, MAX_CONTENTS_PER_PRESENTATION, Presentation, Presentations, Product,
-};
+use crate::app::store::{Content, MAX_CONTENTS_PER_PRESENTATION, Presentation, Product};
 use crate::web::dashboard::views;
 
 pub fn product_list(products: Vec<Product>) -> Markup {
@@ -109,38 +106,34 @@ pub fn presentations(product: &Product, presentation: &Option<&Presentation>) ->
             .body {
                 h4 { "Presentaciones" }
                 div
-                    hx-post=(format!("/dashboard/products/{}", product.id))
+                    role="group"
+                    x-data="drag"
+                    x-bind:hx-patch=(format!(r#"`/dashboard/products/{}/presentations/${{id}}/number`"#, product.id))
+                    x-bind:hx-vals="json({ number })"
                     hx-trigger="dragged"
-                    hx-swap="none"
-                    hx-include="find input" {
+                    hx-swap="none" {
 
-                        div role="group" x-data="drag"{
-                            input hidden name="action" value="sort_presentation" {}
-                            input hidden name="presentation_id" x-bind:value="id" {}
-                            input hidden name="new_number"  x-bind:value="number" {}
 
-                        @for p in &product.presentations {
-                            @if presentation.as_ref().map_or(false, |selected| selected.id == p.id) {
-                                button.draggable.active #(p.id) { (p.name) }
-                            } @else {
-                                button.draggable #(p.id)
-                                    hx-get=(format!("/dashboard/products/{}?presentation_id={}", product.id, p.id))
-                                    hx-target="#presentations"
-                                    hx-swap="outerHTML"
-                                    hx-push-url="true" {
-                                    (p.name)
-                                }
+                    @for p in &product.presentations {
+                        @if presentation.as_ref().map_or(false, |selected| selected.id == p.id) {
+                            button.draggable.active #(p.id) { (p.name) }
+                        } @else {
+                            button.draggable #(p.id)
+                                hx-get=(format!("/dashboard/products/{}?fragment=presentations&presentation_id={}", product.id, p.id))
+                                hx-target="#presentations"
+                                hx-swap="outerHTML" {
+                                (p.name)
                             }
                         }
-
-                        button.icon
-                            hx-post=(format!("/dashboard/products/{}", product.id))
-                            hx-target="#presentations"
-                            hx-swap="outerHTML"
-                            hx-vals=(json!({ "action": "create_presentation" })) {
-                            .fa-solid.fa-plus {}
-                        }
                     }
+
+                    button.icon
+                        hx-post=(format!("/dashboard/products/{}/presentations", product.id))
+                        hx-target="#presentations"
+                        hx-swap="outerHTML" {
+                        .fa-solid.fa-plus {}
+                    }
+
                 }
                 @if let Some(presentation) = presentation {
                     (presentation_form(product, presentation))
@@ -152,9 +145,8 @@ pub fn presentations(product: &Product, presentation: &Option<&Presentation>) ->
 
 pub fn presentation_form(product: &Product, presentation: &Presentation) -> Markup {
     html!(
-        form hx-post=(format!("/dashboard/products/{}", product.id)) hx-swap="outerHTML" hx-target="#presentations" {
-            input hidden name="action" value="update_presentation" {}
-            input hidden name="presentation_id" value=(presentation.id) {}
+        form hx-put=(format!("/dashboard/products/{}/presentations/{}", product.id, presentation.id)) hx-swap="outerHTML" hx-target="#presentations" {
+
 
             fieldset {
                 legend { "Nombre" }
@@ -171,7 +163,7 @@ pub fn presentation_form(product: &Product, presentation: &Presentation) -> Mark
             .actions {
                 button.danger
                     type="button"
-                    hx-post=(format!("/dashboard/products/{}", product.id))
+                    hx-post=(format!("/dashboard/products/{}?fragment=delete", product.id))
                     hx-target="#presentations"
                     hx-swap="outerHTML"
                     hx-vals=(json!({ "action": "delete_presentation", "presentation_id": presentation.id })){
@@ -243,10 +235,9 @@ pub fn pictures_section(
                     img src=(format!("/assets/dynamic/files/{}", selected.file_id)) {}
                     .actions {
                         button.danger
-                            hx-post=(format!("/dashboard/products/{}", product.id))
+                            hx-delete=(format!("/dashboard/products/{}/presentations/{}/contents/{}", product.id, presentation.id, selected.id))
                             hx-target="#pictures"
-                            hx-swap="outerHTML"
-                            hx-vals=(json!({ "action": "delete_content", "content_id": selected.id, "presentation_id": presentation.id })) {
+                            hx-swap="outerHTML" {
                             i.fa-regular.fa-trash-can {}
                         }
                     }
@@ -255,20 +246,14 @@ pub fn pictures_section(
             .flex {
                 .flex
                     x-data="drag"
-                    hx-post=(format!("/dashboard/products/{}", product.id))
+                    x-bind:hx-patch=(format!(r#"`/dashboard/products/{}/presentations/{}/contents/${{id}}/number`"#, product.id, presentation.id))
+                    x-bind:hx-vals="json({ number })"
                     hx-trigger="dragged"
-                    hx-swap="none"
-                    hx-include="find input" {
-
-                    input type="hidden" name="action" value="sort_content" {}
-                    input type="hidden" name="presentation_id" value=(presentation.id) {}
-                    input type="hidden" name="content_id" x-bind:value="id" {}
-                    input type="hidden" name="new_number" x-bind:value="number" {}
-
+                    hx-swap="none" {
 
                     @for content in &presentation.contents {
                         #(content.id).placeholder.small.draggable
-                            hx-get=(format!("/dashboard/products/{}?presentation_id={}&content_id={}", product.id, presentation.id, content.id))
+                            hx-get=(format!("/dashboard/products/{}?fragment=pictures&presentation_id={}&content_id={}", product.id, presentation.id, content.id))
                             hx-target="#pictures"
                             hx-swap="outerHTML" {
                             img src=(format!("/assets/dynamic/files/{}", content.file_id)) {}

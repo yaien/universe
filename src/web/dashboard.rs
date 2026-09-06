@@ -6,7 +6,7 @@ mod views;
 pub use views::layout::{Variant, toast};
 
 use actix_web::middleware::from_fn;
-use actix_web::web::{ServiceConfig, delete, get, post, put, scope};
+use actix_web::web::{ServiceConfig, get, post, scope};
 
 use handlers::*;
 
@@ -20,20 +20,18 @@ pub fn configure(config: &mut ServiceConfig) {
                 .route("/pages", post().to(pages::exec_action))
                 .route("/pages/files", post().to(pages::upload_files))
                 .route("/pages/preview", get().to(pages::get_preview))
-                .route("/products", get().to(products::get_index))
-                .route("/products", post().to(products::exec_index_actions))
-                .route("/products/{id}", get().to(products::get_details))
-                .route("/products/{id}", post().to(products::exec_detail_actions))
-                .route(
-                    "/products/{id}/delete",
-                    get().to(products::delete_product_modal),
-                )
-                .route("/products/{id}", delete().to(products::delete_product))
-                .route("/products/{id}", put().to(products::update_product))
-                .route(
-                    "/products/{id}/presentations/{pid}/contents",
-                    post().to(products::upload_content),
-                )
+                .service(products::get_products)
+                .service(products::create_product)
+                .service(products::get_product)
+                .service(products::delete_product)
+                .service(products::update_product)
+                .service(products::create_presentation)
+                .service(products::update_presentation)
+                .service(products::delete_presentation)
+                .service(products::sort_presentation)
+                .service(products::upload_content)
+                .service(products::delete_content)
+                .service(products::sort_content)
                 .wrap(from_fn(middlewares::role)),
         )
         .route(
