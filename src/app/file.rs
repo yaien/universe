@@ -62,11 +62,13 @@ impl Files {
         organization_id: &Id,
         scope: &str,
     ) -> Result<Vec<File>, sqlx::Error> {
-        sqlx::query_as::<_, File>("select * from files where organization_id = $1 and scope = $2")
-            .bind(organization_id)
-            .bind(scope)
-            .fetch_all(&self.pool)
-            .await
+        sqlx::query_as::<_, File>(
+            "select * from files where organization_id = $1 and scope = $2 order by id desc",
+        )
+        .bind(organization_id)
+        .bind(scope)
+        .fetch_all(&self.pool)
+        .await
     }
 
     pub async fn get_one_by_organization_id_and_name(

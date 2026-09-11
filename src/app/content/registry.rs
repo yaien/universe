@@ -39,7 +39,7 @@ impl RegisterFunctions for Environment<'_> {
 
 fn file_url(name: String, variant: Option<String>) -> String {
     match variant {
-        Some(variant) => format!("/assets/dynamic/files/{name}?v={variant}"),
+        Some(variant) => format!("/assets/dynamic/files/{name}?variant={variant}"),
         None => format!("/assets/dynamic/files/{name}"),
     }
 }
@@ -48,7 +48,7 @@ fn external_file_url(org: Arc<Organization>) -> impl Fn(String, Option<String>) 
     move |name: String, variant: Option<String>| -> String {
         match variant {
             Some(variant) => {
-                format!("{}/assets/dynamic/files/{name}?v={variant}", org.url)
+                format!("{}/assets/dynamic/files/{name}?variant={variant}", org.url)
             }
             None => format!("{}/assets/dynamic/files/{name}", org.url),
         }
