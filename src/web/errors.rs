@@ -63,3 +63,15 @@ impl From<anyhow::Error> for WebError {
         WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
     }
 }
+
+impl From<(StatusCode, &str)> for WebError {
+    fn from((code, msg): (StatusCode, &str)) -> Self {
+        WebError::Status(code, msg.to_string())
+    }
+}
+
+impl From<(StatusCode, String)> for WebError {
+    fn from((code, msg): (StatusCode, String)) -> Self {
+        WebError::Status(code, msg)
+    }
+}

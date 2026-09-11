@@ -51,6 +51,7 @@ impl Colors {
 
     pub async fn create(&self, sitemap_id: &Id) -> Result<Color, sqlx::Error> {
         let colors = self.get_by_sitemap_id(sitemap_id).await?;
+
         let mut new_tag_index = colors.len();
         let mut new_tag_name = format!("black-{new_tag_index}").to_string();
         while colors.iter().any(|c| c.tag == new_tag_name) {

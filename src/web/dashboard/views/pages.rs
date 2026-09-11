@@ -203,11 +203,14 @@ pub fn editor(state: &ViewState) -> Markup {
     )
 }
 
+pub const RELOAD_HEADER: (&str, &str) =
+    ("HX-Trigger", r##"{ "reload": { "target": "#preview" } }"##);
+
 pub fn preview() -> Markup {
     html!(
-        #preview.page hx-preserve="true"{
+        .page hx-preserve="true"{
             .resizeable {
-                iframe x-data="preview" src="/dashboard/pages/preview" {}
+                iframe #preview x-data="preview" src="/dashboard/pages/preview" {}
             }
         }
     )
@@ -920,7 +923,10 @@ pub fn configure_font(state: &ViewState) -> Markup {
                     {
                         (browsed_font.family)
                     }
-                    form hx-post="/dashboard/pages" hx-target=".fonts" hx-swap="outerHTML" {
+                    form
+                        hx-post=[state.sitemap_font.is_none().then_some("/dashboard/pages/fonts")]
+                        hx-put=[state.sitemap_font.as_ref().map(|f| format!("/dashboard/pages/fonts/{}", f.id))]
+                        hx-target=".fonts" hx-swap="outerHTML" {
                         small {
 
                             "Usa \"primary\"  para cambiar la fuente base de la página o \"headings\" para cambiar los
@@ -936,7 +942,7 @@ pub fn configure_font(state: &ViewState) -> Markup {
                             input name="tag" autocomplete="off" required value=[sitemap_font_name] {}
                         }
 
-                        input name="action" value="save_font" hidden {}
+                        input name="font_id" value=[state.browsed_font.as_ref().map(|f| f.id)] hidden {}
 
                         div class="actions" {
                             button type="submit" { "Guardar" }
@@ -964,8 +970,7 @@ pub fn colors(state: &ViewState) -> Markup {
                 }
             }
             .actions {
-                button class="clear" hx-post="/dashboard/pages" hx-include="find input" hx-target="#colors" hx-swap="beforeend" {
-                    input name="action" value="create_color" hidden {}
+                button class="clear" hx-post="/dashboard/pages/colors" hx-target="#colors" hx-swap="beforeend" {
                     i class="fa-solid fa-plus" {}
                 }
             }
@@ -983,13 +988,11 @@ pub fn color(color: &Color) -> Markup {
             ))
         {
             form
-                hx-post="/dashboard/pages"
+                hx-put=(format!("/dashboard/pages/colors/{}", color.id))
                 hx-trigger="input throttle:100ms"
                 hx-swap="none"
             {
                 .field x-bind:style="{color: readable, background: color}" {
-                    input name="action" value="update_color" hidden {}
-                    input name="id" value=(&color.id) hidden {}
                     input name="tag" x-model="tag" required {}
                     input
                         name="value"
@@ -1008,11 +1011,9 @@ pub fn color(color: &Color) -> Markup {
                 }
                 button.clear.danger
                     type="button"
-                    hx-post="/dashboard/pages"
+                    hx-delete=(format!("/dashboard/pages/colors/{}", color.id))
                     hx-target="closest .color"
-                    hx-swap="outerHTML"
-                    hx-vals=(json!({ "action": "delete_color", "id": &color.id }))
-                {
+                    hx-swap="outerHTML" {
                     i class="fa-solid fa-trash" {}
                 }
             }
@@ -1034,12 +1035,9 @@ pub fn edit_html(state: &ViewState) -> Markup {
                 "monaco({{ language: {:?}, source: {:?} }})",
                 "html", source
             ))
-            hx-post="/dashboard/pages"
+            hx-patch="/dashboard/pages/html"
             hx-trigger="editorinput"
-            hx-vals=(format!(
-                "js:{{ action: {:?}, source: event.detail.value }}",
-                "save_html"
-            ))
+            hx-vals="js:{ source: event.detail.value }"
             hx-swap="none"
         {
             .spinner x-show="loading" {
