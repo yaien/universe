@@ -7,7 +7,7 @@ use maud::Markup;
 use mime::{APPLICATION_OCTET_STREAM, Mime};
 use serde::Deserialize;
 
-use crate::app::{App, Organization, RegistryContext, RenderMode, RenderPageOptions, render_page};
+use crate::app::{App, Organization, RegistryContext, RenderPageOptions, render_page};
 use crate::app::{Branch, User};
 use crate::infra::Id;
 use crate::web::errors::WebError;
@@ -35,8 +35,6 @@ pub async fn get_index(
 
     let fonts = app.fonts.get_by_sitemap_id(&sitemap.id).await?;
 
-    let mode = RenderMode::External;
-
     let ctx = RegistryContext {
         app: app.into_inner(),
         org: Arc::new(org.into_inner()),
@@ -49,7 +47,6 @@ pub async fn get_index(
         layout,
         sitemap,
         fonts,
-        mode,
     })?;
 
     Ok(content)

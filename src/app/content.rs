@@ -14,17 +14,11 @@ pub use style::bundle as bundle_css;
 
 pub use registry::{RegisterFunctions, RegistryContext};
 
-pub enum RenderMode {
-    External,
-    Inline { colors: Vec<Color> },
-}
-
 pub struct RenderPageOptions {
     pub sitemap: Sitemap,
     pub page: Page,
     pub layout: Option<Layout>,
     pub fonts: Vec<SitemapFont>,
-    pub mode: RenderMode,
     pub ctx: RegistryContext,
 }
 
@@ -36,7 +30,6 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
         layout,
         sitemap,
         fonts,
-        mode,
     } = options;
 
     let content = get_page_content(&ctx, &page, &layout).context("failed getting page content")?;
@@ -76,29 +69,69 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
 
                 (links::fonts(&fonts))
 
-
-
-                @match mode {
-                    RenderMode::External => {
-                        link rel="stylesheet" href="/assets/landing/style.css" {}
-                        script defer src="/assets/landing/script.js" {}
-                    }
-                    RenderMode::Inline { colors } => {
-                        @let layout_css = layout.as_ref().map_or("", |l| l.css.as_str());
-                        @let layout_js = layout.as_ref().map_or("", |l| l.js.as_str());
-
-                        (style::inline(&fonts, &colors, layout_css, &page.css))
-                        (script::inline(layout_js, &page.js))
-                    }
-                }
-
-
+                link rel="stylesheet" href="/assets/landing/style.css" {}
+                script defer src="/assets/landing/script.js" {}
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0-beta6" integrity="sha384-6lyVbhrs13b9z7mLOpt/N6R76rtkEBWgCjAXRs/DSWyi2AMnQSs10ijWk+PI8n7W" crossorigin="anonymous" {}
 
             }
 
             body {
+                div data-layout=(layout.as_ref().map_or("", |l| l.name.as_str())) {
+                    (PreEscaped(content))
+                }
+            }
+        }
+    ))
+}
+
+pub struct RenderPageInlineOptions {
+    pub page: Page,
+    pub layout: Option<Layout>,
+    pub fonts: Vec<SitemapFont>,
+    pub colors: Vec<Color>,
+    pub ctx: RegistryContext,
+}
+
+pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, AppError> {
+    let RenderPageInlineOptions {
+        page,
+        layout,
+        fonts,
+        colors,
+        ctx,
+    } = options;
+
+    let content = get_page_content(&ctx, &page, &layout).context("failed getting page content")?;
+
+    Ok(html!(
+        (DOCTYPE)
+
+        html lang="es" {
+            head hx-head="merge" {
+                meta charset="UTF-8" {}
+                meta name="viewport" content="width=device-width, initial-scale=1.0" {}
+                meta name="htmx-config" content="transitions:true" {}
+
+                (links::fonts(&fonts))
+
+                @let layout_css = layout.as_ref().map_or("", |l| l.css.as_str());
+                (style::inline(&fonts, &colors, layout_css, &page.css))
+
+                @let layout_js = layout.as_ref().map_or("", |l| l.js.as_str());
+                (script::inline(layout_js, &page.js))
+
+                script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0-beta6" integrity="sha384-6lyVbhrs13b9z7mLOpt/N6R76rtkEBWgCjAXRs/DSWyi2AMnQSs10ijWk+PI8n7W" crossorigin="anonymous" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
+
+            }
+
+            body hx-trigger="reload" hx-get="/dashboard/pages/preview" {
+
+
+
+
                 div data-layout=(layout.as_ref().map_or("", |l| l.name.as_str())) {
                     (PreEscaped(content))
                 }

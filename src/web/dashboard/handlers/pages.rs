@@ -14,7 +14,7 @@ use serde::Deserialize;
 
 use crate::app::{
     App, AppError, Branch, Organization, PageInfo, RegistryContext, RenderLayoutOptions,
-    RenderMode, RenderPageOptions, Role, Scope, User, render_email, render_layout, render_page,
+    RenderPageInlineOptions, Role, Scope, User, render_email, render_layout, render_page_inline,
 };
 use crate::infra::Id;
 use crate::web::dashboard::views;
@@ -375,15 +375,12 @@ pub async fn get_preview(
                 user: Arc::new(user.into_inner()),
             };
 
-            let mode = RenderMode::Inline { colors };
-
-            let content = render_page(RenderPageOptions {
+            let content = render_page_inline(RenderPageInlineOptions {
                 ctx,
                 page,
                 layout,
-                sitemap,
                 fonts,
-                mode,
+                colors,
             })?;
 
             Ok(content)
@@ -578,7 +575,6 @@ pub async fn exec_action(
 
             Ok(html! {
                 (views::pages::edit(&Some(Model::Page(page)), &org, &Some(layouts)))
-                (views::pages::preview(true))
             })
         }
 
@@ -607,11 +603,9 @@ pub async fn exec_action(
                     )
                 })?;
 
-            Ok(html!((views::pages::edit(
-                &Some(Model::Layout(layout)),
-                &org,
-                &Some(layouts)
-            ))(views::pages::preview(true))))
+            Ok(html! {
+                (views::pages::edit(&Some(Model::Layout(layout)), &org, &Some(layouts)))
+            })
         }
 
         SavePageInfo {
@@ -648,7 +642,6 @@ pub async fn exec_action(
 
             Ok(html! {
                 (views::layout::toast("Pagina actualizada correctamente", Variant::Primary))
-                (views::pages::preview(true))
             })
         }
 
@@ -720,7 +713,6 @@ pub async fn exec_action(
             Ok(html! {
                 (views::pages::content(&view_state))
                 (views::layout::toast("Mapa de sitio sincronizado correctamente", Variant::Primary))
-                (views::pages::preview(true))
             })
         }
 
@@ -754,7 +746,6 @@ pub async fn exec_action(
             Ok(html! {
                 (views::pages::content(&view_state))
                 (views::layout::toast("Pagina eliminada correctamente", Variant::Primary))
-                (views::pages::preview(true))
             })
         }
 
@@ -788,7 +779,6 @@ pub async fn exec_action(
             Ok(html! {
                 (views::pages::content(&view_state))
                 (views::layout::toast("Layout eliminado correctamente", Variant::Primary))
-                (views::pages::preview(true))
             })
         }
         DeleteSitemap => {
@@ -805,7 +795,6 @@ pub async fn exec_action(
             Ok(html! {
                 (views::pages::content(&view_state))
                 (views::layout::toast("Sitemap eliminado correctamente", Variant::Primary))
-                (views::pages::preview(true))
             })
         }
 
@@ -834,7 +823,7 @@ pub async fn exec_action(
                     )
                 })?;
 
-            Ok(views::pages::preview(true))
+            Ok(html!())
         }
         DeleteColor { id } => {
             let id: Id = id.parse().map_err(|e| {
@@ -847,7 +836,7 @@ pub async fn exec_action(
                     format!("failed updating color: {e}"),
                 )
             })?;
-            Ok(views::pages::preview(true))
+            Ok(html!())
         }
         SaveFont { tag } => {
             let browsed_font_id = session_state.browsed_font_id.ok_or_else(|| {
@@ -900,7 +889,6 @@ pub async fn exec_action(
 
             Ok(html! {
                 (views::pages::fonts(&Some(associated_fonts)))
-                (views::pages::preview(true))
             })
         }
         SaveHtml { source } => {
@@ -948,7 +936,7 @@ pub async fn exec_action(
                 }
             };
 
-            Ok(views::pages::preview(true))
+            Ok(html!())
         }
         SaveCss { source } => {
             let Some(model_id) = session_state.model_id else {
@@ -989,7 +977,7 @@ pub async fn exec_action(
                 }
             };
 
-            Ok(views::pages::preview(true))
+            Ok(html!())
         }
         SaveJs { source } => {
             let Some(model_id) = session_state.model_id else {
@@ -1030,7 +1018,7 @@ pub async fn exec_action(
                 }
             };
 
-            Ok(views::pages::preview(true))
+            Ok(html!())
         }
         Publish => {
             app.sitemaps
@@ -1068,7 +1056,6 @@ pub async fn exec_action(
 
             Ok(html! {
                 (views::layout::toast("Archivo guardado correctamente", Variant::Primary))
-                (views::pages::preview(true))
             })
         }
         DeleteFile => {
@@ -1101,7 +1088,6 @@ pub async fn exec_action(
             Ok(html! {
                 (views::pages::files(&view_state))
                 (views::layout::toast("Archivo eliminado correctamente", Variant::Primary))
-                (views::pages::preview(true))
             })
         }
         UpdateOgImage { file_id } => {

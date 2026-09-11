@@ -14,7 +14,6 @@ use rustls::crypto;
 use sqlx::migrate;
 
 use infra::Monolith;
-use url::Url;
 
 use crate::app::processor::FileProcessor;
 

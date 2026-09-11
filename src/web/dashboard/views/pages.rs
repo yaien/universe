@@ -165,7 +165,7 @@ pub fn content(state: &ViewState) -> Markup {
     html!(
         #content "data-scope"="pages" {
             (editor(&state))
-            (preview(false))
+            (preview())
         }
     )
 }
@@ -203,11 +203,11 @@ pub fn editor(state: &ViewState) -> Markup {
     )
 }
 
-pub fn preview(swap: bool) -> Markup {
+pub fn preview() -> Markup {
     html!(
-        #preview.page hx-swap-oob=[swap.then_some("true")] {
+        #preview.page hx-preserve="true"{
             .resizeable {
-                iframe x-ref="iframe" src="/dashboard/pages/preview" {}
+                iframe x-data="preview" src="/dashboard/pages/preview" {}
             }
         }
     )
