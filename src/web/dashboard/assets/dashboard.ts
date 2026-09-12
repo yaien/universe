@@ -1,19 +1,12 @@
 import "htmx.org";
 
-import "./elements/x-color-picker";
-import "./elements/x-file-size";
-import "./elements/x-file-input";
-import "./elements/x-font";
-import "./elements/x-code-editor";
-import "./elements/x-preview";
-import "./elements/x-drag";
-
-
-import "./styles/dashboard.css";
-import "./styles/pages.css";
-import "./styles/roles.css";
-import "./styles/integrations.css";
-import "./styles/products.css";
+import "./data/x-coloris";
+import "./data/x-filesize";
+import "./data/x-progress";
+import "./data/x-font";
+import "./data/x-monaco";
+import "./data/x-preview";
+import "./data/x-drag";
 
 import Alpine from "alpinejs";
 

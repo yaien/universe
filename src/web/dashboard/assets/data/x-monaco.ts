@@ -26,6 +26,7 @@ Alpine.data("monaco", ({ language, source = "" }: { language: string; source: st
       automaticLayout: true,
       minimap: { enabled: false },
       lineNumbersMinChars: 1,
+      tabSize: 2,
       scrollbar: {
         vertical: "hidden",
       },

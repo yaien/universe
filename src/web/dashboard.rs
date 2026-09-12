@@ -28,6 +28,8 @@ pub fn configure(config: &mut ServiceConfig) {
                 .service(pages::update_color)
                 .service(pages::delete_color)
                 .service(pages::update_html)
+                .service(pages::update_css)
+                .service(pages::update_js)
                 .service(products::get_products)
                 .service(products::create_product)
                 .service(products::get_product)

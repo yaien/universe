@@ -10,7 +10,7 @@ use actix_web::{HttpRequest, HttpResponse, delete, patch, post, put};
 use anyhow::Context;
 use maud::{Markup, html};
 use minijinja::context;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::app::{
     App, AppError, Branch, Organization, PageInfo, RegistryContext, RenderLayoutOptions,
@@ -73,11 +73,8 @@ async fn get_view_state<'a>(
     {
         Ok(sitemap) => sitemap,
         Err(e) => {
-            let err = WebError::Status(
-                StatusCode::NOT_FOUND,
-                format!("sitemap {} not found: {}", session_state.sitemap_branch, e),
-            );
-            return Err(err.into());
+            let message = format!("sitemap {} not found: {}", session_state.sitemap_branch, e);
+            return Err((StatusCode::NOT_FOUND, message))?;
         }
     };
 
@@ -696,7 +693,7 @@ pub async fn delete_color(
 }
 
 #[derive(Deserialize)]
-pub struct UpdateHtmlForm {
+pub struct UpdateSourceForm {
     pub source: String,
 }
 
@@ -705,7 +702,7 @@ pub async fn update_html(
     org: ReqData<Organization>,
     app: Data<App>,
     session: Session,
-    form: Form<UpdateHtmlForm>,
+    form: Form<UpdateSourceForm>,
 ) -> Result<HttpResponse, WebError> {
     let (session_state, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
@@ -739,15 +736,88 @@ pub async fn update_html(
         .finish())
 }
 
+#[patch("/pages/css")]
+pub async fn update_css(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    form: Form<UpdateSourceForm>,
+) -> Result<HttpResponse, WebError> {
+    let (session_state, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
+
+    let Some(model_id) = session_state.model_id else {
+        return Err((StatusCode::BAD_REQUEST, "missing model id in session"))?;
+    };
+
+    match session_state.model_type {
+        ModelType::Page => {
+            app.pages
+                .update_css(&sitemap.id, &model_id, &form.source)
+                .await
+                .context("failed updating css")?;
+        }
+        ModelType::Layout => {
+            app.layouts
+                .update_css(&sitemap.id, &model_id, &form.source)
+                .await
+                .context("failed updating css")?;
+        }
+        ModelType::Email => {
+            return Err((StatusCode::BAD_REQUEST, "invalid model type selected"))?;
+        }
+    };
+
+    let response = HttpResponse::Ok()
+        .insert_header(views::pages::RELOAD_HEADER)
+        .finish();
+
+    Ok(response)
+}
+
+#[patch("/pages/js")]
+pub async fn update_js(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    form: Form<UpdateSourceForm>,
+) -> Result<HttpResponse, WebError> {
+    let (session_state, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
+
+    let Some(model_id) = session_state.model_id else {
+        return Err((StatusCode::BAD_REQUEST, "missing model id in session"))?;
+    };
+
+    match session_state.model_type {
+        ModelType::Page => {
+            app.pages
+                .update_js(&sitemap.id, &model_id, &form.source)
+                .await
+                .context("failed updating js")?;
+        }
+        ModelType::Layout => {
+            app.layouts
+                .update_js(&sitemap.id, &model_id, &form.source)
+                .await
+                .context("failed updating js")?;
+        }
+        ModelType::Email => {
+            return Err(WebError::Status(
+                StatusCode::BAD_REQUEST,
+                "invalid model type selected".into(),
+            ))?;
+        }
+    };
+
+    let response = HttpResponse::Ok()
+        .insert_header(views::pages::RELOAD_HEADER)
+        .finish();
+
+    Ok(response)
+}
+
 #[derive(Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum ActionForm {
-    SaveCss {
-        source: String,
-    },
-    SaveJs {
-        source: String,
-    },
     UpdateOgImage {
         file_id: String,
     },
@@ -1064,88 +1134,7 @@ pub async fn exec_action(
                 (views::layout::toast("Sitemap eliminado correctamente", Variant::Primary))
             })
         }
-        SaveCss { source } => {
-            let Some(model_id) = session_state.model_id else {
-                return Err(WebError::Status(
-                    StatusCode::BAD_REQUEST,
-                    "missing model id in session".into(),
-                ))?;
-            };
 
-            match session_state.model_type {
-                ModelType::Page => {
-                    app.pages
-                        .update_css(&sitemap.id, &model_id, &source)
-                        .await
-                        .map_err(|e| {
-                            WebError::Status(
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                                format!("failed updating model html: {e}"),
-                            )
-                        })?;
-                }
-                ModelType::Layout => {
-                    app.layouts
-                        .update_css(&sitemap.id, &model_id, &source)
-                        .await
-                        .map_err(|e| {
-                            WebError::Status(
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                                format!("failed updating model html: {e}"),
-                            )
-                        })?;
-                }
-                ModelType::Email => {
-                    return Err(WebError::Status(
-                        StatusCode::BAD_REQUEST,
-                        "invalid model type selected".into(),
-                    ))?;
-                }
-            };
-
-            Ok(html!())
-        }
-        SaveJs { source } => {
-            let Some(model_id) = session_state.model_id else {
-                return Err(WebError::Status(
-                    StatusCode::BAD_REQUEST,
-                    "missing model id in session".into(),
-                ))?;
-            };
-
-            match session_state.model_type {
-                ModelType::Page => {
-                    app.pages
-                        .update_js(&sitemap.id, &model_id, &source)
-                        .await
-                        .map_err(|e| {
-                            WebError::Status(
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                                format!("failed updating model html: {e}"),
-                            )
-                        })?;
-                }
-                ModelType::Layout => {
-                    app.layouts
-                        .update_js(&sitemap.id, &model_id, &source)
-                        .await
-                        .map_err(|e| {
-                            WebError::Status(
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                                format!("failed updating model html: {e}"),
-                            )
-                        })?;
-                }
-                ModelType::Email => {
-                    return Err(WebError::Status(
-                        StatusCode::BAD_REQUEST,
-                        "invalid model type selected".into(),
-                    ))?;
-                }
-            };
-
-            Ok(html!())
-        }
         Publish => {
             app.sitemaps
                 .sync_branch(&org.id, &sitemap, Branch::MAIN)

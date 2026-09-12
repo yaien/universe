@@ -11,6 +11,8 @@ pub fn inline(layout_script: &str, page_script: &str) -> Markup {
                 {page_script}
             }}
             document.addEventListener('alpine:init', __init);
+            document.addEventListener('htmx:after:swap', __init);
+            if (window.Alpine) {{ __init(); }}
         </script>
 
     "#,

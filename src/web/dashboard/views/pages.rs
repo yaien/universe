@@ -1031,10 +1031,7 @@ pub fn edit_html(state: &ViewState) -> Markup {
 
     html! {
         .monaco
-            x-data=(format!(
-                "monaco({{ language: {:?}, source: {:?} }})",
-                "html", source
-            ))
+            x-data=(format!(r#"monaco({{ language: "html", source: {source:?} }})"#))
             hx-patch="/dashboard/pages/html"
             hx-trigger="editorinput"
             hx-vals="js:{ source: event.detail.value }"
@@ -1056,16 +1053,10 @@ pub fn edit_css(state: &ViewState) -> Markup {
 
     html! {
         .monaco
-            x-data=(format!(
-                "monaco({{ language: {:?}, source: {:?} }})",
-                "css", source
-            ))
-            hx-post="/dashboard/pages"
+            x-data=(format!(r#"monaco({{ language: "css", source: {source:?} }})"#))
+            hx-patch="/dashboard/pages/css"
             hx-trigger="editorinput"
-            hx-vals=(format!(
-                "js:{{ action: {:?}, source: event.detail.value }}",
-                "save_css"
-            ))
+            hx-vals="js:{ source: event.detail.value }"
             hx-swap="none"
         {
             .spinner x-show="loading" {
@@ -1084,11 +1075,8 @@ pub fn edit_js(state: &ViewState) -> Markup {
 
     html! {
         .monaco
-            x-data=(format!(
-                "monaco({{ language: {:?}, source: {:?} }})",
-                "javascript", source
-            ))
-            hx-post="/dashboard/pages"
+            x-data=(format!(r#"monaco({{ language: "javascript", source: {source:?} }})"#))
+            hx-patch="/dashboard/pages/js"
             hx-trigger="editorinput"
             hx-vals=(format!(
                 "js:{{ action: {:?}, source: event.detail.value }}",
