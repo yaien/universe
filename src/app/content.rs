@@ -128,10 +128,6 @@ pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, Ap
             }
 
             body hx-trigger="reload" hx-get="/dashboard/pages/preview" {
-
-
-
-
                 div data-layout=(layout.as_ref().map_or("", |l| l.name.as_str())) {
                     (PreEscaped(content))
                 }
@@ -142,12 +138,13 @@ pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, Ap
 
 fn render_template_error(prelude: &str, e: minijinja::Error) -> String {
     html!(
-      #error style="color: #F52727, background-color: #F52727, padding: 1rem; box-sizing: border-box; margin: 1rem auto;" {
+      #error style="padding: 1rem; box-sizing: border-box;" {
           pre {
               (format!("{prelude}: {e:#}"))
           }
       }
-    ).into_string()
+    )
+    .into_string()
 }
 
 fn get_page_content(
@@ -161,18 +158,6 @@ fn get_page_content(
 
     log::info!("page_id {}", page.id);
 
-    let page_template = format!(
-        r#"
-          {{% extends "layout"%}}
-            {{% block body %}}
-                <div data-page={:?}>
-                    {}
-                </div>
-            {{% endblock %}}
-          "#,
-        page.name, page.html
-    );
-
     let mut env = Environment::new();
 
     env.register_functions(&ctx);
@@ -182,14 +167,26 @@ fn get_page_content(
         Err(e) => return Ok(render_template_error("failed on layout template", e)),
     };
 
-    let templ = match env.template_from_named_str("page", &page_template) {
+    match env.add_template("page", &page.html) {
         Ok(templ) => templ,
         Err(e) => return Ok(render_template_error("failed on page template", e)),
     };
 
+    let content_template = format!(
+        r#"
+          {{% extends "layout"%}}
+            {{% block body %}}
+                <div data-page={:?}>
+                    {{% include "page" %}}
+                </div>
+            {{% endblock %}}
+          "#,
+        page.name
+    );
+
     let s = context! {user => &ctx.user, org => &ctx.org};
 
-    let content = match templ.render(s) {
+    let content = match env.render_str(&content_template, s) {
         Ok(content) => content,
         Err(e) => return Ok(render_template_error("failed on render", e)),
     };
