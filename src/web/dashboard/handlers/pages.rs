@@ -334,17 +334,11 @@ pub async fn get_preview(
     app: Data<App>,
     session: Session,
 ) -> Result<Markup, WebError> {
-    let session_state: SessionState = session.get("pages").ok().flatten().unwrap_or_default();
+    let (session_state, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-    let model_id = session_state.model_id.ok_or_else(|| {
-        WebError::Status(StatusCode::BAD_REQUEST, "model_id is not set".to_string())
-    })?;
-
-    let sitemap = app
-        .sitemaps
-        .get_one_by_branch(&org.id, &session_state.sitemap_branch)
-        .await
-        .map_err(|e| WebError::from(e))?;
+    let Some(model_id) = session_state.model_id else {
+        return Err((StatusCode::BAD_REQUEST, "model_id is not set"))?;
+    };
 
     match session_state.model_type {
         ModelType::Page => {

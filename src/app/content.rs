@@ -140,6 +140,16 @@ pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, Ap
     ))
 }
 
+fn render_template_error(prelude: &str, e: minijinja::Error) -> String {
+    html!(
+      #error style="color: #F52727, background-color: #F52727, padding: 1rem; box-sizing: border-box; margin: 1rem auto;" {
+          pre {
+              (format!("{prelude}: {e:#}"))
+          }
+      }
+    ).into_string()
+}
+
 fn get_page_content(
     ctx: &RegistryContext,
     page: &Page,
@@ -167,16 +177,22 @@ fn get_page_content(
 
     env.register_functions(&ctx);
 
-    env.add_template("layout", layout_template)
-        .context("failed adding layout template")?;
+    match env.add_template("layout", layout_template) {
+        Ok(_) => {}
+        Err(e) => return Ok(render_template_error("failed on layout template", e)),
+    };
 
-    let templ = env
-        .template_from_named_str("page", &page_template)
-        .context("failed adding page template")?;
+    let templ = match env.template_from_named_str("page", &page_template) {
+        Ok(templ) => templ,
+        Err(e) => return Ok(render_template_error("failed on page template", e)),
+    };
 
     let s = context! {user => &ctx.user, org => &ctx.org};
 
-    let content = templ.render(s).context("failed rendering template")?;
+    let content = match templ.render(s) {
+        Ok(content) => content,
+        Err(e) => return Ok(render_template_error("failed on render", e)),
+    };
 
     Ok(content)
 }
@@ -228,9 +244,10 @@ fn get_layout_content(ctx: &RegistryContext, layout: &Layout) -> Result<String, 
 
     let s = context! { org => &ctx.org, user => &ctx.user };
 
-    let content = env
-        .render_str(&layout.html, s)
-        .context("failed rendering template")?;
+    let content = match env.render_str(&layout.html, s) {
+        Ok(content) => content,
+        Err(e) => return Ok(render_template_error("failed on render", e)),
+    };
 
     Ok(content)
 }
@@ -239,13 +256,15 @@ fn get_layout_content(ctx: &RegistryContext, layout: &Layout) -> Result<String, 
 pub fn get_email_content(email: &Email, ctx: Value) -> Result<(String, String), AppError> {
     let env = Environment::new();
 
-    let subject = env
-        .render_str(&email.subject, &ctx)
-        .context("failed rendering subject")?;
+    let subject = match env.render_str(&email.subject, &ctx) {
+        Ok(subject) => subject,
+        Err(e) => return Ok((render_template_error("failed on render", e), String::new())),
+    };
 
-    let body = env
-        .render_str(&email.body, &ctx)
-        .context("failed rendering body")?;
+    let body = match env.render_str(&email.body, &ctx) {
+        Ok(body) => body,
+        Err(e) => return Ok((subject, render_template_error("failed on render", e))),
+    };
 
     Ok((subject, body))
 }
