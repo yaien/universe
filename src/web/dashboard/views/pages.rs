@@ -335,9 +335,9 @@ pub fn create(state: &ViewState) -> Markup {
                 "Volver"
             }
         }
-        fieldset x-data="{ modelType: 'page' }" {
+        fieldset x-data="{ modelType: 'page', urls: { page: '/dashboard/pages/pages', layout: '/dashboard/pages/layouts' } }" {
             legend { "Agregar Modelo" }
-            form hx-post="/dashboard/pages" hx-target="#section" {
+            form x-bind:hx-post="urls[modelType]" hx-target="#section" {
                 fieldset role="group" {
                     legend {"Tipo de Plantilla"}
                     select name="model_type" x-model="modelType" {
@@ -351,8 +351,8 @@ pub fn create(state: &ViewState) -> Markup {
                         fieldset {
                             legend { "Path" }
                             .group {
-                                span { (state.organization.url) }
-                                input name="path" required {}
+                                span { (state.organization.url)"/" }
+                                input name="path" {}
                             }
                         }
                         fieldset {
@@ -363,7 +363,6 @@ pub fn create(state: &ViewState) -> Markup {
                             legend { "Titulo" }
                             input name="title" required {}
                         }
-                        input name="action" value="create_page" hidden {}
                     }
                 }
 
@@ -373,7 +372,6 @@ pub fn create(state: &ViewState) -> Markup {
                             legend { "Nombre" }
                             input name="name" required {}
                         }
-                        input name="action" value="create_layout" hidden {}
                     }
                 }
 
@@ -687,7 +685,7 @@ pub fn file(state: &ViewState) -> Markup {
                         @if Some(file.id) == state.sitemap.favicon_file_id {
                             (file_favicon_active_button())
                         } @else {
-                            button.secondary hx-post="/dashboard/pages" hx-vals=(json!({ "action": "update_favicon", "file_id": file.id })) hx-swap="outerHTML" {
+                            button.secondary hx-patch="/dashboard/pages/favicon" hx-vals=(json!({ "file_id": file.id })) hx-swap="outerHTML" {
                                 i.fa-solid.fa-globe {}
                             }
                         }
@@ -696,7 +694,7 @@ pub fn file(state: &ViewState) -> Markup {
                             @if Some(file.id) == page.og_image_file_id {
                                 (file_og_image_active_button())
                             } @else {
-                                button.secondary hx-post="/dashboard/pages" hx-vals=(json!({ "action": "update_og_image", "file_id": file.id })) hx-swap="outerHTML" {
+                                button.secondary hx-patch="/dashboard/pages/og_image" hx-vals=(json!({ "file_id": file.id })) hx-swap="outerHTML" {
                                     i.fa-solid.fa-link {}
                                 }
                             }
@@ -729,15 +727,14 @@ pub fn file(state: &ViewState) -> Markup {
                         }
                     }
                 }
-                form hx-post="/dashboard/pages" hx-swap="none" {
-                    input type="hidden" name="action" value="save_file" {}
+                form hx-put=(format!("/dashboard/pages/files/{}", file.id)) hx-swap="none" {
 
                     fieldset {
                         legend { "Nombre" }
                         input name="name" value=(file.name) required {}
                     }
                     .actions.around {
-                        button.danger type="button" hx-post="/dashboard/pages" hx-target="#edit" hx-swap="outerHTML" hx-vals=(json!({ "action": "delete_file" })) {
+                        button.danger type="button" hx-delete=(format!("/dashboard/pages/files/{}", file.id)) hx-target="#edit" hx-swap="outerHTML" {
                             "Eliminar"
                         }
                         button type="submit" { "Guardar" }

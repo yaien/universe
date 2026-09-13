@@ -810,20 +810,145 @@ pub async fn update_js(
 }
 
 #[derive(Deserialize)]
+pub struct UpdateOgImageForm {
+    file_id: Id,
+}
+
+#[patch("/pages/og_image")]
+pub async fn update_og_image(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    form: Form<UpdateOgImageForm>,
+) -> Result<Markup, WebError> {
+    let (session_state, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
+
+    if session_state.model_type != ModelType::Page {
+        return Err((StatusCode::FORBIDDEN, "only pages can update og image"))?;
+    }
+
+    let Some(page_id) = session_state.model_id else {
+        return Err((StatusCode::FORBIDDEN, "only pages can update og image"))?;
+    };
+
+    app.pages
+        .update_og_image_file_id(&sitemap.id, &page_id, &form.file_id)
+        .await
+        .context("failed updating og image")?;
+
+    Ok(views::pages::file_og_image_active_button())
+}
+
+#[derive(Deserialize)]
+pub struct UpdateFaviconForm {
+    file_id: Id,
+}
+
+#[patch("/pages/favicon")]
+pub async fn update_favicon(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    form: Form<UpdateFaviconForm>,
+) -> Result<Markup, WebError> {
+    let (_, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
+
+    app.sitemaps
+        .update_favicon_file_id(&sitemap.id, &form.file_id)
+        .await
+        .context("failed updating favicon")?;
+
+    Ok(views::pages::file_favicon_active_button())
+}
+
+#[derive(Deserialize)]
+pub struct CreatePageForm {
+    path: String,
+    name: String,
+    title: String,
+}
+
+#[post("/pages/pages")]
+pub async fn create_page(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    form: Form<CreatePageForm>,
+) -> Result<HttpResponse, WebError> {
+    let (mut session_state, sitemap) =
+        get_session_state_and_sitemap(&app, &session, &org.id).await?;
+
+    let page = app
+        .pages
+        .create(&sitemap.id, &form.path, &form.name, &form.title)
+        .await
+        .context("failed creating page")?;
+
+    session_state.model_id = Some(page.id.clone());
+    session_state.model_type = ModelType::Page;
+    session_state.section = Section::Edit;
+
+    session.insert("pages", &session_state).ok();
+
+    let layouts = app
+        .layouts
+        .get_by_sitemap_id(&sitemap.id)
+        .await
+        .context("failed getting layouts")?;
+
+    let response = HttpResponse::Ok()
+        .insert_header(views::pages::RELOAD_HEADER)
+        .body(views::pages::edit(
+            &Some(Model::Page(page)),
+            &org,
+            &Some(layouts),
+        ));
+
+    Ok(response)
+}
+
+#[derive(Deserialize)]
+pub struct CreateLayoutForm {
+    pub name: String,
+}
+
+#[post("/pages/layouts")]
+pub async fn create_layout(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    form: Form<CreateLayoutForm>,
+) -> Result<HttpResponse, WebError> {
+    let (mut session_state, sitemap) =
+        get_session_state_and_sitemap(&app, &session, &org.id).await?;
+
+    let layout = app
+        .layouts
+        .create(&sitemap.id, &form.name)
+        .await
+        .context("failed creating layout")?;
+
+    session_state.model_id = Some(layout.id.clone());
+    session_state.model_type = ModelType::Layout;
+    session_state.section = Section::Edit;
+
+    session.insert("pages", &session_state).ok();
+
+    let response = HttpResponse::Ok()
+        .insert_header(views::pages::RELOAD_HEADER)
+        .body(views::pages::edit(
+            &Some(Model::Layout(layout)),
+            &org,
+            &None,
+        ));
+
+    Ok(response)
+}
+
+#[derive(Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum ActionForm {
-    UpdateOgImage {
-        file_id: String,
-    },
     Publish,
-    CreatePage {
-        path: String,
-        name: String,
-        title: String,
-    },
-    CreateLayout {
-        name: String,
-    },
     SavePageInfo {
         name: String,
         title: String,
@@ -875,70 +1000,6 @@ pub async fn exec_action(
     use ActionForm::*;
 
     match form {
-        CreatePage { path, name, title } => {
-            let page = app
-                .pages
-                .create(&sitemap.id, &path, &name, &title)
-                .await
-                .map_err(|e| {
-                    WebError::Status(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("failed creating page: {e}"),
-                    )
-                })?;
-
-            session_state.model_id = Some(page.id.clone());
-            session_state.model_type = ModelType::Page;
-            session_state.section = Section::Edit;
-
-            session.insert("pages", &session_state).ok();
-
-            let layouts = app
-                .layouts
-                .get_by_sitemap_id(&sitemap.id)
-                .await
-                .map_err(|e| {
-                    WebError::Status(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("failed getting pages: {e}"),
-                    )
-                })?;
-
-            Ok(html! {
-                (views::pages::edit(&Some(Model::Page(page)), &org, &Some(layouts)))
-            })
-        }
-
-        CreateLayout { name } => {
-            let layout = app.layouts.create(&sitemap.id, &name).await.map_err(|e| {
-                WebError::Status(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("failed creating layout: {e}"),
-                )
-            })?;
-
-            session_state.model_type = ModelType::Layout;
-            session_state.model_id = Some(layout.id);
-            session_state.section = Section::Edit;
-
-            session.insert("pages", &session_state).ok();
-
-            let layouts = app
-                .layouts
-                .get_by_sitemap_id(&sitemap.id)
-                .await
-                .map_err(|e| {
-                    WebError::Status(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("failed getting pages: {e}"),
-                    )
-                })?;
-
-            Ok(html! {
-                (views::pages::edit(&Some(Model::Layout(layout)), &org, &Some(layouts)))
-            })
-        }
-
         SavePageInfo {
             name,
             title,
@@ -1144,37 +1205,6 @@ pub async fn exec_action(
                 "Mapa de sitio publicado correctamente",
                 Variant::Primary,
             ))
-        }
-        UpdateOgImage { file_id } => {
-            if session_state.model_type != ModelType::Page {
-                return Err(WebError::Status(
-                    StatusCode::FORBIDDEN,
-                    "only pages can update og image".to_string(),
-                ));
-            }
-
-            let Some(page_id) = session_state.model_id else {
-                return Err(WebError::Status(
-                    StatusCode::FORBIDDEN,
-                    "only pages can update og image".to_string(),
-                ));
-            };
-
-            let file_id: Id = file_id.parse().map_err(|e| {
-                WebError::Status(StatusCode::BAD_REQUEST, format!("invalid file id: {e}"))
-            })?;
-
-            app.pages
-                .update_og_image_file_id(&sitemap.id, &page_id, &file_id)
-                .await
-                .map_err(|e| {
-                    WebError::Status(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("failed updating og image: {e}"),
-                    )
-                })?;
-
-            Ok(views::pages::file_og_image_active_button())
         }
         UpdateFavicon { file_id } => {
             let file_id: Id = file_id.parse().map_err(|e| {

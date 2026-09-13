@@ -216,16 +216,21 @@ pub fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppError> {
         (DOCTYPE)
 
         html lang="es" {
-             head {
+             head hx-head="merge" {
                  meta charset="UTF-8" {}
                  meta name="viewport" content="width=device-width, initial-scale=1.0" {}
                  meta name="theme-color" content="#ffffff" {}
+                 meta name="htmx-config" content="transitions:true" {}
 
                  (links::fonts(&fonts))
                  (style::inline(&fonts, &colors, &layout.css, ""))
                  (script::inline(&layout.js, ""))
+
+                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
+                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0-beta6" integrity="sha384-6lyVbhrs13b9z7mLOpt/N6R76rtkEBWgCjAXRs/DSWyi2AMnQSs10ijWk+PI8n7W" crossorigin="anonymous" {}
+                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
             }
-            body {
+            body hx-trigger="reload" hx-get="/dashboard/pages/preview" {
                 div data-layout=(layout.name) {
                     (PreEscaped(content))
                 }
