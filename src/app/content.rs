@@ -70,7 +70,7 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
                 (links::fonts(&fonts))
 
                 link rel="stylesheet" href="/assets/landing/style.css" {}
-                script defer src="/assets/landing/script.js" {}
+                script src="/assets/landing/script.js" {}
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0-beta6" integrity="sha384-6lyVbhrs13b9z7mLOpt/N6R76rtkEBWgCjAXRs/DSWyi2AMnQSs10ijWk+PI8n7W" crossorigin="anonymous" {}
 
