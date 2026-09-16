@@ -6,11 +6,11 @@ use actix_multipart::form::tempfile::TempFile;
 use actix_session::Session;
 use actix_web::http::StatusCode;
 use actix_web::web::{Data, Form, Path, Query, ReqData};
-use actix_web::{HttpRequest, HttpResponse, delete, patch, post, put};
+use actix_web::{HttpRequest, HttpResponse, delete, get, patch, post, put};
 use anyhow::Context;
 use maud::{Markup, html};
 use minijinja::context;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::app::{
     App, AppError, Branch, Organization, PageInfo, RegistryContext, RenderLayoutOptions,
@@ -18,11 +18,11 @@ use crate::app::{
     render_page_inline,
 };
 use crate::infra::Id;
-use crate::web::dashboard::views;
 use crate::web::dashboard::views::layout::Variant;
 use crate::web::dashboard::views::pages::{
-    Model, ModelType, QueryState, Section, SessionState, ViewState,
+    Model, ModelType, QueryState, RELOAD_HEADER, Section, SessionState, ViewState,
 };
+use crate::web::dashboard::{toast, views};
 use crate::web::errors::WebError;
 
 async fn get_view_state<'a>(
@@ -285,7 +285,8 @@ async fn get_view_state<'a>(
     Ok(view_state)
 }
 
-pub async fn get_index(
+#[get("/pages")]
+pub async fn pages(
     org: ReqData<Organization>,
     role: ReqData<Role>,
     app: Data<App>,
@@ -299,7 +300,7 @@ pub async fn get_index(
         query = QueryState::default();
     }
 
-    let session_state: SessionState = session.get("pages").ok().flatten().unwrap_or_default();
+    let session_state = get_session_state(&session);
 
     let state = get_view_state(&app, &org, &session, query, session_state).await?;
 
@@ -328,6 +329,7 @@ pub async fn get_index(
     }
 }
 
+#[get("/pages/preview")]
 pub async fn get_preview(
     org: ReqData<Organization>,
     user: ReqData<Option<User>>,
@@ -519,11 +521,7 @@ async fn get_session_state_and_sitemap(
     session: &Session,
     org_id: &Id,
 ) -> Result<(SessionState, Sitemap), WebError> {
-    let session_state = session
-        .get::<SessionState>("pages")
-        .ok()
-        .flatten()
-        .unwrap_or_default();
+    let session_state = get_session_state(session);
 
     let sitemap = app
         .sitemaps
@@ -537,6 +535,14 @@ async fn get_session_state_and_sitemap(
         })?;
 
     Ok((session_state, sitemap))
+}
+
+fn get_session_state(session: &Session) -> SessionState {
+    session
+        .get::<SessionState>("pages")
+        .ok()
+        .flatten()
+        .unwrap_or_default()
 }
 
 #[derive(Deserialize)]
@@ -945,283 +951,245 @@ pub async fn create_layout(
     Ok(response)
 }
 
-#[derive(Deserialize)]
-#[serde(tag = "action", rename_all = "snake_case")]
-pub enum ActionForm {
-    Publish,
-    SavePageInfo {
-        name: String,
-        title: String,
-        path: String,
-        og_description: String,
-        og_type: String,
-        layout_id: String,
-    },
-    SaveLayoutInfo {
-        name: String,
-    },
-    SaveEmailInfo {
-        subject: String,
-    },
-    SyncDraft {
-        name: String,
-    },
-    DeletePage,
-    DeleteLayout,
-    DeleteSitemap,
-    UpdateFavicon {
-        file_id: String,
-    },
-}
-
-pub async fn exec_action(
+#[post("/pages/publish")]
+pub async fn publish(
     org: ReqData<Organization>,
     app: Data<App>,
     session: Session,
-    Form(form): Form<ActionForm>,
 ) -> Result<Markup, WebError> {
-    let mut session_state = session
-        .get::<SessionState>("pages")
-        .ok()
-        .flatten()
-        .unwrap_or_default();
-
-    let sitemap = app
-        .sitemaps
-        .get_one_by_branch(&org.id, &session_state.sitemap_branch)
+    let (_, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
+    app.sitemaps
+        .sync_branch(&org.id, &sitemap, Branch::MAIN)
         .await
         .map_err(|e| {
             WebError::Status(
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("missing sitemap branch: {e}"),
+                format!("failed publishing: {e}"),
             )
         })?;
 
-    use ActionForm::*;
+    Ok(views::layout::toast(
+        "Mapa de sitio publicado correctamente",
+        Variant::Primary,
+    ))
+}
 
-    match form {
-        SavePageInfo {
-            name,
-            title,
-            path,
-            og_description,
-            og_type,
-            layout_id,
-        } => {
-            let page_id = session_state.model_id.ok_or(WebError::Status(
-                StatusCode::BAD_REQUEST,
-                "mising model id in session".into(),
-            ))?;
+#[derive(Deserialize)]
+pub struct UpdatePageForm {
+    name: String,
+    title: String,
+    path: String,
+    og_description: String,
+    og_type: String,
+    layout_id: String,
+}
 
-            app.pages
-                .update_info(&PageInfo {
-                    sitemap_id: sitemap.id.clone(),
-                    layout_id: layout_id.parse().ok(),
-                    page_id,
-                    name,
-                    title,
-                    path,
-                    og_description,
-                    og_type,
-                })
-                .await
-                .map_err(|e| {
-                    WebError::Status(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("failed updating page info: {e}"),
-                    )
-                })?;
+#[put("/pages/pages/{page_id}")]
+pub async fn update_page(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    page_id: Path<Id>,
+    Form(form): Form<UpdatePageForm>,
+) -> Result<HttpResponse, WebError> {
+    let (_, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-            Ok(html! {
-                (views::layout::toast("Pagina actualizada correctamente", Variant::Primary))
-            })
-        }
+    let layout_id: Option<Id> = form.layout_id.parse().ok();
 
-        SaveLayoutInfo { name } => {
-            let layout_id = session_state.model_id.ok_or(WebError::Status(
-                StatusCode::BAD_REQUEST,
-                "missing model id".into(),
-            ))?;
+    app.pages
+        .update_info(&PageInfo {
+            sitemap_id: sitemap.id.clone(),
+            page_id: page_id.into_inner(),
+            name: form.name,
+            title: form.title,
+            path: form.path,
+            og_description: form.og_description,
+            og_type: form.og_type,
+            layout_id: layout_id,
+        })
+        .await
+        .context("failed updating page")?;
 
-            app.layouts
-                .update_name(&sitemap.id, &layout_id, &name)
-                .await
-                .map_err(|e| {
-                    WebError::Status(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("failed updating layout info: {e}"),
-                    )
-                })?;
+    let response = HttpResponse::Ok()
+        .insert_header(RELOAD_HEADER)
+        .body(views::layout::toast(
+            "Pagina actualizada correctamente",
+            Variant::Primary,
+        ));
 
-            Ok(views::layout::toast(
-                "Layout actualizado correctamente",
-                Variant::Primary,
-            ))
-        }
+    Ok(response)
+}
 
-        SaveEmailInfo { subject } => {
-            let email_id = session_state.model_id.ok_or(WebError::Status(
-                StatusCode::BAD_REQUEST,
-                "missing model id".into(),
-            ))?;
+#[derive(Deserialize)]
+pub struct UpdateLayoutForm {
+    name: String,
+}
 
-            app.emails
-                .update_subject(&sitemap.id, &email_id, &subject)
-                .await
-                .map_err(|e| {
-                    WebError::Status(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("failed updating email info: {e}"),
-                    )
-                })?;
+#[put("/pages/layouts/{layout_id}")]
+pub async fn update_layout(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    layout_id: Path<Id>,
+    Form(form): Form<UpdateLayoutForm>,
+) -> Result<HttpResponse, WebError> {
+    let (_, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-            Ok(views::layout::toast(
-                "Email actualizado correctamente",
-                Variant::Primary,
-            ))
-        }
+    app.layouts
+        .update_name(&sitemap.id, &layout_id, &form.name)
+        .await
+        .context("failed updating layout info")?;
 
-        SyncDraft { name } => {
-            let branch_name = format!("draft/{name}");
-            app.sitemaps
-                .sync_branch(&org.id, &sitemap, &branch_name)
-                .await
-                .map_err(|e| {
-                    WebError::Status(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("failed syncing draft: {e}"),
-                    )
-                })?;
+    let response = HttpResponse::Ok()
+        .insert_header(RELOAD_HEADER)
+        .body(toast("Layout actualizado correctamente", Variant::Primary));
 
-            session_state.sitemap_branch = branch_name;
-            session_state.model_id = None;
-            session_state.model_type = ModelType::Page;
-            session_state.section = Section::Initial;
+    Ok(response)
+}
 
-            let query = QueryState::default();
+#[derive(Deserialize)]
+pub struct UpdateEmailForm {
+    subject: String,
+}
 
-            let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
+#[put("/pages/emails/{email_id}")]
+pub async fn update_email(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    email_id: Path<Id>,
+    Form(form): Form<UpdateEmailForm>,
+) -> Result<HttpResponse, WebError> {
+    let (_, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-            Ok(html! {
-                (views::pages::content(&view_state))
-                (views::layout::toast("Mapa de sitio sincronizado correctamente", Variant::Primary))
-            })
-        }
+    app.emails
+        .update_subject(&sitemap.id, &email_id, &form.subject)
+        .await
+        .context("failed updating email info")?;
 
-        DeletePage => {
-            if session_state.model_type != ModelType::Page {
-                return Err(WebError::Status(
-                    StatusCode::BAD_REQUEST,
-                    "no page selected".into(),
-                ))?;
-            }
+    let response = HttpResponse::Ok()
+        .insert_header(RELOAD_HEADER)
+        .body(views::layout::toast(
+            "Email actualizado correctamente",
+            Variant::Primary,
+        ));
 
-            let Some(page_id) = session_state.model_id else {
-                return Err(WebError::Status(
-                    StatusCode::BAD_REQUEST,
-                    "no page selected".into(),
-                ))?;
-            };
+    Ok(response)
+}
 
-            app.pages
-                .delete_one_by_sitemap_id(&sitemap.id, &page_id)
-                .await?;
+#[derive(Deserialize)]
+pub struct SyncDraftForm {
+    pub name: String,
+}
 
-            session_state.model_id = None;
-            session_state.model_type = ModelType::Page;
-            session_state.section = Section::Initial;
+#[post("/pages/branches")]
+pub async fn sync_branch(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    form: Form<SyncDraftForm>,
+) -> Result<Markup, WebError> {
+    let (mut session_state, sitemap) =
+        get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-            let query = QueryState::default();
+    let branch_name = format!("draft/{}", form.name);
 
-            let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
+    app.sitemaps
+        .sync_branch(&org.id, &sitemap, &branch_name)
+        .await
+        .context("failed syncing draft")?;
 
-            Ok(html! {
-                (views::pages::content(&view_state))
-                (views::layout::toast("Pagina eliminada correctamente", Variant::Primary))
-            })
-        }
+    session_state.sitemap_branch = branch_name;
+    session_state.model_id = None;
+    session_state.model_type = ModelType::Page;
+    session_state.section = Section::Initial;
 
-        DeleteLayout => {
-            if session_state.model_type != ModelType::Layout {
-                return Err(WebError::Status(
-                    StatusCode::BAD_REQUEST,
-                    "no layout selected".to_string(),
-                ))?;
-            }
+    let query = QueryState::default();
 
-            let Some(layout_id) = session_state.model_id else {
-                return Err(WebError::Status(
-                    StatusCode::BAD_REQUEST,
-                    "no layout selected".to_string(),
-                ))?;
-            };
+    let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
 
-            app.layouts
-                .delete_one_by_sitemap_id(&sitemap.id, &layout_id)
-                .await?;
+    Ok(html! {
+        (views::pages::content(&view_state))
+        (views::layout::toast("Mapa de sitio sincronizado correctamente", Variant::Primary))
+    })
+}
 
-            session_state.model_id = None;
-            session_state.model_type = ModelType::Layout;
-            session_state.section = Section::Initial;
+#[delete("/pages/pages/{page_id}")]
+pub async fn delete_page(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    page_id: Path<Id>,
+) -> Result<Markup, WebError> {
+    let (mut session_state, sitemap) =
+        get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-            let query = QueryState::default();
+    app.pages
+        .delete_one_by_sitemap_id(&sitemap.id, &page_id)
+        .await?;
 
-            let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
+    session_state.model_id = None;
+    session_state.model_type = ModelType::Page;
+    session_state.section = Section::Initial;
 
-            Ok(html! {
-                (views::pages::content(&view_state))
-                (views::layout::toast("Layout eliminado correctamente", Variant::Primary))
-            })
-        }
-        DeleteSitemap => {
-            app.sitemaps
-                .delete_one_by_organization_id(&sitemap.branch, &org.id)
-                .await?;
+    let query = QueryState::default();
 
-            let session_state = SessionState::default();
+    let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
 
-            let query = QueryState::default();
+    Ok(html! {
+        (views::pages::content(&view_state))
+        (views::layout::toast("Pagina eliminada correctamente", Variant::Primary))
+    })
+}
 
-            let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
+#[delete("/pages/layouts/{layout_id}")]
+pub async fn delete_layout(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    layout_id: Path<Id>,
+) -> Result<Markup, WebError> {
+    let (mut session_state, sitemap) =
+        get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-            Ok(html! {
-                (views::pages::content(&view_state))
-                (views::layout::toast("Sitemap eliminado correctamente", Variant::Primary))
-            })
-        }
+    app.layouts
+        .delete_one_by_sitemap_id(&sitemap.id, &layout_id)
+        .await?;
 
-        Publish => {
-            app.sitemaps
-                .sync_branch(&org.id, &sitemap, Branch::MAIN)
-                .await
-                .map_err(|e| {
-                    WebError::Status(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("failed publishing: {e}"),
-                    )
-                })?;
+    session_state.model_id = None;
+    session_state.model_type = ModelType::Layout;
+    session_state.section = Section::Initial;
 
-            Ok(views::layout::toast(
-                "Mapa de sitio publicado correctamente",
-                Variant::Primary,
-            ))
-        }
-        UpdateFavicon { file_id } => {
-            let file_id: Id = file_id.parse().map_err(|e| {
-                WebError::Status(StatusCode::BAD_REQUEST, format!("invalid file id: {e}"))
-            })?;
+    let query = QueryState::default();
 
-            app.sitemaps
-                .update_favicon_file_id(&sitemap.id, &file_id)
-                .await
-                .map_err(|e| {
-                    WebError::Status(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("failed updating favicon: {e}"),
-                    )
-                })?;
+    let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
 
-            Ok(views::pages::file_favicon_active_button())
-        }
-    }
+    Ok(html! {
+        (views::pages::content(&view_state))
+        (views::layout::toast("Layout eliminado correctamente", Variant::Primary))
+    })
+}
+
+#[delete("/pages/current")]
+pub async fn delete_sitemap(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+) -> Result<Markup, WebError> {
+    let session_state = get_session_state(&session);
+
+    app.sitemaps
+        .delete_one_by_organization_id(&session_state.sitemap_branch, &org.id)
+        .await?;
+
+    let session_state = SessionState::default();
+
+    let query = QueryState::default();
+
+    let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
+
+    Ok(html! {
+        (views::pages::content(&view_state))
+        (views::layout::toast("Sitemap eliminado correctamente", Variant::Primary))
+    })
 }

@@ -6,7 +6,7 @@ mod views;
 pub use views::layout::{Variant, toast};
 
 use actix_web::middleware::from_fn;
-use actix_web::web::{ServiceConfig, get, post, scope};
+use actix_web::web::{ServiceConfig, get, scope};
 
 use handlers::*;
 
@@ -16,11 +16,18 @@ pub fn configure(config: &mut ServiceConfig) {
             scope("/dashboard")
                 .route("", get().to(home::home))
                 .route("/empty", get().to(home::empty))
-                .route("/pages", get().to(pages::get_index))
-                .route("/pages", post().to(pages::exec_action))
-                .route("/pages/preview", get().to(pages::get_preview))
+                .service(pages::pages)
+                .service(pages::get_preview)
                 .service(pages::create_page)
                 .service(pages::create_layout)
+                .service(pages::publish)
+                .service(pages::update_page)
+                .service(pages::update_layout)
+                .service(pages::update_email)
+                .service(pages::delete_page)
+                .service(pages::delete_layout)
+                .service(pages::delete_sitemap)
+                .service(pages::sync_branch)
                 .service(pages::upload_file)
                 .service(pages::update_file)
                 .service(pages::delete_file)

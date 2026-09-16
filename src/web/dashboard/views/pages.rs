@@ -382,7 +382,7 @@ pub fn create(state: &ViewState) -> Markup {
         }
         fieldset {
             legend { "Sincronizar Mapa de Sitio" }
-            form hx-post="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" {
+            form hx-post="/dashboard/pages/branches" hx-target="#content" hx-swap="outerHTML" {
                 fieldset {
                     legend { "Nombre" }
                     .group {
@@ -390,9 +390,6 @@ pub fn create(state: &ViewState) -> Markup {
                         input name="name" required {}
                     }
                 }
-
-
-                input name="action" value="sync_draft" hidden {}
 
                 .actions {
                     button {"Sincronizar"}
@@ -441,12 +438,12 @@ pub fn delete(state: &ViewState) -> Markup {
                         }
                     }
                     .actions {
-                        @let action = match &state.model_type {
-                            ModelType::Page => "delete_page",
-                            ModelType::Layout => "delete_layout",
-                        _ => "",
+                        @let action = match &state.model {
+                            Some(Model::Page(page)) => format!("/dashboard/pages/pages/{}", page.id),
+                            Some(Model::Layout(layout)) => format!("/dashboard/pages/layouts/{}", layout.id),
+                            _ => "".into(),
                         };
-                        button.danger hx-post="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" hx-vals=(json!({ "action": action})) {
+                        button.danger hx-delete=(action) hx-target="#content" hx-swap="outerHTML" {
                             "Eliminar"
                         }
                     }
@@ -490,7 +487,7 @@ pub fn publish() -> Markup {
                 "Al publicar el mapa de sitio actual, este estará disponible para los usuarios finales"
             }
             .actions {
-                button.warning hx-post="/dashboard/pages" hx-swap="none" hx-vals=(json!({ "action": "publish"})) { "Publicar" }
+                button.warning hx-post="/dashboard/pages/publish" hx-swap="none" { "Publicar" }
             }
         }
     )
@@ -500,7 +497,7 @@ pub fn edit(model: &Option<Model>, org: &Organization, layouts: &Option<Vec<Layo
     html!(
         @match model {
             Some(Model::Page(page)) => {
-                form hx-post="/dashboard/pages" hx-swap="none" autocomplete="off" {
+                form hx-put=(format!("/dashboard/pages/pages/{}", page.id)) hx-swap="none" autocomplete="off" {
                     fieldset {
                         legend { "Nombre" }
                         input name="name" required value=(page.name) {}
@@ -549,35 +546,30 @@ pub fn edit(model: &Option<Model>, org: &Organization, layouts: &Option<Vec<Layo
                             }
                         }
                     }
-
-                    input name="action" type="hidden" value="save_page_info" {}
-
                     .actions {
                         button type="submit" { "Guardar" }
                     }
                 }
             },
             Some(Model::Layout(layout)) => {
-                form hx-post="/dashboard/pages" hx-swap="none" {
+                form hx-put=(format!("/dashboard/pages/layouts/{}", layout.id)) hx-swap="none" {
                     fieldset {
                         legend { "Nombre" }
                         input name="name" required value=(layout.name) {}
                     }
-                    input name="action" type="hidden" value="save_layout_info" {}
                     .actions {
                         button type="submit" { "Guardar" }
                     }
                 }
             },
             Some(Model::Email(email)) => {
-                form hx-post="/dashboard/pages" hx-swap="none" {
+                form hx-put=(format!("/dashboard/pages/emails/{}", email.id)) hx-swap="none" {
                     fieldset {
                         legend { "Asunto" }
                         textarea name="subject" class="no-resize" required cols="10" {
                             (email.subject)
                         }
                     }
-                    input name="action" type="hidden" value="save_email_info" {}
                     .actions {
                         button type="submit" { "Guardar" }
                     }
