@@ -2,7 +2,7 @@ use maud::{Markup, html};
 use serde_json::json;
 
 use crate::app::store::{Content, MAX_CONTENTS_PER_PRESENTATION, Presentation, Product};
-use crate::web::dashboard::views;
+use crate::web::dashboard::modules::base::modal;
 
 pub fn product_list(products: Vec<Product>) -> Markup {
     html!(
@@ -33,7 +33,7 @@ pub fn product_list(products: Vec<Product>) -> Markup {
 }
 
 pub fn create_modal() -> Markup {
-    views::layout::modal(
+    modal(
         "Crear Producto",
         html!(
             form hx-post="/dashboard/products" hx-target="dialog" hx-swap="outerHTML swap:250ms" hx-disable="find button"{
@@ -50,7 +50,7 @@ pub fn create_modal() -> Markup {
 }
 
 pub fn delete_modal(product: &Product) -> Markup {
-    views::layout::modal(
+    modal(
         "Eliminar Producto",
         html!(
             form hx-delete=(format!("/dashboard/products/{}", product.id)) hx-target="dialog" hx-swap="outerHTML swap:250ms" hx-disable="find button" {

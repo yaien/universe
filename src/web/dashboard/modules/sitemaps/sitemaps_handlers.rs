@@ -10,19 +10,20 @@ use actix_web::{HttpRequest, HttpResponse, delete, get, patch, post, put};
 use anyhow::Context;
 use maud::{Markup, html};
 use minijinja::context;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::app::{
     App, AppError, Branch, Organization, PageInfo, RegistryContext, RenderLayoutOptions,
     RenderPageInlineOptions, Role, Scope, Sitemap, User, render_email, render_layout,
     render_page_inline,
 };
-use crate::infra::Id;
-use crate::web::dashboard::views::layout::Variant;
-use crate::web::dashboard::views::pages::{
+use crate::web::dashboard::modules::base::{Content, Variant, page, toast};
+
+use super::sitemaps_views as views;
+use super::sitemaps_views::{
     Model, ModelType, QueryState, RELOAD_HEADER, Section, SessionState, ViewState,
 };
-use crate::web::dashboard::{toast, views};
+use crate::infra::Id;
 use crate::web::errors::WebError;
 
 async fn get_view_state<'a>(
@@ -234,13 +235,6 @@ async fn get_view_state<'a>(
                 .ok();
         }
         Section::BrowseFonts => {
-            log::warn!(
-                "Query {:?}, Limit {:?}, Offset {:?}",
-                view_state.browsed_font_query,
-                view_state.browsed_font_limit,
-                view_state.browsed_font_offset
-            );
-
             view_state.browsed_fonts = app
                 .fonts
                 .find(
@@ -285,7 +279,7 @@ async fn get_view_state<'a>(
     Ok(view_state)
 }
 
-#[get("/pages")]
+#[get("/sitemaps")]
 pub async fn pages(
     org: ReqData<Organization>,
     role: ReqData<Role>,
@@ -311,25 +305,25 @@ pub async fn pages(
         .flatten();
 
     match target {
-        Some("article#editor") => Ok(views::pages::editor(&state)),
-        Some("div#content") => Ok(views::pages::content(&state)),
-        Some("div#browsed-fonts") => Ok(views::pages::browse_fonts_list(
+        Some("article#editor") => Ok(views::editor(&state)),
+        Some("div#content") => Ok(views::content(&state)),
+        Some("div#browsed-fonts") => Ok(views::browse_fonts_list(
             &state.browsed_fonts,
             &state.browsed_font_query,
             &state.browsed_font_limit,
             &state.browsed_font_offset,
         )),
-        _ => Ok(views::layout::layout(&views::layout::Content {
-            title: "Pages",
+        _ => Ok(page(&Content {
+            title: "Mapas de Sitio",
             path: req.path(),
             org: &org,
             role: &role,
-            content: views::pages::content(&state),
+            content: views::content(&state),
         })),
     }
 }
 
-#[get("/pages/preview")]
+#[get("/sitemaps/preview")]
 pub async fn get_preview(
     org: ReqData<Organization>,
     user: ReqData<Option<User>>,
@@ -423,7 +417,7 @@ pub struct UploadFilesForm {
     files: Vec<TempFile>,
 }
 
-#[post("/pages/files")]
+#[post("/sitemaps/files")]
 pub async fn upload_file(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -445,7 +439,7 @@ pub async fn upload_file(
 
     let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
 
-    Ok(views::pages::file_grid(&view_state))
+    Ok(views::file_grid(&view_state))
 }
 
 #[derive(Deserialize)]
@@ -453,7 +447,7 @@ pub struct UpdateFileForm {
     name: String,
 }
 
-#[put("pages/files/{file_id}")]
+#[put("/sitemaps/files/{file_id}")]
 pub async fn update_file(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -466,15 +460,15 @@ pub async fn update_file(
         .context("failed saving file")?;
 
     let response = HttpResponse::Ok()
-        .insert_header(views::pages::RELOAD_HEADER)
+        .insert_header(views::RELOAD_HEADER)
         .body(html! {
-            (views::layout::toast("Archivo guardado correctamente", Variant::Primary))
+            (toast("Archivo guardado correctamente", Variant::Primary))
         });
 
     Ok(response)
 }
 
-#[delete("pages/files/{file_id}")]
+#[delete("/sitemaps/files/{file_id}")]
 pub async fn delete_file(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -507,10 +501,10 @@ pub async fn delete_file(
     let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
 
     let response = HttpResponse::Ok()
-        .insert_header(views::pages::RELOAD_HEADER)
+        .insert_header(views::RELOAD_HEADER)
         .body(html! {
-            (views::pages::files(&view_state))
-            (views::layout::toast("Archivo eliminado correctamente", Variant::Primary))
+            (views::files(&view_state))
+            (toast("Archivo eliminado correctamente", Variant::Primary))
         });
 
     Ok(response)
@@ -551,7 +545,7 @@ pub struct CreateFontForm {
     pub tag: String,
 }
 
-#[post("/pages/fonts")]
+#[post("/sitemaps/fonts")]
 pub async fn create_font(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -574,7 +568,7 @@ pub struct UpdateFontForm {
     pub tag: String,
 }
 
-#[put("/pages/fonts/{sitemap_font_id}")]
+#[put("/sitemaps/fonts/{sitemap_font_id}")]
 pub async fn update_font(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -612,13 +606,13 @@ async fn clean_font_state_response(
     session.insert("pages", &session_state).ok();
 
     let response = HttpResponse::Ok()
-        .insert_header(views::pages::RELOAD_HEADER)
-        .body(views::pages::fonts(&Some(associated_fonts)));
+        .insert_header(views::RELOAD_HEADER)
+        .body(views::fonts(&Some(associated_fonts)));
 
     Ok(response)
 }
 
-#[post("/pages/colors")]
+#[post("/sitemaps/colors")]
 pub async fn create_color(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -633,8 +627,8 @@ pub async fn create_color(
         .context("failed creating color")?;
 
     let response = HttpResponse::Ok()
-        .insert_header(views::pages::RELOAD_HEADER)
-        .body(views::pages::color(&color));
+        .insert_header(views::RELOAD_HEADER)
+        .body(views::color(&color));
 
     Ok(response)
 }
@@ -645,7 +639,7 @@ pub struct UpdateColorForm {
     value: String,
 }
 
-#[put("/pages/colors/{id}")]
+#[put("/sitemaps/colors/{id}")]
 pub async fn update_color(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -665,13 +659,13 @@ pub async fn update_color(
         })?;
 
     let response = HttpResponse::Ok()
-        .insert_header(views::pages::RELOAD_HEADER)
+        .insert_header(views::RELOAD_HEADER)
         .finish();
 
     Ok(response)
 }
 
-#[delete("/pages/colors/{id}")]
+#[delete("/sitemaps/colors/{id}")]
 pub async fn delete_color(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -686,7 +680,7 @@ pub async fn delete_color(
         .context("failed deleting color")?;
 
     let response = HttpResponse::Ok()
-        .insert_header(views::pages::RELOAD_HEADER)
+        .insert_header(views::RELOAD_HEADER)
         .finish();
 
     Ok(response)
@@ -697,7 +691,7 @@ pub struct UpdateSourceForm {
     pub source: String,
 }
 
-#[patch("/pages/html")]
+#[patch("/sitemaps/html")]
 pub async fn update_html(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -732,11 +726,11 @@ pub async fn update_html(
     };
 
     Ok(HttpResponse::Ok()
-        .insert_header(views::pages::RELOAD_HEADER)
+        .insert_header(views::RELOAD_HEADER)
         .finish())
 }
 
-#[patch("/pages/css")]
+#[patch("/sitemaps/css")]
 pub async fn update_css(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -768,13 +762,13 @@ pub async fn update_css(
     };
 
     let response = HttpResponse::Ok()
-        .insert_header(views::pages::RELOAD_HEADER)
+        .insert_header(views::RELOAD_HEADER)
         .finish();
 
     Ok(response)
 }
 
-#[patch("/pages/js")]
+#[patch("/sitemaps/js")]
 pub async fn update_js(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -809,7 +803,7 @@ pub async fn update_js(
     };
 
     let response = HttpResponse::Ok()
-        .insert_header(views::pages::RELOAD_HEADER)
+        .insert_header(views::RELOAD_HEADER)
         .finish();
 
     Ok(response)
@@ -820,7 +814,7 @@ pub struct UpdateOgImageForm {
     file_id: Id,
 }
 
-#[patch("/pages/og_image")]
+#[patch("/sitemaps/og_image")]
 pub async fn update_og_image(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -842,7 +836,7 @@ pub async fn update_og_image(
         .await
         .context("failed updating og image")?;
 
-    Ok(views::pages::file_og_image_active_button())
+    Ok(views::file_og_image_active_button())
 }
 
 #[derive(Deserialize)]
@@ -850,7 +844,7 @@ pub struct UpdateFaviconForm {
     file_id: Id,
 }
 
-#[patch("/pages/favicon")]
+#[patch("/sitemaps/favicon")]
 pub async fn update_favicon(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -864,7 +858,7 @@ pub async fn update_favicon(
         .await
         .context("failed updating favicon")?;
 
-    Ok(views::pages::file_favicon_active_button())
+    Ok(views::file_favicon_active_button())
 }
 
 #[derive(Deserialize)]
@@ -874,7 +868,7 @@ pub struct CreatePageForm {
     title: String,
 }
 
-#[post("/pages/pages")]
+#[post("/sitemaps/pages")]
 pub async fn create_page(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -903,12 +897,8 @@ pub async fn create_page(
         .context("failed getting layouts")?;
 
     let response = HttpResponse::Ok()
-        .insert_header(views::pages::RELOAD_HEADER)
-        .body(views::pages::edit(
-            &Some(Model::Page(page)),
-            &org,
-            &Some(layouts),
-        ));
+        .insert_header(views::RELOAD_HEADER)
+        .body(views::edit(&Some(Model::Page(page)), &org, &Some(layouts)));
 
     Ok(response)
 }
@@ -918,7 +908,7 @@ pub struct CreateLayoutForm {
     pub name: String,
 }
 
-#[post("/pages/layouts")]
+#[post("/sitemaps/layouts")]
 pub async fn create_layout(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -941,17 +931,13 @@ pub async fn create_layout(
     session.insert("pages", &session_state).ok();
 
     let response = HttpResponse::Ok()
-        .insert_header(views::pages::RELOAD_HEADER)
-        .body(views::pages::edit(
-            &Some(Model::Layout(layout)),
-            &org,
-            &None,
-        ));
+        .insert_header(views::RELOAD_HEADER)
+        .body(views::edit(&Some(Model::Layout(layout)), &org, &None));
 
     Ok(response)
 }
 
-#[post("/pages/publish")]
+#[post("/sitemaps/publish")]
 pub async fn publish(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -968,7 +954,7 @@ pub async fn publish(
             )
         })?;
 
-    Ok(views::layout::toast(
+    Ok(toast(
         "Mapa de sitio publicado correctamente",
         Variant::Primary,
     ))
@@ -984,7 +970,7 @@ pub struct UpdatePageForm {
     layout_id: String,
 }
 
-#[put("/pages/pages/{page_id}")]
+#[put("/sitemaps/pages/{page_id}")]
 pub async fn update_page(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -1012,10 +998,7 @@ pub async fn update_page(
 
     let response = HttpResponse::Ok()
         .insert_header(RELOAD_HEADER)
-        .body(views::layout::toast(
-            "Pagina actualizada correctamente",
-            Variant::Primary,
-        ));
+        .body(toast("Pagina actualizada correctamente", Variant::Primary));
 
     Ok(response)
 }
@@ -1025,7 +1008,7 @@ pub struct UpdateLayoutForm {
     name: String,
 }
 
-#[put("/pages/layouts/{layout_id}")]
+#[put("/sitemaps/layouts/{layout_id}")]
 pub async fn update_layout(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -1052,7 +1035,7 @@ pub struct UpdateEmailForm {
     subject: String,
 }
 
-#[put("/pages/emails/{email_id}")]
+#[put("/sitemaps/emails/{email_id}")]
 pub async fn update_email(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -1069,10 +1052,7 @@ pub async fn update_email(
 
     let response = HttpResponse::Ok()
         .insert_header(RELOAD_HEADER)
-        .body(views::layout::toast(
-            "Email actualizado correctamente",
-            Variant::Primary,
-        ));
+        .body(toast("Email actualizado correctamente", Variant::Primary));
 
     Ok(response)
 }
@@ -1082,7 +1062,7 @@ pub struct SyncDraftForm {
     pub name: String,
 }
 
-#[post("/pages/branches")]
+#[post("/sitemaps/branches")]
 pub async fn sync_branch(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -1109,12 +1089,12 @@ pub async fn sync_branch(
     let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
 
     Ok(html! {
-        (views::pages::content(&view_state))
-        (views::layout::toast("Mapa de sitio sincronizado correctamente", Variant::Primary))
+        (views::content(&view_state))
+        (toast("Mapa de sitio sincronizado correctamente", Variant::Primary))
     })
 }
 
-#[delete("/pages/pages/{page_id}")]
+#[delete("/sitemaps/pages/{page_id}")]
 pub async fn delete_page(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -1137,12 +1117,12 @@ pub async fn delete_page(
     let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
 
     Ok(html! {
-        (views::pages::content(&view_state))
-        (views::layout::toast("Pagina eliminada correctamente", Variant::Primary))
+        (views::content(&view_state))
+        (toast("Pagina eliminada correctamente", Variant::Primary))
     })
 }
 
-#[delete("/pages/layouts/{layout_id}")]
+#[delete("/sitemaps/layouts/{layout_id}")]
 pub async fn delete_layout(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -1165,12 +1145,12 @@ pub async fn delete_layout(
     let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
 
     Ok(html! {
-        (views::pages::content(&view_state))
-        (views::layout::toast("Layout eliminado correctamente", Variant::Primary))
+        (views::content(&view_state))
+        (toast("Layout eliminado correctamente", Variant::Primary))
     })
 }
 
-#[delete("/pages/current")]
+#[delete("/sitemaps/current")]
 pub async fn delete_sitemap(
     org: ReqData<Organization>,
     app: Data<App>,
@@ -1189,7 +1169,7 @@ pub async fn delete_sitemap(
     let view_state = get_view_state(&app, &org, &session, query, session_state).await?;
 
     Ok(html! {
-        (views::pages::content(&view_state))
-        (views::layout::toast("Sitemap eliminado correctamente", Variant::Primary))
+        (views::content(&view_state))
+        (toast("Sitemap eliminado correctamente", Variant::Primary))
     })
 }

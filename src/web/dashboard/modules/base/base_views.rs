@@ -19,7 +19,7 @@ pub struct Content<'a> {
     pub content: Markup,
 }
 
-pub fn layout<'a>(content: &Content<'a>) -> Markup {
+pub fn page<'a>(content: &Content<'a>) -> Markup {
     html!(
         (DOCTYPE)
         html {
@@ -35,7 +35,7 @@ pub fn layout<'a>(content: &Content<'a>) -> Markup {
     )
 }
 
-pub fn header(title: &str, role: &Role) -> Markup {
+fn header(title: &str, role: &Role) -> Markup {
     html!(
         header {
             .start {
@@ -60,7 +60,7 @@ pub fn header(title: &str, role: &Role) -> Markup {
     )
 }
 
-pub fn head(title: &str, org: &Organization) -> Markup {
+fn head(title: &str, org: &Organization) -> Markup {
     html!(
         meta charset="UTF-8";
         meta name="viewport" content="width=device-width, initial-scale=1.0";
@@ -76,17 +76,17 @@ pub fn head(title: &str, org: &Organization) -> Markup {
     )
 }
 
-pub fn aside(path: &str) -> Markup {
+fn aside(path: &str) -> Markup {
     html!(
         aside {
             nav {
                 ul {
-                    (link(path, "/dashboard", "Dashboard", "fa-house"))
-                    (link(path, "/dashboard/pages", "Sitios", "fa-sitemap"))
-                    (link(path, "/dashboard/events", "Eventos", "fa-calendar"))
+                    (link(path, "/dashboard", "Inicio", "fa-house"))
+                    (link(path, "/dashboard/sitemaps", "Mapas de Sitio", "fa-sitemap"))
+                    //(link(path, "/dashboard/events", "Eventos", "fa-calendar"))
                     (link(path, "/dashboard/products", "Productos", "fa-box"))
-                    (link(path, "/dashboard/roles", "Roles", "fa-users"))
-                    (link(path, "/dashboard/integrations", "Integraciones", "fa-plug"))
+                    //(link(path, "/dashboard/roles", "Roles", "fa-users"))
+                    //(link(path, "/dashboard/integrations", "Integraciones", "fa-plug"))
                 }
             }
             .footer{

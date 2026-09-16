@@ -1,4 +1,4 @@
-pub mod assets;
+pub mod base;
 pub mod home;
-pub mod pages;
 pub mod products;
+pub mod sitemaps;

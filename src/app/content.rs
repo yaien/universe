@@ -127,7 +127,7 @@ pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, Ap
 
             }
 
-            body hx-trigger="reload" hx-get="/dashboard/pages/preview" {
+            body hx-trigger="reload" hx-get="/dashboard/sitemaps/preview" {
                 div data-layout=(layout.as_ref().map_or("", |l| l.name.as_str())) {
                     (PreEscaped(content))
                 }
@@ -230,7 +230,7 @@ pub fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppError> {
                  script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0-beta6" integrity="sha384-6lyVbhrs13b9z7mLOpt/N6R76rtkEBWgCjAXRs/DSWyi2AMnQSs10ijWk+PI8n7W" crossorigin="anonymous" {}
                  script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
             }
-            body hx-trigger="reload" hx-get="/dashboard/pages/preview" {
+            body hx-trigger="reload" hx-get="/dashboard/sitemaps/preview" {
                 div data-layout=(layout.name) {
                     (PreEscaped(content))
                 }

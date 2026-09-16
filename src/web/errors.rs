@@ -4,7 +4,7 @@ use actix_web::{HttpResponse, HttpResponseBuilder};
 use thiserror::Error;
 
 use crate::app::AppError;
-use crate::web::dashboard::{Variant, toast};
+use crate::web::dashboard::modules::base::{Variant, toast};
 
 #[derive(Debug, Error)]
 pub enum WebError {
