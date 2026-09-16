@@ -10,93 +10,125 @@ pub fn fonts(sitemap_fonts: &Vec<SitemapFont>) -> Markup {
              link rel="preconnect" href="https://fonts.gstatic.com" crossorigin {}
         }
         @for font in sitemap_fonts {
-            link rel="stylesheet" href=(google_font_url(font)) {}
+            link rel="stylesheet" href=(google_font_url(&font.family, &font.variants)) {}
         }
     )
 }
 
-fn google_font_url(font: &SitemapFont) -> String {
-    let mut url = String::from("https://fonts.googleapis.com/css2?");
-    let family = font.family.replace(" ", "+");
-    url.push_str("family=");
-    url.push_str(&family);
+/// Parsea una variante tipo "regular", "italic", "500", "700italic"
+/// y devuelve (peso, es_italica)
+fn parse_google_variant(variant: &str) -> (u32, bool) {
+    let is_italic = variant.ends_with("italic");
 
-    // Manejar variantes correctamente
-    if !font.variants.is_empty() {
-        let mut weights = Vec::new();
-        let mut italic_weights = Vec::new();
-        let mut has_italic = false;
+    let weight_part = variant.trim_end_matches("italic");
 
-        for variant in &font.variants {
-            if variant == "italic" {
-                has_italic = true;
-                italic_weights.push("400");
-                continue;
-            }
-
-            if variant.ends_with("italic") {
-                has_italic = true;
-                let weight = variant.trim_end_matches("italic");
-                if weight.is_empty() {
-                    italic_weights.push("400");
-                } else {
-                    italic_weights.push(weight);
-                }
-                continue;
-            }
-
-            if variant == "regular" {
-                weights.push("400");
-                continue;
-            }
-
-            weights.push(variant);
-        }
-
-        // Si no hay pesos específicos, agregar 400 por defecto
-        if weights.is_empty() && !has_italic {
-            weights.push("");
-        }
-
-        // Construir URL según las variantes
-        if has_italic && !weights.is_empty() {
-            // Formato: ital,wght@0,400;0,700;1,400;1,700
-            url.push_str(":ital,wght@");
-            let mut params = Vec::new();
-
-            // Pesos normales
-            for w in &weights {
-                params.push("0,");
-                params.push(w);
-            }
-
-            // Pesos itálicos (usar weights si italicWeights está vacío)
-            let mut target_italic_weights = italic_weights;
-            if target_italic_weights.is_empty() && !weights.is_empty() {
-                target_italic_weights = weights
-            }
-
-            for w in target_italic_weights {
-                params.push("1,");
-                params.push(w);
-            }
-
-            url.push_str(&params.join(";"));
-        } else if has_italic {
-            // Solo itálica sin pesos específicos
-            url.push_str(":ital,wght@1,400");
-        } else if !weights.is_empty() {
-            // Solo pesos sin itálica
-            url.push_str(":wght@");
-            url.push_str(&weights.join(";"));
-        }
+    let weight = if weight_part.is_empty() || weight_part == "regular" {
+        400
     } else {
-        // Sin variantes especificadas - cargar básicas
-        url.push_str(":wght@300;400;500;600;700");
+        weight_part.parse::<u32>().unwrap_or(400)
+    };
+
+    (weight, is_italic)
+}
+
+/// Construye la URL de Google Fonts (css2 API) a partir de un SitemapFont
+pub fn google_font_url(family: &str, variants: &Vec<String>) -> String {
+    let family_encoded = family.replace(' ', "+");
+
+    let mut normal_weights: Vec<u32> = Vec::new();
+    let mut italic_weights: Vec<u32> = Vec::new();
+
+    for variant in variants {
+        let (weight, is_italic) = parse_google_variant(variant);
+        if is_italic {
+            italic_weights.push(weight);
+        } else {
+            normal_weights.push(weight);
+        }
     }
 
-    // Agregar display=swap para mejor rendimiento
-    url.push_str("&display=swap");
+    let mut axis_parts: Vec<String> = Vec::new();
 
-    url
+    if !normal_weights.is_empty() {
+        let min = normal_weights.iter().min().unwrap();
+        let max = normal_weights.iter().max().unwrap();
+        if min == max {
+            axis_parts.push(format!("0,{}", min));
+        } else {
+            axis_parts.push(format!("0,{}..{}", min, max));
+        }
+    }
+
+    if !italic_weights.is_empty() {
+        let min = italic_weights.iter().min().unwrap();
+        let max = italic_weights.iter().max().unwrap();
+        if min == max {
+            axis_parts.push(format!("1,{}", min));
+        } else {
+            axis_parts.push(format!("1,{}..{}", min, max));
+        }
+    }
+
+    let mut family_param = family_encoded;
+    if !axis_parts.is_empty() {
+        family_param.push_str(":ital,wght@");
+        family_param.push_str(&axis_parts.join(";"));
+    }
+
+    format!(
+        "https://fonts.googleapis.com/css2?family={}&display=swap",
+        family_param
+    )
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_google_fonts_url() {
+        struct Test {
+            name: &'static str,
+            variants: &'static [&'static str],
+            expected: &'static str,
+        }
+
+        let tests = [Test {
+            name: "JetBrains Mono",
+            variants: &[
+                "100",
+                "200",
+                "300",
+                "regular",
+                "500",
+                "600",
+                "700",
+                "800",
+                "100italic",
+                "200italic",
+                "300italic",
+                "italic",
+                "500italic",
+                "600italic",
+                "700italic",
+                "800italic",
+            ],
+            expected: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap",
+        }];
+
+        for test in tests {
+            let variants = test
+                .variants
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>();
+
+            let family = test.name;
+
+            let url = google_font_url(&family, &variants);
+
+            assert_eq!(url, test.expected, "failed for test {}", test.name);
+        }
+    }
 }

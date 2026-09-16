@@ -4,7 +4,7 @@ use actix_web::{HttpResponse, HttpResponseBuilder};
 use thiserror::Error;
 
 use crate::app::AppError;
-use crate::web::dashboard::{Variant, toast};
+use crate::web::dashboard::modules::base::{Variant, toast};
 
 #[derive(Debug, Error)]
 pub enum WebError {
@@ -61,5 +61,17 @@ impl From<sqlx::Error> for WebError {
 impl From<anyhow::Error> for WebError {
     fn from(err: anyhow::Error) -> Self {
         WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+    }
+}
+
+impl From<(StatusCode, &str)> for WebError {
+    fn from((code, msg): (StatusCode, &str)) -> Self {
+        WebError::Status(code, msg.to_string())
+    }
+}
+
+impl From<(StatusCode, String)> for WebError {
+    fn from((code, msg): (StatusCode, String)) -> Self {
+        WebError::Status(code, msg)
     }
 }

@@ -1,0 +1,7 @@
+@import "./css/base.css";
+@import "./css/pages.css";
+@import "./css/roles.css";
+@import "./css/integrations.css";
+@import "./css/products.css";
+
+@import "@melloware/coloris/dist/coloris.css";

@@ -6,6 +6,7 @@ test:
 
 build-assets:
     npx esbuild src/web/dashboard/assets/dashboard.ts --bundle --outfile=data/dist/dashboard.min.js --minify --sourcemap  --format=esm
+    npx esbuild src/web/dashboard/assets/dashboard.css --bundle --outfile=data/dist/dashboard.min.css --minify --sourcemap  --format=esm
 
 run: build-assets
     cargo run

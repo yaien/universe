@@ -165,7 +165,7 @@ pub fn content(state: &ViewState) -> Markup {
     html!(
         #content "data-scope"="pages" {
             (editor(&state))
-            (preview(false))
+            (preview())
         }
     )
 }
@@ -203,11 +203,14 @@ pub fn editor(state: &ViewState) -> Markup {
     )
 }
 
-pub fn preview(swap: bool) -> Markup {
+pub const RELOAD_HEADER: (&str, &str) =
+    ("HX-Trigger", r##"{ "reload": { "target": "#preview" } }"##);
+
+pub fn preview() -> Markup {
     html!(
-        #preview.page hx-swap-oob=[swap.then_some("true")] {
+        .page hx-preserve="true"{
             .resizeable {
-                iframe x-ref="iframe" src="/dashboard/pages/preview" {}
+                iframe #preview x-data="preview" src="/dashboard/sitemaps/preview" {}
             }
         }
     )
@@ -218,7 +221,7 @@ fn tab_button(state: &ViewState, section: &Section) -> Markup {
     let redirect = !active;
     html!(
         button.active[active]
-                hx-get=[redirect.then_some("/dashboard/pages")]
+                hx-get=[redirect.then_some("/dashboard/sitemaps")]
                 hx-vals=[redirect.then_some(json!({ "section": section }))]
                 hx-target=[redirect.then_some("#editor")]
                 hx-swap=[redirect.then_some("outerHTML")]
@@ -243,7 +246,7 @@ pub fn initial(state: &ViewState) -> Markup {
                     select
                         name="sitemap_branch"
                         autocomplete="off"
-                        hx-get="/dashboard/pages"
+                        hx-get="/dashboard/sitemaps"
                         hx-target="#content"
                         hx-swap="outerHTML" {
 
@@ -259,7 +262,7 @@ pub fn initial(state: &ViewState) -> Markup {
                 select
                     name="model_type"
                     autocomplete="off"
-                    hx-get="/dashboard/pages"
+                    hx-get="/dashboard/sitemaps"
                     hx-target="#content"
                     hx-swap="outerHTML" {
                     option value="page" selected=[selected_is_page] { "Sitio" }
@@ -269,7 +272,7 @@ pub fn initial(state: &ViewState) -> Markup {
             }
             fieldset {
                 legend { "Seleccionar Plantilla" }
-                select name="model_id" hx-get="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" required  {
+                select name="model_id" hx-get="/dashboard/sitemaps" hx-target="#content" hx-swap="outerHTML" required  {
                     @match &state.model {
                         Some(Model::Page(selected)) => {
                             @if let Some(pages) = &state.pages {
@@ -302,15 +305,15 @@ pub fn initial(state: &ViewState) -> Markup {
 
 
         div role="group" {
-            button title="Crear" hx-get="/dashboard/pages" hx-target="#editor" hx-swap="outerHTML"  hx-vals=(json!({"section": Section::Create}))  {
+            button title="Crear" hx-get="/dashboard/sitemaps" hx-target="#editor" hx-swap="outerHTML"  hx-vals=(json!({"section": Section::Create}))  {
                 i.fa-solid.fa-plus {}
             }
 
-            button title="Eliminar" hx-get="/dashboard/pages" hx-target="#editor" hx-swap="outerHTML"  hx-vals=(json!({"section": Section::Delete}))  {
+            button title="Eliminar" hx-get="/dashboard/sitemaps" hx-target="#editor" hx-swap="outerHTML"  hx-vals=(json!({"section": Section::Delete}))  {
                 i.fa-solid.fa-trash {}
             }
 
-            button title="Publicar" hx-get="/dashboard/pages" hx-target="#editor" hx-swap="outerHTML"  hx-vals=(json!({"section": Section::Publish}))  {
+            button title="Publicar" hx-get="/dashboard/sitemaps" hx-target="#editor" hx-swap="outerHTML"  hx-vals=(json!({"section": Section::Publish}))  {
                 i.fa-solid.fa-upload {}
             }
         }
@@ -324,7 +327,7 @@ pub fn create(state: &ViewState) -> Markup {
             button
                 type="button"
                 hx-trigger="click, deleted from:body, renamed from:body"
-                hx-get="/dashboard/pages"
+                hx-get="/dashboard/sitemaps"
                 hx-vals=(json!({ "section": Section::Initial}))
                 hx-target="#editor"
                 hx-swap="outerHTML"
@@ -332,9 +335,9 @@ pub fn create(state: &ViewState) -> Markup {
                 "Volver"
             }
         }
-        fieldset x-data="{ modelType: 'page' }" {
+        fieldset x-data="{ modelType: 'page', urls: { page: '/dashboard/sitemaps/pages', layout: '/dashboard/sitemaps/layouts' } }" {
             legend { "Agregar Modelo" }
-            form hx-post="/dashboard/pages" hx-target="#section" {
+            form x-bind:hx-post="urls[modelType]" hx-target="#section" {
                 fieldset role="group" {
                     legend {"Tipo de Plantilla"}
                     select name="model_type" x-model="modelType" {
@@ -348,8 +351,8 @@ pub fn create(state: &ViewState) -> Markup {
                         fieldset {
                             legend { "Path" }
                             .group {
-                                span { (state.organization.url) }
-                                input name="path" required {}
+                                span { (state.organization.url)"/" }
+                                input name="path" {}
                             }
                         }
                         fieldset {
@@ -360,7 +363,6 @@ pub fn create(state: &ViewState) -> Markup {
                             legend { "Titulo" }
                             input name="title" required {}
                         }
-                        input name="action" value="create_page" hidden {}
                     }
                 }
 
@@ -370,7 +372,6 @@ pub fn create(state: &ViewState) -> Markup {
                             legend { "Nombre" }
                             input name="name" required {}
                         }
-                        input name="action" value="create_layout" hidden {}
                     }
                 }
 
@@ -381,7 +382,7 @@ pub fn create(state: &ViewState) -> Markup {
         }
         fieldset {
             legend { "Sincronizar Mapa de Sitio" }
-            form hx-post="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" {
+            form hx-post="/dashboard/sitemaps/branches" hx-target="#content" hx-swap="outerHTML" {
                 fieldset {
                     legend { "Nombre" }
                     .group {
@@ -389,9 +390,6 @@ pub fn create(state: &ViewState) -> Markup {
                         input name="name" required {}
                     }
                 }
-
-
-                input name="action" value="sync_draft" hidden {}
 
                 .actions {
                     button {"Sincronizar"}
@@ -407,7 +405,7 @@ pub fn delete(state: &ViewState) -> Markup {
             button
                 type="button"
                 hx-trigger="click, deleted from:body, renamed from:body"
-                hx-get="/dashboard/pages"
+                hx-get="/dashboard/sitemaps"
                 hx-vals=(json!({ "section": Section::Initial}))
                 hx-target="#editor"
                 hx-swap="outerHTML"
@@ -440,12 +438,12 @@ pub fn delete(state: &ViewState) -> Markup {
                         }
                     }
                     .actions {
-                        @let action = match &state.model_type {
-                            ModelType::Page => "delete_page",
-                            ModelType::Layout => "delete_layout",
-                        _ => "",
+                        @let action = match &state.model {
+                            Some(Model::Page(page)) => format!("/dashboard/sitemaps/pages/{}", page.id),
+                            Some(Model::Layout(layout)) => format!("/dashboard/sitemaps/layouts/{}", layout.id),
+                            _ => "".into(),
                         };
-                        button.danger hx-post="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" hx-vals=(json!({ "action": action})) {
+                        button.danger hx-delete=(action) hx-target="#content" hx-swap="outerHTML" {
                             "Eliminar"
                         }
                     }
@@ -459,7 +457,7 @@ pub fn delete(state: &ViewState) -> Markup {
                             "Estás seguro de que deseas eliminar el mapa de sitio " b { (state.sitemap.branch) } "?"
                         }
                         .actions {
-                            button.danger hx-post="/dashboard/pages" hx-target="#content" hx-swap="outerHTML" hx-vals=(json!({ "action": "delete_sitemap"})) {
+                            button.danger hx-post="/dashboard/sitemaps" hx-target="#content" hx-swap="outerHTML" hx-vals=(json!({ "action": "delete_sitemap"})) {
                                 "Eliminar"
                             }
                         }
@@ -476,7 +474,7 @@ pub fn publish() -> Markup {
             button
                 type="button"
                 hx-trigger="click, deleted from:body, renamed from:body"
-                hx-get="/dashboard/pages"
+                hx-get="/dashboard/sitemaps"
                 hx-vals=(json!({ "section": Section::Initial}))
                 hx-target="#editor"
                 hx-swap="outerHTML"
@@ -489,7 +487,7 @@ pub fn publish() -> Markup {
                 "Al publicar el mapa de sitio actual, este estará disponible para los usuarios finales"
             }
             .actions {
-                button.warning hx-post="/dashboard/pages" hx-swap="none" hx-vals=(json!({ "action": "publish"})) { "Publicar" }
+                button.warning hx-post="/dashboard/sitemaps/publish" hx-swap="none" { "Publicar" }
             }
         }
     )
@@ -499,7 +497,7 @@ pub fn edit(model: &Option<Model>, org: &Organization, layouts: &Option<Vec<Layo
     html!(
         @match model {
             Some(Model::Page(page)) => {
-                form hx-post="/dashboard/pages" hx-swap="none" autocomplete="off" {
+                form hx-put=(format!("/dashboard/sitemaps/pages/{}", page.id)) hx-swap="none" autocomplete="off" {
                     fieldset {
                         legend { "Nombre" }
                         input name="name" required value=(page.name) {}
@@ -548,35 +546,30 @@ pub fn edit(model: &Option<Model>, org: &Organization, layouts: &Option<Vec<Layo
                             }
                         }
                     }
-
-                    input name="action" type="hidden" value="save_page_info" {}
-
                     .actions {
                         button type="submit" { "Guardar" }
                     }
                 }
             },
             Some(Model::Layout(layout)) => {
-                form hx-post="/dashboard/pages" hx-swap="none" {
+                form hx-put=(format!("/dashboard/sitemaps/layouts/{}", layout.id)) hx-swap="none" {
                     fieldset {
                         legend { "Nombre" }
                         input name="name" required value=(layout.name) {}
                     }
-                    input name="action" type="hidden" value="save_layout_info" {}
                     .actions {
                         button type="submit" { "Guardar" }
                     }
                 }
             },
             Some(Model::Email(email)) => {
-                form hx-post="/dashboard/pages" hx-swap="none" {
+                form hx-put=(format!("/dashboard/sitemaps/emails/{}", email.id)) hx-swap="none" {
                     fieldset {
                         legend { "Asunto" }
                         textarea name="subject" class="no-resize" required cols="10" {
                             (email.subject)
                         }
                     }
-                    input name="action" type="hidden" value="save_email_info" {}
                     .actions {
                         button type="submit" { "Guardar" }
                     }
@@ -593,7 +586,7 @@ pub fn files(state: &ViewState) -> Markup {
             .actions x-data="progress"{
                 form
                     hx-trigger="change from:input changed"
-                    hx-post="/dashboard/pages/files"
+                    hx-post="/dashboard/sitemaps/files"
                     hx-target="#files"
                     hx-encoding="multipart/form-data"
                     "@htmx:xhr:progress"="progress($event)"
@@ -627,7 +620,7 @@ pub fn file_grid(state: &ViewState) -> Markup {
                 div x-data {
                     .hover
                         title=(file.name)
-                        hx-get="/dashboard/pages"
+                        hx-get="/dashboard/sitemaps"
                         hx-target="#editor"
                         hx-swap="outerHTML"
                         hx-vals=(json!({ "file_id": file.id, "section": Section::File }))
@@ -671,7 +664,7 @@ pub fn file(state: &ViewState) -> Markup {
                     button
                         type="button"
                         hx-trigger="click, deleted from:body, renamed from:body"
-                        hx-get="/dashboard/pages"
+                        hx-get="/dashboard/sitemaps"
                         hx-vals=(json!({ "section": Section::Files }))
                         hx-target="#editor"
                         hx-swap="outerHTML"
@@ -684,7 +677,7 @@ pub fn file(state: &ViewState) -> Markup {
                         @if Some(file.id) == state.sitemap.favicon_file_id {
                             (file_favicon_active_button())
                         } @else {
-                            button.secondary hx-post="/dashboard/pages" hx-vals=(json!({ "action": "update_favicon", "file_id": file.id })) hx-swap="outerHTML" {
+                            button.secondary hx-patch="/dashboard/sitemaps/favicon" hx-vals=(json!({ "file_id": file.id })) hx-swap="outerHTML" {
                                 i.fa-solid.fa-globe {}
                             }
                         }
@@ -693,7 +686,7 @@ pub fn file(state: &ViewState) -> Markup {
                             @if Some(file.id) == page.og_image_file_id {
                                 (file_og_image_active_button())
                             } @else {
-                                button.secondary hx-post="/dashboard/pages" hx-vals=(json!({ "action": "update_og_image", "file_id": file.id })) hx-swap="outerHTML" {
+                                button.secondary hx-patch="/dashboard/sitemaps/og_image" hx-vals=(json!({ "file_id": file.id })) hx-swap="outerHTML" {
                                     i.fa-solid.fa-link {}
                                 }
                             }
@@ -726,15 +719,14 @@ pub fn file(state: &ViewState) -> Markup {
                         }
                     }
                 }
-                form hx-post="/dashboard/pages" hx-swap="none" {
-                    input type="hidden" name="action" value="save_file" {}
+                form hx-put=(format!("/dashboard/sitemaps/files/{}", file.id)) hx-swap="none" {
 
                     fieldset {
                         legend { "Nombre" }
                         input name="name" value=(file.name) required {}
                     }
                     .actions.around {
-                        button.danger type="button" hx-post="/dashboard/pages" hx-target="#edit" hx-swap="outerHTML" hx-vals=(json!({ "action": "delete_file" })) {
+                        button.danger type="button" hx-delete=(format!("/dashboard/sitemaps/files/{}", file.id)) hx-target="#edit" hx-swap="outerHTML" {
                             "Eliminar"
                         }
                         button type="submit" { "Guardar" }
@@ -777,7 +769,7 @@ pub fn fonts(sitemap_fonts: &Option<Vec<SitemapFont>>) -> Markup {
                     @for sitemap_font in sitemap_fonts {
                         .font
                             title=(sitemap_font.family)
-                            hx-get="/dashboard/pages"
+                            hx-get="/dashboard/sitemaps"
                             hx-target="#editor"
                             hx-swap="outerHTML"
                             hx-vals=(json!({ "section": Section::BrowseFonts, "sitemap_font_id": sitemap_font.id }))
@@ -805,7 +797,7 @@ pub fn fonts(sitemap_fonts: &Option<Vec<SitemapFont>>) -> Markup {
                 }
                 .actions {
                     button
-                        hx-get="/dashboard/pages"
+                        hx-get="/dashboard/sitemaps"
                         hx-target="#editor"
                         hx-swap="outerHTML"
                         hx-vals=(json!({ "section": Section::BrowseFonts }))
@@ -823,7 +815,7 @@ pub fn browse_fonts(state: &ViewState) -> Markup {
         .fonts {
             .actions {
                 button
-                    hx-get="/dashboard/pages"
+                    hx-get="/dashboard/sitemaps"
                     hx-target="#editor"
                     hx-vals=(json!({ "section": Section::Fonts }))
                     hx-swap="outerHTML"
@@ -838,7 +830,7 @@ pub fn browse_fonts(state: &ViewState) -> Markup {
                     name="browsed_fonts_query"
                     placeholder="Buscar fuente"
                     hx-trigger="input changed delay:500ms"
-                    hx-get="/dashboard/pages"
+                    hx-get="/dashboard/sitemaps"
                     hx-target="#browsed-fonts"
                     hx-indicator=".fonts"
                     {}
@@ -865,7 +857,7 @@ pub fn browse_fonts_list(
             @for (index, font) in fonts.iter().enumerate() {
                 @let is_last = index == fonts.len() - 1;
                 .font
-                    hx-get=[is_last.then_some("/dashboard/pages")]
+                    hx-get=[is_last.then_some("/dashboard/sitemaps")]
                     hx-trigger=[is_last.then_some("intersect once")]
                     hx-swap=[is_last.then_some("beforeend")]
                     hx-indicator=[is_last.then_some(".fonts")]
@@ -873,7 +865,7 @@ pub fn browse_fonts_list(
                     hx-vals=[is_last.then_some(json!({ "browsed_fonts_query": query.clone().unwrap_or("".into()), "browsed_fonts_limit": limit.unwrap_or(10), "browsed_fonts_offset": offset.unwrap_or(0) + limit.unwrap_or(10) }))]
                 {
                     div
-                        hx-get="/dashboard/pages"
+                        hx-get="/dashboard/sitemaps"
                         hx-target="#editor"
                         hx-swap="outerHTML"
                         hx-vals:append=(json!({ "browsed_font_id": font.id }))
@@ -903,7 +895,7 @@ pub fn configure_font(state: &ViewState) -> Markup {
                     div class="actions" {
                         button
                             hx-trigger="click, updated from:body"
-                            hx-get="/dashboard/pages"
+                            hx-get="/dashboard/sitemaps"
                             hx-target="#editor"
                             hx-swap="outerHTML"
                             hx-vals=(json!({ "section": Section::BrowseFonts }))
@@ -920,7 +912,10 @@ pub fn configure_font(state: &ViewState) -> Markup {
                     {
                         (browsed_font.family)
                     }
-                    form hx-post="/dashboard/pages" hx-target=".fonts" hx-swap="outerHTML" {
+                    form
+                        hx-post=[state.sitemap_font.is_none().then_some("/dashboard/sitemaps/fonts")]
+                        hx-put=[state.sitemap_font.as_ref().map(|f| format!("/dashboard/sitemaps/fonts/{}", f.id))]
+                        hx-target=".fonts" hx-swap="outerHTML" {
                         small {
 
                             "Usa \"primary\"  para cambiar la fuente base de la página o \"headings\" para cambiar los
@@ -936,7 +931,7 @@ pub fn configure_font(state: &ViewState) -> Markup {
                             input name="tag" autocomplete="off" required value=[sitemap_font_name] {}
                         }
 
-                        input name="action" value="save_font" hidden {}
+                        input name="font_id" value=[state.browsed_font.as_ref().map(|f| f.id)] hidden {}
 
                         div class="actions" {
                             button type="submit" { "Guardar" }
@@ -964,8 +959,7 @@ pub fn colors(state: &ViewState) -> Markup {
                 }
             }
             .actions {
-                button class="clear" hx-post="/dashboard/pages" hx-include="find input" hx-target="#colors" hx-swap="beforeend" {
-                    input name="action" value="create_color" hidden {}
+                button class="clear" hx-post="/dashboard/sitemaps/colors" hx-target="#colors" hx-swap="beforeend" {
                     i class="fa-solid fa-plus" {}
                 }
             }
@@ -983,13 +977,11 @@ pub fn color(color: &Color) -> Markup {
             ))
         {
             form
-                hx-post="/dashboard/pages"
+                hx-put=(format!("/dashboard/sitemaps/colors/{}", color.id))
                 hx-trigger="input throttle:100ms"
                 hx-swap="none"
             {
                 .field x-bind:style="{color: readable, background: color}" {
-                    input name="action" value="update_color" hidden {}
-                    input name="id" value=(&color.id) hidden {}
                     input name="tag" x-model="tag" required {}
                     input
                         name="value"
@@ -1008,11 +1000,9 @@ pub fn color(color: &Color) -> Markup {
                 }
                 button.clear.danger
                     type="button"
-                    hx-post="/dashboard/pages"
+                    hx-delete=(format!("/dashboard/sitemaps/colors/{}", color.id))
                     hx-target="closest .color"
-                    hx-swap="outerHTML"
-                    hx-vals=(json!({ "action": "delete_color", "id": &color.id }))
-                {
+                    hx-swap="outerHTML" {
                     i class="fa-solid fa-trash" {}
                 }
             }
@@ -1030,16 +1020,10 @@ pub fn edit_html(state: &ViewState) -> Markup {
 
     html! {
         .monaco
-            x-data=(format!(
-                "monaco({{ language: {:?}, source: {:?} }})",
-                "html", source
-            ))
-            hx-post="/dashboard/pages"
+            x-data=(format!(r#"monaco({{ language: "html", source: {source:?} }})"#))
+            hx-patch="/dashboard/sitemaps/html"
             hx-trigger="editorinput"
-            hx-vals=(format!(
-                "js:{{ action: {:?}, source: event.detail.value }}",
-                "save_html"
-            ))
+            hx-vals="js:{ source: event.detail.value }"
             hx-swap="none"
         {
             .spinner x-show="loading" {
@@ -1058,16 +1042,10 @@ pub fn edit_css(state: &ViewState) -> Markup {
 
     html! {
         .monaco
-            x-data=(format!(
-                "monaco({{ language: {:?}, source: {:?} }})",
-                "css", source
-            ))
-            hx-post="/dashboard/pages"
+            x-data=(format!(r#"monaco({{ language: "css", source: {source:?} }})"#))
+            hx-patch="/dashboard/sitemaps/css"
             hx-trigger="editorinput"
-            hx-vals=(format!(
-                "js:{{ action: {:?}, source: event.detail.value }}",
-                "save_css"
-            ))
+            hx-vals="js:{ source: event.detail.value }"
             hx-swap="none"
         {
             .spinner x-show="loading" {
@@ -1086,11 +1064,8 @@ pub fn edit_js(state: &ViewState) -> Markup {
 
     html! {
         .monaco
-            x-data=(format!(
-                "monaco({{ language: {:?}, source: {:?} }})",
-                "javascript", source
-            ))
-            hx-post="/dashboard/pages"
+            x-data=(format!(r#"monaco({{ language: "javascript", source: {source:?} }})"#))
+            hx-patch="/dashboard/sitemaps/js"
             hx-trigger="editorinput"
             hx-vals=(format!(
                 "js:{{ action: {:?}, source: event.detail.value }}",

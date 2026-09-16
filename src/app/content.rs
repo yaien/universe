@@ -14,17 +14,11 @@ pub use style::bundle as bundle_css;
 
 pub use registry::{RegisterFunctions, RegistryContext};
 
-pub enum RenderMode {
-    External,
-    Inline { colors: Vec<Color> },
-}
-
 pub struct RenderPageOptions {
     pub sitemap: Sitemap,
     pub page: Page,
     pub layout: Option<Layout>,
     pub fonts: Vec<SitemapFont>,
-    pub mode: RenderMode,
     pub ctx: RegistryContext,
 }
 
@@ -36,7 +30,6 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
         layout,
         sitemap,
         fonts,
-        mode,
     } = options;
 
     let content = get_page_content(&ctx, &page, &layout).context("failed getting page content")?;
@@ -76,23 +69,8 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
 
                 (links::fonts(&fonts))
 
-
-
-                @match mode {
-                    RenderMode::External => {
-                        link rel="stylesheet" href="/assets/landing/style.css" {}
-                        script defer src="/assets/landing/script.js" {}
-                    }
-                    RenderMode::Inline { colors } => {
-                        @let layout_css = layout.as_ref().map_or("", |l| l.css.as_str());
-                        @let layout_js = layout.as_ref().map_or("", |l| l.js.as_str());
-
-                        (style::inline(&fonts, &colors, layout_css, &page.css))
-                        (script::inline(layout_js, &page.js))
-                    }
-                }
-
-
+                link rel="stylesheet" href="/assets/landing/style.css" {}
+                script defer src="/assets/landing/script.js" {}
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0-beta6" integrity="sha384-6lyVbhrs13b9z7mLOpt/N6R76rtkEBWgCjAXRs/DSWyi2AMnQSs10ijWk+PI8n7W" crossorigin="anonymous" {}
 
@@ -107,6 +85,68 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
     ))
 }
 
+pub struct RenderPageInlineOptions {
+    pub page: Page,
+    pub layout: Option<Layout>,
+    pub fonts: Vec<SitemapFont>,
+    pub colors: Vec<Color>,
+    pub ctx: RegistryContext,
+}
+
+pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, AppError> {
+    let RenderPageInlineOptions {
+        page,
+        layout,
+        fonts,
+        colors,
+        ctx,
+    } = options;
+
+    let content = get_page_content(&ctx, &page, &layout).context("failed getting page content")?;
+
+    Ok(html!(
+        (DOCTYPE)
+
+        html lang="es" {
+            head hx-head="merge" {
+                meta charset="UTF-8" {}
+                meta name="viewport" content="width=device-width, initial-scale=1.0" {}
+                meta name="htmx-config" content="transitions:true" {}
+
+                (links::fonts(&fonts))
+
+                @let layout_css = layout.as_ref().map_or("", |l| l.css.as_str());
+                (style::inline(&fonts, &colors, layout_css, &page.css))
+
+                @let layout_js = layout.as_ref().map_or("", |l| l.js.as_str());
+                (script::inline(layout_js, &page.js))
+
+                script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0-beta6" integrity="sha384-6lyVbhrs13b9z7mLOpt/N6R76rtkEBWgCjAXRs/DSWyi2AMnQSs10ijWk+PI8n7W" crossorigin="anonymous" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
+
+            }
+
+            body hx-trigger="reload" hx-get="/dashboard/sitemaps/preview" {
+                div data-layout=(layout.as_ref().map_or("", |l| l.name.as_str())) {
+                    (PreEscaped(content))
+                }
+            }
+        }
+    ))
+}
+
+fn render_template_error(prelude: &str, e: minijinja::Error) -> String {
+    html!(
+      #error style="padding: 1rem; box-sizing: border-box;" {
+          pre {
+              (format!("{prelude}: {e:#}"))
+          }
+      }
+    )
+    .into_string()
+}
+
 fn get_page_content(
     ctx: &RegistryContext,
     page: &Page,
@@ -118,32 +158,38 @@ fn get_page_content(
 
     log::info!("page_id {}", page.id);
 
-    let page_template = format!(
-        r#"
-          {{% extends "layout"%}}
-            {{% block body %}}
-                <div data-page={:?}>
-                    {}
-                </div>
-            {{% endblock %}}
-          "#,
-        page.name, page.html
-    );
-
     let mut env = Environment::new();
 
     env.register_functions(&ctx);
 
-    env.add_template("layout", layout_template)
-        .context("failed adding layout template")?;
+    match env.add_template("layout", layout_template) {
+        Ok(_) => {}
+        Err(e) => return Ok(render_template_error("failed on layout template", e)),
+    };
 
-    let templ = env
-        .template_from_named_str("page", &page_template)
-        .context("failed adding page template")?;
+    match env.add_template("page", &page.html) {
+        Ok(templ) => templ,
+        Err(e) => return Ok(render_template_error("failed on page template", e)),
+    };
+
+    let content_template = format!(
+        r#"
+          {{% extends "layout"%}}
+            {{% block body %}}
+                <div data-page={:?}>
+                    {{% include "page" %}}
+                </div>
+            {{% endblock %}}
+          "#,
+        page.name
+    );
 
     let s = context! {user => &ctx.user, org => &ctx.org};
 
-    let content = templ.render(s).context("failed rendering template")?;
+    let content = match env.render_str(&content_template, s) {
+        Ok(content) => content,
+        Err(e) => return Ok(render_template_error("failed on render", e)),
+    };
 
     Ok(content)
 }
@@ -170,16 +216,21 @@ pub fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppError> {
         (DOCTYPE)
 
         html lang="es" {
-             head {
+             head hx-head="merge" {
                  meta charset="UTF-8" {}
                  meta name="viewport" content="width=device-width, initial-scale=1.0" {}
                  meta name="theme-color" content="#ffffff" {}
+                 meta name="htmx-config" content="transitions:true" {}
 
                  (links::fonts(&fonts))
                  (style::inline(&fonts, &colors, &layout.css, ""))
                  (script::inline(&layout.js, ""))
+
+                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
+                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0-beta6" integrity="sha384-6lyVbhrs13b9z7mLOpt/N6R76rtkEBWgCjAXRs/DSWyi2AMnQSs10ijWk+PI8n7W" crossorigin="anonymous" {}
+                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
             }
-            body {
+            body hx-trigger="reload" hx-get="/dashboard/sitemaps/preview" {
                 div data-layout=(layout.name) {
                     (PreEscaped(content))
                 }
@@ -195,9 +246,10 @@ fn get_layout_content(ctx: &RegistryContext, layout: &Layout) -> Result<String, 
 
     let s = context! { org => &ctx.org, user => &ctx.user };
 
-    let content = env
-        .render_str(&layout.html, s)
-        .context("failed rendering template")?;
+    let content = match env.render_str(&layout.html, s) {
+        Ok(content) => content,
+        Err(e) => return Ok(render_template_error("failed on render", e)),
+    };
 
     Ok(content)
 }
@@ -206,13 +258,15 @@ fn get_layout_content(ctx: &RegistryContext, layout: &Layout) -> Result<String, 
 pub fn get_email_content(email: &Email, ctx: Value) -> Result<(String, String), AppError> {
     let env = Environment::new();
 
-    let subject = env
-        .render_str(&email.subject, &ctx)
-        .context("failed rendering subject")?;
+    let subject = match env.render_str(&email.subject, &ctx) {
+        Ok(subject) => subject,
+        Err(e) => return Ok((render_template_error("failed on render", e), String::new())),
+    };
 
-    let body = env
-        .render_str(&email.body, &ctx)
-        .context("failed rendering body")?;
+    let body = match env.render_str(&email.body, &ctx) {
+        Ok(body) => body,
+        Err(e) => return Ok((subject, render_template_error("failed on render", e))),
+    };
 
     Ok((subject, body))
 }

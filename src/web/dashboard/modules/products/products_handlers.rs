@@ -8,9 +8,10 @@ use serde::Deserialize;
 use crate::app::store::UpdatePresentationArgs;
 use crate::app::{App, Organization, Role};
 use crate::infra::Id;
-use crate::web::dashboard::views;
-use crate::web::dashboard::views::layout::{Content, Variant, toast};
+use crate::web::dashboard::modules::base::{Content, Variant, page, toast};
 use crate::web::errors::WebError;
+
+use super::products_views as views;
 
 #[derive(Deserialize, Default)]
 pub struct ProductsQuery {
@@ -31,17 +32,17 @@ pub async fn get_products(
     }
 
     match query.fragment.as_deref() {
-        Some("create") => Ok(views::products::create_modal()),
+        Some("create") => Ok(views::create_modal()),
 
         _ => {
             let products = app.store.products.get_by_organization_id(&org.id).await?;
 
-            Ok(views::layout::layout(&Content {
+            Ok(page(&Content {
                 title: "Productos",
                 path: req.path(),
                 org: &org,
                 role: &role,
-                content: views::products::product_list(products),
+                content: views::product_list(products),
             }))
         }
     }
@@ -99,22 +100,22 @@ pub async fn get_product(
 
     match query.fragment.as_deref() {
         Some("pictures") => Ok(html! {
-            (views::products::pictures(&product, &presentation, &content))
+            (views::pictures(&product, &presentation, &content))
         }),
 
         Some("presentations") => Ok(html! {
-            (views::products::presentations(&product, &presentation))
-            (views::products::pictures_partial(&product, &presentation, &None))
+            (views::presentations(&product, &presentation))
+            (views::pictures_partial(&product, &presentation, &None))
         }),
 
-        Some("delete") => Ok(views::products::delete_modal(&product)),
+        Some("delete") => Ok(views::delete_modal(&product)),
 
-        _ => Ok(views::layout::layout(&Content {
+        _ => Ok(page(&Content {
             title: "Product Details",
             path: req.path(),
             org: &org,
             role: &role,
-            content: views::products::product_detail(&product, &presentation),
+            content: views::product_detail(&product, &presentation),
         })),
     }
 }
@@ -169,8 +170,8 @@ pub async fn create_presentation(
         .get_one_by_organization_id_and_id(&org.id, &product_id)
         .await?;
     Ok(html! {
-        (views::products::presentations(&product, &Some(&presentation)))
-        (views::products::pictures_partial(&product, &Some(&presentation), &None))
+        (views::presentations(&product, &Some(&presentation)))
+        (views::pictures_partial(&product, &Some(&presentation), &None))
     })
 }
 
@@ -214,7 +215,7 @@ pub async fn update_presentation(
         .find(|p| p.id == presentation_id);
 
     Ok(html! {
-        (views::products::presentations(&product, &presentation))
+        (views::presentations(&product, &presentation))
         (toast("presentación actualizada", Variant::Primary))
     })
 }
@@ -241,8 +242,8 @@ pub async fn delete_presentation(
     let presentation = product.presentations.first();
 
     Ok(html! {
-        (views::products::presentations(&product, &presentation))
-        (views::products::pictures_partial(&product, &presentation, &None))
+        (views::presentations(&product, &presentation))
+        (views::pictures_partial(&product, &presentation, &None))
     })
 }
 
@@ -300,7 +301,7 @@ pub async fn upload_content(
 
     let content = presentation.and_then(|p| p.contents.last());
 
-    Ok(views::products::pictures(&product, &presentation, &content))
+    Ok(views::pictures(&product, &presentation, &content))
 }
 
 #[delete("/products/{id}/presentations/{pid}/contents/{cid}")]
@@ -327,7 +328,7 @@ pub async fn delete_content(
         .iter()
         .find(|p| p.id == presentation_id);
 
-    Ok(views::products::pictures(&product, &presentation, &None))
+    Ok(views::pictures(&product, &presentation, &None))
 }
 
 #[derive(Deserialize)]

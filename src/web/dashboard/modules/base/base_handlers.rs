@@ -1,10 +1,11 @@
 use actix_web::http::header;
 use actix_web::web::Path;
-use actix_web::{HttpRequest, HttpResponse, Responder};
+use actix_web::{HttpRequest, HttpResponse, get};
 
 use crate::web::dashboard::assets::Asset;
 
-pub async fn assets(req: HttpRequest, file_path: Path<String>) -> impl Responder {
+#[get("/assets/static/dashboard/{filepath:.*}")]
+pub async fn assets(req: HttpRequest, file_path: Path<String>) -> HttpResponse {
     if file_path.is_empty() {
         return HttpResponse::NotFound().finish();
     }
