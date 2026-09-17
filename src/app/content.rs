@@ -53,6 +53,7 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
 
                 @if let Some(og_image_file_id) = page.og_image_file_id {
                     meta name="og:image" content=(format!("{}/assets/dynamic/files/{}", org.url, og_image_file_id)) {}
+                    meta property="og:image:type" content="image/webp" {}
                 }
 
                 @if let Some(favicon_file_id) = sitemap.favicon_file_id {
