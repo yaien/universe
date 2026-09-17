@@ -52,7 +52,7 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
                 meta name="htmx-config" content="transitions:true" {}
 
                 @if let Some(og_image_file_id) = page.og_image_file_id {
-                    meta name="og:image" content=(format!("{}/assets/external/{}/{}", org.url, org.id, og_image_file_id)) {}
+                    meta name="og:image" content=(format!("{}/assets/dynamic/files/{}", org.url, og_image_file_id)) {}
                 }
 
                 @if let Some(favicon_file_id) = sitemap.favicon_file_id {
