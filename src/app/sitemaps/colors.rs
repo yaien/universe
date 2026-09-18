@@ -1,5 +1,6 @@
 use sqlx::prelude::FromRow;
 
+use crate::app::{AppError, AppResult};
 use crate::infra::{DbPool, Id};
 
 #[derive(FromRow)]
@@ -19,11 +20,12 @@ impl Colors {
         Self { pool }
     }
 
-    pub async fn get_by_sitemap_id(&self, sitemap_id: &Id) -> Result<Vec<Color>, sqlx::Error> {
+    pub async fn get_by_sitemap_id(&self, sitemap_id: &Id) -> AppResult<Vec<Color>> {
         sqlx::query_as::<_, Color>("select * from colors where sitemap_id = $1")
             .bind(sitemap_id)
             .fetch_all(&self.pool)
             .await
+            .map_err(AppError::Sqlx)
     }
 
     pub async fn update(
@@ -49,7 +51,7 @@ impl Colors {
         Ok(())
     }
 
-    pub async fn create(&self, sitemap_id: &Id) -> Result<Color, sqlx::Error> {
+    pub async fn create(&self, sitemap_id: &Id) -> AppResult<Color> {
         let colors = self.get_by_sitemap_id(sitemap_id).await?;
 
         let mut new_tag_index = colors.len();
@@ -67,6 +69,7 @@ impl Colors {
         .bind("#000")
         .fetch_one(&self.pool)
         .await
+        .map_err(AppError::Sqlx)
     }
 
     pub async fn create_from(&self, color: &Color) -> Result<Color, sqlx::Error> {

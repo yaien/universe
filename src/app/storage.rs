@@ -46,13 +46,13 @@ impl Scope {
     pub const PRODUCTS: &'static str = "products";
 }
 
-pub struct Files {
+pub struct Storage {
     pool: DbPool,
     path: PathBuf,
     queue: Arc<Queue>,
 }
 
-impl Files {
+impl Storage {
     pub fn new(pool: DbPool, queue: Arc<Queue>, path: PathBuf) -> Self {
         Self { pool, path, queue }
     }

@@ -1,6 +1,6 @@
 use maud::{Markup, html};
 
-use crate::app::SitemapFont;
+use crate::app::sitemaps::SitemapFont;
 
 pub fn fonts(sitemap_fonts: &Vec<SitemapFont>) -> Markup {
     let has_google_fonts = sitemap_fonts.iter().any(|f| f.provider == "google");

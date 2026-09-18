@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::app::Files;
+use crate::app::Storage;
 use crate::infra::{Data, Id, Processor, Task};
 
 #[derive(Serialize, Deserialize)]
@@ -19,11 +19,11 @@ impl Task for FileProcessTask {
 }
 
 pub struct FileProcessor {
-    files: Arc<Files>,
+    files: Arc<Storage>,
 }
 
 impl FileProcessor {
-    pub fn new(files: Arc<Files>) -> Self {
+    pub fn new(files: Arc<Storage>) -> Self {
         Self { files }
     }
 }

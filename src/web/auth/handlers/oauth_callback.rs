@@ -1,9 +1,10 @@
-use crate::app::{App, GoogleUserInfo, OAuthAccountInfo, Organization};
+use crate::app::App;
+use crate::app::auth::{GoogleUserInfo, OAuthAccountInfo, Organization};
 use crate::infra::Monolith;
 use actix_session::Session;
+use actix_web::HttpResponse;
 use actix_web::http::header;
 use actix_web::web::{Data, Query, ReqData};
-use actix_web::{HttpResponse, Responder};
 use chrono::Utc;
 use oauth2::PkceCodeVerifier;
 use oauth2::{AuthorizationCode, TokenResponse};
@@ -22,13 +23,14 @@ pub async fn callback(
     org: ReqData<Organization>,
     session: Session,
     query: Query<OAuthCallbackQuery>,
-) -> impl Responder {
-    let Ok(oauth_state) = app.auth.get_oauth_state_by_csrf_token(&query.state).await else {
+) -> HttpResponse {
+    let Ok(oauth_state) = app.auth.oauth.get_state_by_csrf_token(&query.state).await else {
         return HttpResponse::Unauthorized().body("unauthorized");
     };
 
     if oauth_state.hostname != org.hostname {
         match app
+            .auth
             .organizations
             .get_one_by_host(&oauth_state.hostname)
             .await
@@ -63,7 +65,8 @@ pub async fn callback(
 
     if app
         .auth
-        .delete_oauth_state_by_csrf_token(&oauth_state.csrf_token)
+        .oauth
+        .delete_state_by_csrf_token(&oauth_state.csrf_token)
         .await
         .is_err()
     {
@@ -99,7 +102,7 @@ pub async fn callback(
         expires_at: res.expires_in().map(|duration| Utc::now() + duration),
     };
 
-    let user = match app.auth.sync_oauth_account(account_info).await {
+    let user = match app.auth.oauth.sync_account(account_info).await {
         Ok(user) => user,
         Err(e) => {
             eprintln!("failed to sync oauth account: {}", e);

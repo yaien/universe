@@ -5,8 +5,9 @@ use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, patch, post, 
 use maud::{Markup, html};
 use serde::Deserialize;
 
+use crate::app::App;
+use crate::app::auth::{Organization, Role};
 use crate::app::store::UpdatePresentationArgs;
-use crate::app::{App, Organization, Role};
 use crate::infra::Id;
 use crate::web::dashboard::modules::base::{Content, Variant, page, toast};
 use crate::web::errors::WebError;

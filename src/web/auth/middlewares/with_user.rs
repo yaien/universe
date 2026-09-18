@@ -1,7 +1,5 @@
-use crate::{
-    app::{App, User},
-    infra::Id,
-};
+use crate::app::auth::User;
+use crate::{app::App, infra::Id};
 use actix_session::Session;
 use actix_web::{
     Error, HttpMessage,
@@ -27,7 +25,7 @@ pub async fn with_user<MB: MessageBody>(
         return next.call(req).await;
     };
 
-    let user = app.users.get_one_by_id(&user_id).await.ok();
+    let user = app.auth.users.get_one_by_id(&user_id).await.ok();
 
     req.extensions_mut().insert(user);
 

@@ -1,7 +1,7 @@
 use derive_more::Display;
 use maud::{DOCTYPE, Markup, html};
 
-use crate::app::{Organization, Role};
+use crate::app::auth::{Organization, Role};
 
 #[derive(Display)]
 #[display(rename_all = "lowercase")]

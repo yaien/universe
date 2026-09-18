@@ -1,6 +1,6 @@
 use maud::{Markup, PreEscaped, html};
 
-use crate::app::{Color, Layout, Page, SitemapFont};
+use crate::app::sitemaps::{Color, Layout, Page, SitemapFont};
 
 pub const BASE: &str = r#"
 *,

@@ -1,6 +1,7 @@
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 
+use crate::app::errors::{AppError, AppResult};
 use crate::infra::{DbPool, Id};
 
 pub struct Invitations {
@@ -17,7 +18,7 @@ impl Invitations {
         organization_id: &Id,
         user_email: &str,
         expires_at: &DateTime<Utc>,
-    ) -> Result<Id, sqlx::Error> {
+    ) -> AppResult<Id> {
         let query = r#"
             insert into invitations (organization_id, user_email, expires_at)
             values ($1, $2, $3)
@@ -30,14 +31,10 @@ impl Invitations {
             .execute(&self.pool)
             .await
             .map(|r| r.last_insert_rowid())
+            .map_err(AppError::Sqlx)
     }
 
-    pub async fn accept(
-        &self,
-        org_id: &Id,
-        user_email: &str,
-        user_id: &Id,
-    ) -> Result<Id, anyhow::Error> {
+    pub async fn accept(&self, org_id: &Id, user_email: &str, user_id: &Id) -> AppResult<Id> {
         let query = r#"
             select id from invitations
             where organization_id = $1 and user_email = $2 and expires_at > $3
@@ -75,7 +72,7 @@ mod tests {
     use chrono::Duration;
     use sqlx::migrate;
 
-    use crate::app::Roles;
+    use crate::app::auth::Roles;
 
     use super::*;
 

@@ -7,8 +7,10 @@ use maud::Markup;
 use mime::{APPLICATION_OCTET_STREAM, Mime};
 use serde::Deserialize;
 
-use crate::app::{App, Organization, RegistryContext, RenderPageOptions, render_page};
-use crate::app::{Branch, User};
+use crate::app::App;
+use crate::app::auth::{Organization, User};
+use crate::app::sitemaps::Branch;
+use crate::app::sitemaps::contents::{RegistryContext, RenderPageOptions, render_page};
 use crate::infra::Id;
 use crate::web::errors::WebError;
 
@@ -26,14 +28,21 @@ pub async fn get_index(
         .get_one_by_branch(&org.id, Branch::MAIN)
         .await?;
 
-    let page = app.pages.get_by_path(&sitemap.id, &path).await?;
+    let page = app.sitemaps.pages.get_by_path(&sitemap.id, &path).await?;
 
     let layout = match page.layout_id {
-        Some(layout_id) => Some(app.layouts.get_by_id(&sitemap.id, &layout_id).await?),
+        Some(layout_id) => {
+            let layout = app
+                .sitemaps
+                .layouts
+                .get_by_id(&sitemap.id, &layout_id)
+                .await?;
+            Some(layout)
+        }
         None => None,
     };
 
-    let fonts = app.fonts.get_by_sitemap_id(&sitemap.id).await?;
+    let fonts = app.sitemaps.fonts.get_by_sitemap_id(&sitemap.id).await?;
 
     let ctx = RegistryContext {
         app: app.into_inner(),
@@ -75,7 +84,7 @@ pub async fn get_favicon(app: Data<App>, org: ReqData<Organization>) -> Result<N
     };
 
     let mut file = app
-        .files
+        .storage
         .get_one_by_organization_id_and_id(&org.id, &file_id)
         .await
         .map_err(|err| {
@@ -83,7 +92,7 @@ pub async fn get_favicon(app: Data<App>, org: ReqData<Organization>) -> Result<N
         })?;
 
     let (path, format) = app
-        .files
+        .storage
         .get_path_and_format(&mut file, &0)
         .await
         .map_err(|err| {
@@ -118,12 +127,12 @@ pub async fn get_file(
 ) -> Result<NamedFile, Error> {
     let mut file = match name.parse::<Id>() {
         Ok(id) => app
-            .files
+            .storage
             .get_one_by_organization_id_and_id(&org.id, &id)
             .await
             .map_err(|e| WebError::Status(StatusCode::NOT_FOUND, e.to_string()))?,
         Err(_) => app
-            .files
+            .storage
             .get_one_by_organization_id_and_name(&org.id, &name)
             .await
             .map_err(|e| WebError::Status(StatusCode::NOT_FOUND, e.to_string()))?,
@@ -132,7 +141,7 @@ pub async fn get_file(
     let variant = query.variant.unwrap_or(0);
 
     let (path, format) = app
-        .files
+        .storage
         .get_path_and_format(&mut file, &variant)
         .await
         .map_err(|e| WebError::Status(StatusCode::NOT_FOUND, e.to_string()))?;

@@ -5,11 +5,9 @@ use serde::Serialize;
 use sqlx::prelude::FromRow;
 use url::Url;
 
-use crate::app::AppError;
-use crate::{
-    app::{Branch, Sitemaps},
-    infra::{DbPool, Id},
-};
+use crate::app::errors::AppError;
+use crate::app::sitemaps::{Branch, Sitemaps};
+use crate::infra::{DbPool, Id};
 
 #[derive(FromRow, Clone, Serialize)]
 pub struct Organization {
@@ -34,7 +32,7 @@ impl Organizations {
     pub async fn create(&self, url: &Url, title: &str) -> Result<Id, AppError> {
         let hostname = url
             .host_str()
-            .ok_or_else(|| AppError::Message("url does not have a hostname".to_string()))?;
+            .ok_or_else(|| "url does not have a hostname")?;
 
         let organization_id =
             sqlx::query("insert into organizations (url, hostname, title) values ($1, $2, $3)")
@@ -66,7 +64,7 @@ impl Organizations {
 mod tests {
     use sqlx::{Row, SqlitePool};
 
-    use crate::app::{Branch, Colors, Emails, Fonts, Layouts, Pages};
+    use crate::app::sitemaps::Branch;
 
     use super::*;
 
@@ -75,14 +73,7 @@ mod tests {
         let pool = SqlitePool::connect(":memory:").await.unwrap();
         sqlx::migrate!().run(&pool).await.unwrap();
 
-        let sitemaps = Arc::new(Sitemaps::new(
-            pool.clone(),
-            Arc::new(Pages::new(pool.clone())),
-            Arc::new(Emails::new(pool.clone())),
-            Arc::new(Fonts::new(pool.clone())),
-            Arc::new(Colors::new(pool.clone())),
-            Arc::new(Layouts::new(pool.clone())),
-        ));
+        let sitemaps = Arc::new(Sitemaps::new(pool.clone()));
 
         let organizations = Organizations::new(pool.clone(), sitemaps.clone());
 

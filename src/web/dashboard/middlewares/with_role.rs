@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
-use crate::app::Organization;
-use crate::app::{App, User};
+use crate::app::App;
+use crate::app::auth::{Organization, User};
 use crate::web::errors::WebError;
 
 use actix_web::HttpMessage;
@@ -23,6 +23,7 @@ pub async fn role<MB: MessageBody>(
     };
 
     if let Ok(role) = app
+        .auth
         .roles
         .get_one_by_org_id_and_user_id(&org.id, &user.id)
         .await
@@ -31,8 +32,14 @@ pub async fn role<MB: MessageBody>(
         return next.call(req).await;
     }
 
-    if let Ok(_) = app.invitations.accept(&org.id, &user.email, &user.id).await {
+    if let Ok(_) = app
+        .auth
+        .invitations
+        .accept(&org.id, &user.email, &user.id)
+        .await
+    {
         if let Ok(role) = app
+            .auth
             .roles
             .get_one_by_org_id_and_user_id(&org.id, &user.id)
             .await

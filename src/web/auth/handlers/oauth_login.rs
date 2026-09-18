@@ -1,4 +1,5 @@
-use crate::app::{App, OAuthState, Organization};
+use crate::app::App;
+use crate::app::auth::{OAuthState, Organization};
 use crate::infra::Monolith;
 use actix_web::HttpResponse;
 use actix_web::http::header;
@@ -28,7 +29,7 @@ pub async fn login(
         provider: "google".to_string(),
     };
 
-    if app.auth.create_oauth_state(state).await.is_err() {
+    if app.auth.oauth.create_state(state).await.is_err() {
         return HttpResponse::InternalServerError().body("failed creating oauth state");
     };
 

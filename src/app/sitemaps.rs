@@ -1,10 +1,24 @@
+mod colors;
+pub mod contents;
+mod emails;
+mod fonts;
+mod layouts;
+mod pages;
+
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use anyhow::Result;
 use sqlx::prelude::FromRow;
 
-use crate::app::{self, Colors, Emails, Fonts, Layouts, Pages, bundle_css, bundle_js};
+pub use colors::*;
+pub use emails::*;
+pub use fonts::*;
+pub use layouts::*;
+pub use pages::*;
+
+use contents::{bundle_css, bundle_js};
+
+use crate::app::{self, AppError, AppResult};
 use crate::infra::{DbPool, Id};
 
 pub struct Branch;
@@ -23,22 +37,21 @@ pub struct Sitemap {
 
 pub struct Sitemaps {
     pool: DbPool,
-    pages: Arc<Pages>,
-    emails: Arc<Emails>,
-    fonts: Arc<Fonts>,
-    colors: Arc<Colors>,
-    layouts: Arc<Layouts>,
+    pub pages: Pages,
+    pub emails: Emails,
+    pub fonts: Fonts,
+    pub colors: Colors,
+    pub layouts: Layouts,
 }
 
 impl Sitemaps {
-    pub fn new(
-        pool: DbPool,
-        pages: Arc<Pages>,
-        emails: Arc<Emails>,
-        fonts: Arc<Fonts>,
-        colors: Arc<Colors>,
-        layouts: Arc<Layouts>,
-    ) -> Self {
+    pub fn new(pool: DbPool) -> Self {
+        let pages = Pages::new(pool.clone());
+        let emails = Emails::new(pool.clone());
+        let fonts = Fonts::new(pool.clone());
+        let colors = Colors::new(pool.clone());
+        let layouts = Layouts::new(pool.clone());
+
         Self {
             pool,
             pages,
@@ -84,7 +97,7 @@ impl Sitemaps {
         org_id: &Id,
         from_sitemap: &Sitemap,
         to_branch: &str,
-    ) -> Result<Id, sqlx::Error> {
+    ) -> AppResult<Id> {
         let to_sitemap_id = match self.get_one_by_branch_optional(org_id, to_branch).await? {
             Some(sitemap) => sitemap.id,
             None => self.create(org_id, to_branch).await?,
@@ -189,9 +202,9 @@ impl Sitemaps {
         &self,
         branch: &str,
         org_id: &Id,
-    ) -> app::Result<()> {
+    ) -> app::AppResult<()> {
         if branch == Branch::MAIN || branch == Branch::DRAFT {
-            return Err(app::AppError::Message(
+            return Err(AppError::Message(
                 "cant delete main or draft branch".to_string(),
             ));
         }
