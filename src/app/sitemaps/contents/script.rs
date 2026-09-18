@@ -1,6 +1,6 @@
 use maud::{Markup, PreEscaped, html};
 
-use crate::app::{Layout, Page};
+use crate::app::sitemaps::{Layout, Page};
 
 pub fn inline(layout_script: &str, page_script: &str) -> Markup {
     let script = format!(

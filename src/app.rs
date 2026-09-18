@@ -1,108 +1,45 @@
-mod auth;
-mod color;
-mod content;
-mod email;
-mod error;
-mod file;
-mod font;
-mod integration;
-mod invitation;
-mod layout;
-mod organization;
-mod page;
-mod role;
-mod sitemap;
+pub mod auth;
+mod errors;
+pub mod sitemaps;
+pub mod storage;
 pub mod store;
-mod user;
 
-use store::Store;
-
-pub use auth::*;
-pub use color::*;
-pub use content::*;
-pub use email::*;
-pub use error::*;
-pub use file::*;
-pub use font::*;
-pub use invitation::*;
-pub use layout::*;
-pub use organization::*;
-pub use page::*;
-pub use role::*;
-pub use sitemap::*;
-pub use user::*;
-
-use crate::infra::Monolith;
 use std::sync::Arc;
 
+use auth::Auth;
+use sitemaps::Sitemaps;
+use storage::Storage;
+use store::Store;
+
+use crate::infra::Monolith;
+
+pub use errors::*;
+
 pub struct App {
-    pub organizations: Arc<Organizations>,
-    pub pages: Arc<Pages>,
     pub sitemaps: Arc<Sitemaps>,
-    pub emails: Arc<Emails>,
-    pub layouts: Arc<Layouts>,
     pub auth: Arc<Auth>,
-    pub users: Arc<Users>,
-    pub invitations: Arc<Invitations>,
-    pub roles: Arc<Roles>,
-    pub files: Arc<Files>,
-    pub fonts: Arc<Fonts>,
-    pub colors: Arc<Colors>,
+    pub storage: Arc<Storage>,
     pub store: Arc<Store>,
 }
 
 impl App {
     pub fn new(mono: &Monolith) -> Self {
-        let users = Arc::new(Users::new(mono.pool.clone()));
+        let sitemaps = Arc::new(Sitemaps::new(mono.pool.clone()));
 
-        let pages = Arc::new(Pages::new(mono.pool.clone()));
+        let auth = Arc::new(Auth::new(mono.pool.clone(), sitemaps.clone()));
 
-        let emails = Arc::new(Emails::new(mono.pool.clone()));
-
-        let layouts = Arc::new(Layouts::new(mono.pool.clone()));
-
-        let fonts = Arc::new(Fonts::new(mono.pool.clone()));
-
-        let colors = Arc::new(Colors::new(mono.pool.clone()));
-
-        let sitemaps = Arc::new(Sitemaps::new(
-            mono.pool.clone(),
-            pages.clone(),
-            emails.clone(),
-            fonts.clone(),
-            colors.clone(),
-            layouts.clone(),
-        ));
-
-        let invitations = Arc::new(Invitations::new(mono.pool.clone()));
-
-        let roles = Arc::new(Roles::new(mono.pool.clone()));
-
-        let organizations = Arc::new(Organizations::new(mono.pool.clone(), sitemaps.clone()));
-
-        let auth = Arc::new(Auth::new(mono.pool.clone(), users.clone()));
-
-        let files = Arc::new(Files::new(
+        let storage = Arc::new(Storage::new(
             mono.pool.clone(),
             mono.queue.clone(),
             mono.config.storage_path.clone(),
         ));
 
-        let store = Arc::new(Store::new(mono.pool.clone(), files.clone()));
+        let store = Arc::new(Store::new(mono.pool.clone(), storage.clone()));
 
         Self {
-            users,
-            pages,
             sitemaps,
-            emails,
-            layouts,
-            organizations,
             auth,
-            invitations,
-            roles,
-            files,
-            fonts,
-            colors,
+            storage,
             store,
         }
     }

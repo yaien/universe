@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sitemap_id INTEGER,
+    created_at VARCHAR NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at VARCHAR NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    name VARCHAR NOT NULL,
+    tool VARCHAR NOT NULL,
+    FOREIGN KEY (sitemap_id) REFERENCES sitemaps(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_actions_sitemap_id ON actions(sitemap_id);
+CREATE INDEX IF NOT EXISTS idx_actions_name ON actions(name);

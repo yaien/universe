@@ -12,11 +12,14 @@ use maud::{Markup, html};
 use minijinja::context;
 use serde::Deserialize;
 
-use crate::app::{
-    App, AppError, Branch, Organization, PageInfo, RegistryContext, RenderLayoutOptions,
-    RenderPageInlineOptions, Role, Scope, Sitemap, User, render_email, render_layout,
+use crate::app::App;
+use crate::app::auth::{Organization, Role, User};
+use crate::app::sitemaps::contents::{
+    RegistryContext, RenderLayoutOptions, RenderPageInlineOptions, render_email, render_layout,
     render_page_inline,
 };
+use crate::app::sitemaps::{Branch, PageInfo, Sitemap};
+use crate::app::storage::Scope;
 use crate::web::dashboard::modules::base::{Content, Variant, page, toast};
 
 use super::sitemaps_views as views;
@@ -82,6 +85,7 @@ async fn get_view_state<'a>(
     let model = match session_state.model_id {
         Some(id) => match session_state.model_type {
             ModelType::Page => app
+                .sitemaps
                 .pages
                 .get_by_id(&sitemap.id, &id)
                 .await
@@ -89,6 +93,7 @@ async fn get_view_state<'a>(
                 .inspect(|page| session_state.model_id = Some(page.id))
                 .map(|page| Model::Page(page)),
             ModelType::Layout => app
+                .sitemaps
                 .layouts
                 .get_by_id(&sitemap.id, &id)
                 .await
@@ -96,6 +101,7 @@ async fn get_view_state<'a>(
                 .inspect(|layout| session_state.model_id = Some(layout.id))
                 .map(|layout| Model::Layout(layout)),
             ModelType::Email => app
+                .sitemaps
                 .emails
                 .get_by_id(&sitemap.id, &id)
                 .await
@@ -105,6 +111,7 @@ async fn get_view_state<'a>(
         },
         None => match session_state.model_type {
             ModelType::Page => app
+                .sitemaps
                 .pages
                 .get_oldest(&sitemap.id)
                 .await
@@ -112,6 +119,7 @@ async fn get_view_state<'a>(
                 .inspect(|page| session_state.model_id = Some(page.id))
                 .map(|page| Model::Page(page)),
             ModelType::Layout => app
+                .sitemaps
                 .layouts
                 .get_oldest(&sitemap.id)
                 .await
@@ -119,6 +127,7 @@ async fn get_view_state<'a>(
                 .inspect(|layout| session_state.model_id = Some(layout.id))
                 .map(|layout| Model::Layout(layout)),
             ModelType::Email => app
+                .sitemaps
                 .emails
                 .get_oldest(&sitemap.id)
                 .await
@@ -161,18 +170,21 @@ async fn get_view_state<'a>(
                 .ok();
 
             view_state.pages = app
+                .sitemaps
                 .pages
                 .get_by_sitemap_id(&view_state.sitemap.id)
                 .await
                 .ok();
 
             view_state.emails = app
+                .sitemaps
                 .emails
                 .get_by_sitemap_id(&view_state.sitemap.id)
                 .await
                 .ok();
 
             view_state.layouts = app
+                .sitemaps
                 .layouts
                 .get_by_sitemap_id(&view_state.sitemap.id)
                 .await
@@ -193,12 +205,14 @@ async fn get_view_state<'a>(
                 .ok();
 
             view_state.pages = app
+                .sitemaps
                 .pages
                 .get_by_sitemap_id(&view_state.sitemap.id)
                 .await
                 .ok();
 
             view_state.layouts = app
+                .sitemaps
                 .layouts
                 .get_by_sitemap_id(&view_state.sitemap.id)
                 .await
@@ -206,6 +220,7 @@ async fn get_view_state<'a>(
         }
         Section::Edit => {
             view_state.layouts = app
+                .sitemaps
                 .layouts
                 .get_by_sitemap_id(&view_state.sitemap.id)
                 .await
@@ -213,7 +228,7 @@ async fn get_view_state<'a>(
         }
         Section::Files => {
             view_state.files = app
-                .files
+                .storage
                 .get_by_organization_id(&org.id, Scope::PAGES)
                 .await
                 .ok();
@@ -221,7 +236,7 @@ async fn get_view_state<'a>(
         Section::File => {
             if let Some(file_id) = session_state.file_id {
                 view_state.file = app
-                    .files
+                    .storage
                     .get_one_by_organization_id_and_id(&org.id, &file_id)
                     .await
                     .ok();
@@ -229,6 +244,7 @@ async fn get_view_state<'a>(
         }
         Section::Fonts => {
             view_state.sitemap_fonts = app
+                .sitemaps
                 .fonts
                 .get_by_sitemap_id(&view_state.sitemap.id)
                 .await
@@ -236,6 +252,7 @@ async fn get_view_state<'a>(
         }
         Section::BrowseFonts => {
             view_state.browsed_fonts = app
+                .sitemaps
                 .fonts
                 .find(
                     view_state.browsed_font_query.clone(),
@@ -249,6 +266,7 @@ async fn get_view_state<'a>(
         Section::ConfigureFont => {
             if let Some(browsed_font_id) = session_state.browsed_font_id {
                 view_state.browsed_font = app
+                    .sitemaps
                     .fonts
                     .get_one(&browsed_font_id)
                     .await
@@ -258,6 +276,7 @@ async fn get_view_state<'a>(
 
             if let Some(sitemap_font_id) = session_state.sitemap_font_id {
                 view_state.sitemap_font = app
+                    .sitemaps
                     .fonts
                     .get_one_sitemap_font(&view_state.sitemap.id, &sitemap_font_id)
                     .await
@@ -267,6 +286,7 @@ async fn get_view_state<'a>(
         }
         Section::Colors => {
             view_state.colors = app
+                .sitemaps
                 .colors
                 .get_by_sitemap_id(&view_state.sitemap.id)
                 .await
@@ -338,19 +358,19 @@ pub async fn get_preview(
 
     match session_state.model_type {
         ModelType::Page => {
-            let page = app.pages.get_by_id(&sitemap.id, &model_id).await?;
+            let page = app.sitemaps.pages.get_by_id(&sitemap.id, &model_id).await?;
 
-            let fonts = app.fonts.get_by_sitemap_id(&sitemap.id).await?;
+            let fonts = app.sitemaps.fonts.get_by_sitemap_id(&sitemap.id).await?;
 
-            let colors = app
-                .colors
-                .get_by_sitemap_id(&sitemap.id)
-                .await
-                .map_err(|e| AppError::from(e))?;
+            let colors = app.sitemaps.colors.get_by_sitemap_id(&sitemap.id).await?;
 
             let layout = match page.layout_id {
                 Some(layout_id) => {
-                    let layout = app.layouts.get_by_id(&sitemap.id, &layout_id).await?;
+                    let layout = app
+                        .sitemaps
+                        .layouts
+                        .get_by_id(&sitemap.id, &layout_id)
+                        .await?;
 
                     Some(layout)
                 }
@@ -374,15 +394,20 @@ pub async fn get_preview(
             Ok(content)
         }
         ModelType::Layout => {
-            let layout = app.layouts.get_by_id(&sitemap.id, &model_id).await?;
+            let layout = app
+                .sitemaps
+                .layouts
+                .get_by_id(&sitemap.id, &model_id)
+                .await?;
 
             let fonts = app
+                .sitemaps
                 .fonts
                 .get_by_sitemap_id(&sitemap.id)
                 .await
                 .context("failed getting fonts")?;
 
-            let colors = app.colors.get_by_sitemap_id(&sitemap.id).await?;
+            let colors = app.sitemaps.colors.get_by_sitemap_id(&sitemap.id).await?;
 
             let ctx = RegistryContext {
                 app: app.into_inner(),
@@ -400,7 +425,11 @@ pub async fn get_preview(
             Ok(content)
         }
         ModelType::Email => {
-            let email = app.emails.get_by_id(&sitemap.id, &model_id).await?;
+            let email = app
+                .sitemaps
+                .emails
+                .get_by_id(&sitemap.id, &model_id)
+                .await?;
             let ctx = context! {
                 org => org.deref()
             };
@@ -424,7 +453,7 @@ pub async fn upload_file(
     session: Session,
     MultipartForm(form): MultipartForm<UploadFilesForm>,
 ) -> Result<Markup, WebError> {
-    app.files
+    app.storage
         .upload_many(&org.id, form.files, Scope::PAGES)
         .await
         .context("failed uploading files")?;
@@ -454,7 +483,7 @@ pub async fn update_file(
     file_id: Path<Id>,
     form: Form<UpdateFileForm>,
 ) -> Result<HttpResponse, WebError> {
-    app.files
+    app.storage
         .update_by_organization_id_and_id(&org.id, &file_id, &form.name)
         .await
         .context("failed saving file")?;
@@ -486,7 +515,7 @@ pub async fn delete_file(
 
     session.insert("pages", &session_state).ok();
 
-    app.files
+    app.storage
         .delete_by_organization_id_and_id(&org.id, &file_id)
         .await
         .map_err(|e| {
@@ -554,7 +583,8 @@ pub async fn create_font(
 ) -> Result<HttpResponse, WebError> {
     let (session_state, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-    app.fonts
+    app.sitemaps
+        .fonts
         .create_sitemap_font(&sitemap.id, &form.font_id, &form.tag)
         .await
         .context("failed creating font")?;
@@ -578,7 +608,8 @@ pub async fn update_font(
 ) -> Result<HttpResponse, WebError> {
     let (session_state, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-    app.fonts
+    app.sitemaps
+        .fonts
         .update_sitemap_font(&sitemap_font_id, &sitemap.id, &form.font_id, &form.tag)
         .await
         .context("failed updating font")?;
@@ -593,6 +624,7 @@ async fn clean_font_state_response(
     sitemap_id: &Id,
 ) -> Result<HttpResponse, WebError> {
     let associated_fonts = app
+        .sitemaps
         .fonts
         .get_by_sitemap_id(sitemap_id)
         .await
@@ -621,6 +653,7 @@ pub async fn create_color(
     let (_, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
     let color = app
+        .sitemaps
         .colors
         .create(&sitemap.id)
         .await
@@ -648,7 +681,8 @@ pub async fn update_color(
     form: Form<UpdateColorForm>,
 ) -> Result<HttpResponse, WebError> {
     let (_, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
-    app.colors
+    app.sitemaps
+        .colors
         .update(&sitemap.id, &color_id, &form.tag, &form.value)
         .await
         .map_err(|e| {
@@ -674,7 +708,8 @@ pub async fn delete_color(
 ) -> Result<HttpResponse, WebError> {
     let (_, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-    app.colors
+    app.sitemaps
+        .colors
         .delete(&sitemap.id, &color_id)
         .await
         .context("failed deleting color")?;
@@ -706,19 +741,22 @@ pub async fn update_html(
 
     match session_state.model_type {
         ModelType::Page => {
-            app.pages
+            app.sitemaps
+                .pages
                 .update_html(&sitemap.id, &model_id, &form.source)
                 .await
                 .context("failed updating model html")?;
         }
         ModelType::Layout => {
-            app.layouts
+            app.sitemaps
+                .layouts
                 .update_html(&sitemap.id, &model_id, &form.source)
                 .await
                 .context("failed updating model html")?;
         }
         ModelType::Email => {
-            app.emails
+            app.sitemaps
+                .emails
                 .update_body(&sitemap.id, &model_id, &form.source)
                 .await
                 .context("failed updating model body")?;
@@ -745,13 +783,15 @@ pub async fn update_css(
 
     match session_state.model_type {
         ModelType::Page => {
-            app.pages
+            app.sitemaps
+                .pages
                 .update_css(&sitemap.id, &model_id, &form.source)
                 .await
                 .context("failed updating css")?;
         }
         ModelType::Layout => {
-            app.layouts
+            app.sitemaps
+                .layouts
                 .update_css(&sitemap.id, &model_id, &form.source)
                 .await
                 .context("failed updating css")?;
@@ -783,13 +823,15 @@ pub async fn update_js(
 
     match session_state.model_type {
         ModelType::Page => {
-            app.pages
+            app.sitemaps
+                .pages
                 .update_js(&sitemap.id, &model_id, &form.source)
                 .await
                 .context("failed updating js")?;
         }
         ModelType::Layout => {
-            app.layouts
+            app.sitemaps
+                .layouts
                 .update_js(&sitemap.id, &model_id, &form.source)
                 .await
                 .context("failed updating js")?;
@@ -831,7 +873,8 @@ pub async fn update_og_image(
         return Err((StatusCode::FORBIDDEN, "only pages can update og image"))?;
     };
 
-    app.pages
+    app.sitemaps
+        .pages
         .update_og_image_file_id(&sitemap.id, &page_id, &form.file_id)
         .await
         .context("failed updating og image")?;
@@ -879,6 +922,7 @@ pub async fn create_page(
         get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
     let page = app
+        .sitemaps
         .pages
         .create(&sitemap.id, &form.path, &form.name, &form.title)
         .await
@@ -891,6 +935,7 @@ pub async fn create_page(
     session.insert("pages", &session_state).ok();
 
     let layouts = app
+        .sitemaps
         .layouts
         .get_by_sitemap_id(&sitemap.id)
         .await
@@ -919,6 +964,7 @@ pub async fn create_layout(
         get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
     let layout = app
+        .sitemaps
         .layouts
         .create(&sitemap.id, &form.name)
         .await
@@ -982,7 +1028,8 @@ pub async fn update_page(
 
     let layout_id: Option<Id> = form.layout_id.parse().ok();
 
-    app.pages
+    app.sitemaps
+        .pages
         .update_info(&PageInfo {
             sitemap_id: sitemap.id.clone(),
             page_id: page_id.into_inner(),
@@ -1018,7 +1065,8 @@ pub async fn update_layout(
 ) -> Result<HttpResponse, WebError> {
     let (_, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-    app.layouts
+    app.sitemaps
+        .layouts
         .update_name(&sitemap.id, &layout_id, &form.name)
         .await
         .context("failed updating layout info")?;
@@ -1045,7 +1093,8 @@ pub async fn update_email(
 ) -> Result<HttpResponse, WebError> {
     let (_, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-    app.emails
+    app.sitemaps
+        .emails
         .update_subject(&sitemap.id, &email_id, &form.subject)
         .await
         .context("failed updating email info")?;
@@ -1104,7 +1153,8 @@ pub async fn delete_page(
     let (mut session_state, sitemap) =
         get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-    app.pages
+    app.sitemaps
+        .pages
         .delete_one_by_sitemap_id(&sitemap.id, &page_id)
         .await?;
 
@@ -1132,7 +1182,8 @@ pub async fn delete_layout(
     let (mut session_state, sitemap) =
         get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
-    app.layouts
+    app.sitemaps
+        .layouts
         .delete_one_by_sitemap_id(&sitemap.id, &layout_id)
         .await?;
 

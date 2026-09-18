@@ -1,3 +1,4 @@
+use actix_web::Error as ActixError;
 use actix_web::error::ResponseError;
 use actix_web::http::{StatusCode, header};
 use actix_web::{HttpResponse, HttpResponseBuilder};
@@ -16,6 +17,9 @@ pub enum WebError {
 
     #[error("{0}")]
     Message(String),
+
+    #[error("{0}")]
+    Actix(ActixError),
 }
 
 impl ResponseError for WebError {
@@ -34,6 +38,9 @@ impl ResponseError for WebError {
             // Return a message
             Message(msg) => HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
                 .body(toast(&msg, Variant::Warning)),
+
+            // Return an actix error
+            Actix(err) => err.error_response(),
         }
     }
 }
@@ -73,5 +80,11 @@ impl From<(StatusCode, &str)> for WebError {
 impl From<(StatusCode, String)> for WebError {
     fn from((code, msg): (StatusCode, String)) -> Self {
         WebError::Status(code, msg)
+    }
+}
+
+impl From<ActixError> for WebError {
+    fn from(err: ActixError) -> Self {
+        WebError::Actix(err)
     }
 }

@@ -3,7 +3,8 @@ use std::sync::Arc;
 use actix_multipart::form::tempfile::TempFile;
 use sqlx::prelude::FromRow;
 
-use crate::app::{AppError, Files, Scope};
+use crate::app::storage::Scope;
+use crate::app::{AppError, Storage};
 use crate::infra::{DbPool, Id};
 
 #[derive(FromRow)]
@@ -19,11 +20,11 @@ pub const MAX_CONTENTS_PER_PRESENTATION: i64 = 5;
 
 pub struct Contents {
     pool: DbPool,
-    files: Arc<Files>,
+    files: Arc<Storage>,
 }
 
 impl Contents {
-    pub fn new(pool: DbPool, files: Arc<Files>) -> Self {
+    pub fn new(pool: DbPool, files: Arc<Storage>) -> Self {
         Self { pool, files }
     }
 

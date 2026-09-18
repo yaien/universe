@@ -1,6 +1,6 @@
 use sqlx::prelude::FromRow;
 
-use crate::app;
+use crate::app::errors::AppResult;
 use crate::infra::{DbPool, Id};
 
 #[derive(FromRow, Clone)]
@@ -138,20 +138,14 @@ impl Layouts {
             .map(|_| ())
     }
 
-    pub async fn delete_one_by_sitemap_id(
-        &self,
-        sitemap_id: &Id,
-        layout_id: &Id,
-    ) -> Result<(), app::AppError> {
+    pub async fn delete_one_by_sitemap_id(&self, sitemap_id: &Id, layout_id: &Id) -> AppResult<()> {
         let count: i64 = sqlx::query_scalar("select count(*) from layouts where sitemap_id = $1")
             .bind(sitemap_id)
             .fetch_one(&self.pool)
             .await?;
 
         if count == 1 {
-            return Err(app::AppError::Message(
-                "cannot delete the only layout".into(),
-            ));
+            return Err("no es posible eliminar el unico diseño")?;
         }
 
         sqlx::query("delete from layouts where sitemap_id = $1 and id = $2")

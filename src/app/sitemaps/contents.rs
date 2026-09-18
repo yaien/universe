@@ -2,7 +2,9 @@ use anyhow::Context;
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 use minijinja::{Environment, Value, context};
 
-use crate::app::{AppError, Color, Email, Layout, Page, Sitemap, SitemapFont};
+use crate::app::errors::AppError;
+
+use super::{Color, Email, Layout, Page, Sitemap, SitemapFont};
 
 mod links;
 mod registry;

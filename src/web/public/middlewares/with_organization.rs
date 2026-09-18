@@ -1,9 +1,10 @@
 use crate::app::App;
 use crate::web::errors::WebError;
+use actix_web::Error;
 use actix_web::body::MessageBody;
 use actix_web::http::StatusCode;
 use actix_web::{
-    Error, HttpMessage,
+    HttpMessage,
     dev::{ServiceRequest, ServiceResponse},
     middleware::Next,
     web::Data,
@@ -26,10 +27,10 @@ pub async fn with_organization(
         return Err(WebError::Redirect(uri))?;
     }
 
-    let Ok(org) = app.organizations.get_one_by_host(&host).await else {
+    let Ok(org) = app.auth.organizations.get_one_by_host(&host).await else {
         return Err(WebError::Status(
             StatusCode::NOT_FOUND,
-            String::from("organization not found"),
+            "organization not found".into(),
         ))?;
     };
 

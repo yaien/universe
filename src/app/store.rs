@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::app::Files;
+use crate::app::Storage;
 pub use crate::app::store::content::*;
 pub use crate::app::store::presentation::*;
 pub use crate::app::store::product::*;
@@ -17,7 +17,7 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(db: DbPool, files: Arc<Files>) -> Self {
+    pub fn new(db: DbPool, files: Arc<Storage>) -> Self {
         Self {
             products: Products::new(db.clone()),
             presentations: Presentations::new(db.clone()),

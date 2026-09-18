@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use minijinja::Environment;
 
-use crate::app::{App, Organization, User};
+use crate::app::App;
+use crate::app::auth::{Organization, User};
 
 macro_rules! register {
     ($func: ident, $env: expr) => {

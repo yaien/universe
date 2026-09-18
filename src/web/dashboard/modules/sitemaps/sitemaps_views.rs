@@ -4,9 +4,9 @@ use serde_json::json;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::app::{
-    Branch, Color, Email, File, Font, Layout, Organization, Page, Sitemap, SitemapFont,
-};
+use crate::app::auth::Organization;
+use crate::app::sitemaps::{Branch, Color, Email, Font, Layout, Page, Sitemap, SitemapFont};
+use crate::app::storage::File;
 use crate::infra::Id;
 
 pub enum Model {

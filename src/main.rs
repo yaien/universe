@@ -15,7 +15,7 @@ use sqlx::migrate;
 
 use infra::Monolith;
 
-use crate::app::processor::FileProcessor;
+use crate::app::storage::processor::FileProcessor;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -35,6 +35,7 @@ async fn main() -> Result<()> {
     match &cmd.command {
         Some(Command::Create { url, title, email }) => {
             let org_id = service
+                .auth
                 .organizations
                 .create(&url, title)
                 .await
@@ -43,6 +44,7 @@ async fn main() -> Result<()> {
             let exp = Utc::now() + Duration::hours(3);
 
             service
+                .auth
                 .invitations
                 .create(&org_id, email, &exp)
                 .await
@@ -52,6 +54,7 @@ async fn main() -> Result<()> {
         }
         Some(Command::Invite { email, hostname }) => {
             let org = service
+                .auth
                 .organizations
                 .get_one_by_host(hostname)
                 .await
@@ -60,6 +63,7 @@ async fn main() -> Result<()> {
             let exp = Utc::now() + Duration::hours(3);
 
             service
+                .auth
                 .invitations
                 .create(&org.id, email, &exp)
                 .await
@@ -77,7 +81,7 @@ async fn main() -> Result<()> {
 
             tokio::spawn(async move {
                 let mut w = worker.lock().await;
-                w.procesor(Box::new(FileProcessor::new(worker_srv.files.clone())));
+                w.procesor(Box::new(FileProcessor::new(worker_srv.storage.clone())));
                 w.work().await;
             });
 
