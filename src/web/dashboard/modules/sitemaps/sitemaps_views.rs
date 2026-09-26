@@ -5,6 +5,7 @@ use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use crate::app::auth::Organization;
+use crate::app::sitemaps::contents::Tool;
 use crate::app::sitemaps::{Branch, Color, Email, Font, Layout, Page, Sitemap, SitemapFont};
 use crate::app::storage::File;
 use crate::infra::Id;
@@ -99,6 +100,9 @@ pub enum Section {
     EditStyles,
     EditScript,
     EditHTML,
+    Actions,
+    CreateAction,
+    EditAction,
     Publish,
 }
 
@@ -113,6 +117,7 @@ impl Section {
             Self::EditHTML => true,
             Self::EditScript => true,
             Self::EditStyles => true,
+            Self::Actions => true,
             _ => false,
         }
     }
@@ -123,6 +128,7 @@ impl Section {
             Self::Colors => true,
             Self::EditScript => true,
             Self::EditStyles => true,
+            Self::EditAction => true,
             _ => false,
         }
     }
@@ -137,6 +143,7 @@ impl Section {
             Self::EditHTML => Some("fa-solid fa-code"),
             Self::EditStyles => Some("fa-brands fa-css"),
             Self::EditScript => Some("fa-brands fa-js"),
+            Self::Actions => Some("fa-regular fa-hand-point-up"),
             _ => None,
         }
     }
@@ -157,6 +164,9 @@ impl Section {
             Section::EditHTML => edit_html(state),
             Section::EditScript => edit_js(state),
             Section::EditStyles => edit_css(state),
+            Section::Actions => actions(state),
+            Section::CreateAction => create_action(state),
+            Section::EditAction => edit_action(state),
         }
     }
 }
@@ -1078,4 +1088,56 @@ pub fn edit_js(state: &ViewState) -> Markup {
             }
         }
     }
+}
+
+pub fn actions(state: &ViewState) -> Markup {
+    html! {
+        .template-actions {
+            .actions {
+                button.clear hx-get="/dashboard/sitemaps" hx-vals=(json!({ "section": Section::CreateAction })) hx-target="#editor" hx-swap="outerHTML" {
+                    i.fa-solid.fa-plus {}
+                }
+            }
+            ul {
+                li {
+                    "Retorna un html"
+                }
+            }
+
+        }
+    }
+}
+
+pub fn create_action(state: &ViewState) -> Markup {
+    html!(
+        .template-actions {
+            form hx-post="/dashboard/sitemaps/actions" hx-target="#editor" {
+                fieldset {
+                    legend { "Nombre" }
+                    input name="name" required {}
+                }
+                fieldset {
+                    legend { "Nombre Clave"}
+                    input name="key" required {}
+                }
+                fieldset {
+                    legend { "Función" }
+                    select name="tool" required {
+                        @for tool in Tool::iter() {
+                            option value=(tool) {
+                                (tool.label())
+                            }
+                        }
+                    }
+                }
+                .actions {
+                    button { "Crear" }
+                }
+            }
+        }
+    )
+}
+
+pub fn edit_action(state: &ViewState) -> Markup {
+    html! {}
 }

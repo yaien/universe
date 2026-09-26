@@ -10,9 +10,11 @@ mod links;
 mod registry;
 mod script;
 mod style;
+mod tools;
 
 pub use script::bundle as bundle_js;
 pub use style::bundle as bundle_css;
+pub use tools::*;
 
 pub use registry::{RegisterFunctions, RegistryContext};
 
