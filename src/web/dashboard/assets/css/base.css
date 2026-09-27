@@ -861,3 +861,21 @@ article,
         }
     }
 }
+
+.list {
+    list-style-type: none;
+    padding: 0;
+
+    .item {
+        border-bottom: var(--border);
+        padding: var(--space);
+
+        &.detail {
+            cursor: pointer;
+        }
+
+        &:hover {
+            background-color: var(--hover-color);
+        }
+    }
+}

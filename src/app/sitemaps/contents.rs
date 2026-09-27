@@ -36,7 +36,8 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
         fonts,
     } = options;
 
-    let content = get_page_content(&ctx, &page, &layout).context("failed getting page content")?;
+    let content =
+        get_page_content(&ctx, &page, &layout, false).context("failed getting page content")?;
 
     let org = &ctx.org;
 
@@ -108,7 +109,8 @@ pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, Ap
         ctx,
     } = options;
 
-    let content = get_page_content(&ctx, &page, &layout).context("failed getting page content")?;
+    let content =
+        get_page_content(&ctx, &page, &layout, true).context("failed getting page content")?;
 
     Ok(html!(
         (DOCTYPE)
@@ -157,6 +159,7 @@ fn get_page_content(
     ctx: &RegistryContext,
     page: &Page,
     layout: &Option<Layout>,
+    inline: bool,
 ) -> Result<String, AppError> {
     let layout_template = layout
         .as_ref()
@@ -166,7 +169,7 @@ fn get_page_content(
 
     let mut env = Environment::new();
 
-    env.register_functions(&ctx);
+    env.register_functions(&ctx, inline);
 
     match env.add_template("layout", layout_template) {
         Ok(_) => {}
@@ -248,7 +251,7 @@ pub fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppError> {
 fn get_layout_content(ctx: &RegistryContext, layout: &Layout) -> Result<String, AppError> {
     let mut env = Environment::new();
 
-    env.register_functions(ctx);
+    env.register_functions(ctx, true);
 
     let s = context! { org => &ctx.org, user => &ctx.user };
 

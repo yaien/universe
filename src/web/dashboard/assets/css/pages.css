@@ -339,4 +339,10 @@
             }
         }
     }
+
+    .template-actions {
+        fieldset.code {
+            height: 300px;
+        }
+    }
 }

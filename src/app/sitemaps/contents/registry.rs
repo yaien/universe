@@ -21,20 +21,20 @@ pub struct RegistryContext {
 }
 
 pub trait RegisterFunctions {
-    fn register_functions(&mut self, ctx: &RegistryContext);
+    fn register_functions(&mut self, ctx: &RegistryContext, inline: bool);
 }
 
 impl RegisterFunctions for Environment<'_> {
-    fn register_functions(
-        &mut self,
-        RegistryContext {
-            app: _app,
+    fn register_functions(&mut self, ctx: &RegistryContext, inline: bool) {
+        let RegistryContext {
+            app: _,
             org,
-            user: _user,
-        }: &RegistryContext,
-    ) {
+            user: _,
+        } = ctx;
+
         register!(file_url, self);
         register!(external_file_url, self, org);
+        register!(action_url, self, inline);
     }
 }
 
@@ -52,6 +52,15 @@ fn external_file_url(org: Arc<Organization>) -> impl Fn(String, Option<String>) 
                 format!("{}/assets/dynamic/files/{name}?variant={variant}", org.url)
             }
             None => format!("{}/assets/dynamic/files/{name}", org.url),
+        }
+    }
+}
+
+fn action_url(inline: bool) -> impl Fn(String) -> String {
+    move |codename: String| -> String {
+        match inline {
+            true => format!("/dashboard/sitemaps/__actions/{}", codename),
+            false => format!("/__actions/{}", codename),
         }
     }
 }

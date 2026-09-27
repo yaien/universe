@@ -9,17 +9,19 @@ use actix_web::web::{Data, Form, Path, Query, ReqData};
 use actix_web::{HttpRequest, HttpResponse, delete, get, patch, post, put};
 use anyhow::Context;
 use maud::{Markup, html};
-use minijinja::context;
+use minijinja::{Environment, Value, context};
 use serde::Deserialize;
 
-use crate::app::App;
 use crate::app::auth::{Organization, Role, User};
 use crate::app::sitemaps::contents::{
-    RegistryContext, RenderLayoutOptions, RenderPageInlineOptions, render_email, render_layout,
-    render_page_inline,
+    RegisterFunctions, RegistryContext, RenderLayoutOptions, RenderPageInlineOptions, Tool,
+    ToolContext, render_email, render_layout, render_page_inline,
 };
-use crate::app::sitemaps::{Branch, PageInfo, Sitemap};
+use crate::app::sitemaps::{
+    ActionContext, Branch, CreateActionOptions, PageInfo, Sitemap, UpdateActionOptions,
+};
 use crate::app::storage::Scope;
+use crate::app::{App, AppError};
 use crate::web::dashboard::modules::base::{Content, Variant, page, toast};
 
 use super::sitemaps_views as views;
@@ -61,6 +63,10 @@ async fn get_view_state<'a>(
 
     if query.sitemap_font_id.is_some() {
         session_state.sitemap_font_id = query.sitemap_font_id
+    }
+
+    if query.action_id.is_some() {
+        session_state.action_id = query.action_id
     }
 
     if let Some(sitemap_branch) = query.sitemap_branch {
@@ -159,6 +165,8 @@ async fn get_view_state<'a>(
         browsed_font_limit: query.browsed_fonts_limit,
         browsed_font_query: query.browsed_fonts_query,
         colors: None,
+        actions: None,
+        action: None,
     };
 
     match &view_state.section {
@@ -292,6 +300,26 @@ async fn get_view_state<'a>(
                 .await
                 .inspect_err(|e| log::error!("failed getting colors: {e}"))
                 .ok();
+        }
+        Section::Actions => {
+            view_state.actions = app
+                .sitemaps
+                .actions
+                .get_by_sitemap_id(&view_state.sitemap.id)
+                .await
+                .inspect_err(|e| log::error!("failed getting actions: {e}"))
+                .ok();
+        }
+        Section::EditAction => {
+            if let Some(action_id) = session_state.action_id {
+                view_state.action = app
+                    .sitemaps
+                    .actions
+                    .get_one_by_sitemap_id(&view_state.sitemap.id, &action_id)
+                    .await
+                    .inspect_err(|e| log::error!("failed getting action: {e}"))
+                    .ok();
+            }
         }
         _ => {}
     };
@@ -1223,4 +1251,100 @@ pub async fn delete_sitemap(
         (views::content(&view_state))
         (toast("Sitemap eliminado correctamente", Variant::Primary))
     })
+}
+
+#[derive(Deserialize)]
+pub struct CreateActionForm {
+    name: String,
+    codename: String,
+    tool: Tool,
+}
+
+#[post("/sitemaps/actions")]
+pub async fn create_action(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    form: Form<CreateActionForm>,
+) -> Result<Markup, WebError> {
+    let (mut session_state, sitemap) =
+        get_session_state_and_sitemap(&app, &session, &org.id).await?;
+
+    let action = app
+        .sitemaps
+        .actions
+        .create(CreateActionOptions {
+            sitemap_id: &sitemap.id,
+            name: &form.name,
+            codename: &form.codename,
+            tool: &form.tool,
+        })
+        .await?;
+
+    session_state.section = Section::EditAction;
+    session_state.action_id = Some(action.id);
+    session.insert("pages", session_state).ok();
+
+    Ok(views::edit_action(&Some(action)))
+}
+
+#[derive(Deserialize)]
+pub struct UpdateActionForm {
+    name: String,
+    codename: String,
+    tool: Tool,
+    response_body_template: String,
+}
+
+#[put("/sitemaps/actions/{id}")]
+pub async fn update_action(
+    org: ReqData<Organization>,
+    app: Data<App>,
+    session: Session,
+    action_id: Path<Id>,
+    form: Form<UpdateActionForm>,
+) -> Result<Markup, WebError> {
+    let (_, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
+
+    app.sitemaps
+        .actions
+        .update(UpdateActionOptions {
+            action_id: &action_id,
+            sitemap_id: &sitemap.id,
+            name: &form.name,
+            codename: &form.codename,
+            tool: &form.tool,
+            response_body_template: &form.response_body_template,
+        })
+        .await?;
+
+    Ok(toast("Acción actualizada correctamente", Variant::Primary))
+}
+
+#[post("/sitemaps/__actions/{codename}")]
+pub async fn call_action(
+    org: ReqData<Organization>,
+    user: ReqData<Option<User>>,
+    app: Data<App>,
+    session: Session,
+    codename: Path<String>,
+) -> Result<HttpResponse, WebError> {
+    let (_, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
+    let action = app
+        .sitemaps
+        .actions
+        .get_one_by_sitemap_id_and_codename(&sitemap.id, &codename)
+        .await?;
+
+    let response = action
+        .call(ActionContext {
+            app: app.into_inner(),
+            org: Arc::new(org.into_inner()),
+            user: Arc::new(user.into_inner()),
+            session: Arc::new(session),
+            inline: true,
+        })
+        .await?;
+
+    Ok(response)
 }

@@ -6,7 +6,9 @@ use strum_macros::EnumIter;
 
 use crate::app::auth::Organization;
 use crate::app::sitemaps::contents::Tool;
-use crate::app::sitemaps::{Branch, Color, Email, Font, Layout, Page, Sitemap, SitemapFont};
+use crate::app::sitemaps::{
+    Action, Branch, Color, Email, Font, Layout, Page, Sitemap, SitemapFont,
+};
 use crate::app::storage::File;
 use crate::infra::Id;
 
@@ -33,6 +35,7 @@ pub struct SessionState {
     pub file_id: Option<Id>,
     pub browsed_font_id: Option<Id>,
     pub sitemap_font_id: Option<Id>,
+    pub action_id: Option<Id>,
 }
 
 impl Default for SessionState {
@@ -45,6 +48,7 @@ impl Default for SessionState {
             file_id: None,
             browsed_font_id: None,
             sitemap_font_id: None,
+            action_id: None,
         }
     }
 }
@@ -69,6 +73,8 @@ pub struct ViewState<'a> {
     pub browsed_font_offset: Option<u16>,
     pub browsed_font_query: Option<String>,
     pub colors: Option<Vec<Color>>,
+    pub actions: Option<Vec<Action>>,
+    pub action: Option<Action>,
 }
 
 #[derive(Deserialize, Default)]
@@ -83,6 +89,7 @@ pub struct QueryState {
     pub browsed_fonts_offset: Option<u16>,
     pub browsed_font_id: Option<Id>,
     pub sitemap_font_id: Option<Id>,
+    pub action_id: Option<Id>,
 }
 
 #[derive(EnumIter, Debug, PartialEq, Serialize, Deserialize)]
@@ -165,8 +172,8 @@ impl Section {
             Section::EditScript => edit_js(state),
             Section::EditStyles => edit_css(state),
             Section::Actions => actions(state),
-            Section::CreateAction => create_action(state),
-            Section::EditAction => edit_action(state),
+            Section::CreateAction => create_action(),
+            Section::EditAction => edit_action(&state.action),
         }
     }
 }
@@ -872,7 +879,11 @@ pub fn browse_fonts_list(
                     hx-swap=[is_last.then_some("beforeend")]
                     hx-indicator=[is_last.then_some(".fonts")]
                     hx-target=[is_last.then_some("#browsed-fonts")]
-                    hx-vals=[is_last.then_some(json!({ "browsed_fonts_query": query.clone().unwrap_or("".into()), "browsed_fonts_limit": limit.unwrap_or(10), "browsed_fonts_offset": offset.unwrap_or(0) + limit.unwrap_or(10) }))]
+                    hx-vals=[is_last.then_some(json!({
+                            "browsed_fonts_query": query.clone().unwrap_or("".into()),
+                            "browsed_fonts_limit": limit.unwrap_or(10),
+                            "browsed_fonts_offset": offset.unwrap_or(0) + limit.unwrap_or(10)
+                    }))]
                 {
                     div
                         hx-get="/dashboard/sitemaps"
@@ -1094,31 +1105,41 @@ pub fn actions(state: &ViewState) -> Markup {
     html! {
         .template-actions {
             .actions {
-                button.clear hx-get="/dashboard/sitemaps" hx-vals=(json!({ "section": Section::CreateAction })) hx-target="#editor" hx-swap="outerHTML" {
+                button.clear hx-get="/dashboard/sitemaps"
+                    hx-vals=(json!({ "section": Section::CreateAction }))
+                    hx-target="#editor"
+                    hx-swap="outerHTML" {
                     i.fa-solid.fa-plus {}
                 }
             }
-            ul {
-                li {
-                    "Retorna un html"
+            ul.list {
+                @if let Some(actions) = &state.actions {
+                    @for action in actions {
+                        li.item.detail
+                            hx-get="/dashboard/sitemaps"
+                            hx-vals=(json!({ "section": Section::EditAction, "action_id": action.id }))
+                            hx-target="#editor"
+                            hx-swap="outerHTML" {
+                            (action.name)
+                        }
+                    }
                 }
             }
-
         }
     }
 }
 
-pub fn create_action(state: &ViewState) -> Markup {
+pub fn create_action() -> Markup {
     html!(
         .template-actions {
-            form hx-post="/dashboard/sitemaps/actions" hx-target="#editor" {
+            form hx-post="/dashboard/sitemaps/actions" hx-target="#section" {
                 fieldset {
                     legend { "Nombre" }
                     input name="name" required {}
                 }
                 fieldset {
                     legend { "Nombre Clave"}
-                    input name="key" required {}
+                    input name="codename" required {}
                 }
                 fieldset {
                     legend { "Función" }
@@ -1138,6 +1159,52 @@ pub fn create_action(state: &ViewState) -> Markup {
     )
 }
 
-pub fn edit_action(state: &ViewState) -> Markup {
-    html! {}
+pub fn edit_action(action: &Option<Action>) -> Markup {
+    html! {
+        @if let Some(action) = &action {
+            .template-actions {
+                .actions {
+                    button
+                        hx-get="/dashboard/sitemaps"
+                        hx-target="#editor"
+                        hx-swap="outerHTML"
+                        hx-vals=(json!({ "section": Section::Actions })) {
+                            "Volver"
+                        }
+                }
+                form hx-put=(format!("/dashboard/sitemaps/actions/{}", action.id)) hx-swap="none" {
+                    fieldset {
+                        legend { "Nombre" }
+                        input name="name" value=(action.name)  required {}
+                    }
+                    fieldset {
+                        legend { "Nombre Clave"}
+                        input name="codename" value=(action.codename) required {}
+                    }
+                    fieldset {
+                        legend { "Función" }
+                        select name="tool" value=(action.tool) required {
+                            @for tool in Tool::iter() {
+                                option value=(tool) {
+                                    (tool.label())
+                                }
+                            }
+                        }
+                    }
+                    fieldset.code {
+                        legend { "Cuerpo de Respuesta"}
+                        .monaco x-data=(format!(r#"monaco({{ language: "html", source: {:?} }})"#, action.response_body_template)) {
+                            .spinner x-show="loading" {
+                                i class="fa-solid fa-spinner" {}
+                            }
+                            input name="response_body_template" ":value"="source" hidden {}
+                        }
+                    }
+                    .actions {
+                        button { "Guardar" }
+                    }
+                }
+            }
+        }
+    }
 }

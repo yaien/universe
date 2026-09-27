@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use sqlx::prelude::FromRow;
 
+pub use actions::*;
 pub use colors::*;
 pub use emails::*;
 pub use fonts::*;
@@ -43,6 +44,7 @@ pub struct Sitemaps {
     pub fonts: Fonts,
     pub colors: Colors,
     pub layouts: Layouts,
+    pub actions: Actions,
 }
 
 impl Sitemaps {
@@ -52,6 +54,7 @@ impl Sitemaps {
         let fonts = Fonts::new(pool.clone());
         let colors = Colors::new(pool.clone());
         let layouts = Layouts::new(pool.clone());
+        let actions = Actions::new(pool.clone());
 
         Self {
             pool,
@@ -60,6 +63,7 @@ impl Sitemaps {
             fonts,
             colors,
             layouts,
+            actions,
         }
     }
 

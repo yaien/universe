@@ -1,52 +1,47 @@
+use std::sync::Arc;
+
 use actix_session::Session;
 use minijinja::{Value, context};
 use serde::{Deserialize, Serialize};
+use sqlx::prelude::Type;
 use strum_macros::{Display, EnumIter};
 
 use crate::app::auth::{Organization, User};
 use crate::app::{App, AppError};
 
-#[derive(EnumIter, Display, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(EnumIter, Display, Debug, Serialize, Deserialize, Type)]
 pub enum Tool {
-    StaticHTML,
+    StaticHtml,
 }
 
-pub struct ToolContext<'a> {
-    pub app: &'a App,
-    pub organization: &'a Organization,
-    pub user: &'a Option<User>,
-    pub session: &'a Session,
-    pub response_body: String,
+pub struct ToolContext {
+    pub app: Arc<App>,
+    pub org: Arc<Organization>,
+    pub user: Arc<Option<User>>,
+    pub session: Arc<Session>,
+    pub inline: bool,
 }
 
-pub enum Response {
+pub enum ToolOutput {
     Value(Value),
 }
 
 impl Tool {
-    pub fn call<'a>(&self, ctx: ToolContext<'a>) -> Result<Response, AppError> {
+    pub fn call(&self, ctx: ToolContext) -> Result<Value, AppError> {
         use Tool::*;
         match self {
-            StaticHTML => static_html(ctx),
-        }
-    }
-
-    pub fn test<'a>(&self, ctx: ToolContext<'a>) -> Result<Response, AppError> {
-        use Tool::*;
-        match self {
-            StaticHTML => static_html(ctx),
+            StaticHtml => static_html(ctx),
         }
     }
 
     pub fn label(&self) -> &'static str {
         use Tool::*;
         match self {
-            StaticHTML => "Retorna un HTML estatico",
+            StaticHtml => "Retorna un HTML estatico",
         }
     }
 }
 
-pub fn static_html<'a>(ctx: ToolContext<'a>) -> Result<Response, AppError> {
-    Ok(Response::Value(context! {}))
+pub fn static_html(_: ToolContext) -> Result<Value, AppError> {
+    Ok(context! {})
 }
