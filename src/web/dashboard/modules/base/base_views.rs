@@ -85,6 +85,7 @@ fn aside(path: &str) -> Markup {
                     (link(path, "/dashboard/sitemaps", "Mapas de Sitio", "fa-sitemap"))
                     //(link(path, "/dashboard/events", "Eventos", "fa-calendar"))
                     (link(path, "/dashboard/products", "Productos", "fa-box"))
+                    (link(path, "/dashboard/forms", "Formularios", "fa-table-list"))
                     //(link(path, "/dashboard/roles", "Roles", "fa-users"))
                     //(link(path, "/dashboard/integrations", "Integraciones", "fa-plug"))
                 }

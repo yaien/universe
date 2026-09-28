@@ -7,6 +7,8 @@ use thiserror::Error;
 use crate::app::AppError;
 use crate::web::dashboard::modules::base::{Variant, toast};
 
+pub type WebResult<T> = Result<T, WebError>;
+
 #[derive(Debug, Error)]
 pub enum WebError {
     #[error("redirect to {0}")]
