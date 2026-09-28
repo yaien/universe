@@ -15,6 +15,7 @@ use crate::infra::{DbPool, Id};
 #[derive(FromRow)]
 pub struct Action {
     pub id: Id,
+    pub sitemap_id: Id,
     pub name: String,
     pub tool: Tool,
     pub codename: String,
@@ -72,6 +73,18 @@ impl Actions {
             .bind(opts.tool).fetch_one(&self.pool)
             .await
             .map_err(AppError::Sqlx)
+    }
+
+    pub async fn create_from(&self, action: &Action) -> AppResult<()> {
+        sqlx::query("insert into actions (sitemap_id, name, codename, tool, response_body_template) values ($1, $2, $3, $4, $5)")
+            .bind(&action.sitemap_id)
+            .bind(&action.name)
+            .bind(&action.codename)
+            .bind(&action.tool)
+            .bind(&action.response_body_template)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
     }
 
     pub async fn update<'a>(&self, opts: UpdateActionOptions<'a>) -> AppResult<()> {

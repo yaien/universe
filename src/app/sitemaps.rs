@@ -112,6 +112,7 @@ impl Sitemaps {
         let pages = self.pages.get_by_sitemap_id(&from_sitemap.id).await?;
         let fonts = self.fonts.get_by_sitemap_id(&from_sitemap.id).await?;
         let colors = self.colors.get_by_sitemap_id(&from_sitemap.id).await?;
+        let actions = self.actions.get_by_sitemap_id(&from_sitemap.id).await?;
 
         if to_branch == Branch::MAIN {
             let bundled_js = bundle_js(&layouts, &pages);
@@ -157,6 +158,11 @@ impl Sitemaps {
         for mut color in colors {
             color.sitemap_id = to_sitemap_id.clone();
             self.colors.create_from(&color).await?;
+        }
+
+        for mut action in actions {
+            action.sitemap_id = to_sitemap_id.clone();
+            self.actions.create_from(&action).await?;
         }
 
         Ok(to_sitemap_id)

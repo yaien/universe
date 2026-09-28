@@ -9,19 +9,19 @@ use actix_web::web::{Data, Form, Path, Query, ReqData};
 use actix_web::{HttpRequest, HttpResponse, delete, get, patch, post, put};
 use anyhow::Context;
 use maud::{Markup, html};
-use minijinja::{Environment, Value, context};
+use minijinja::context;
 use serde::Deserialize;
 
+use crate::app::App;
 use crate::app::auth::{Organization, Role, User};
 use crate::app::sitemaps::contents::{
-    RegisterFunctions, RegistryContext, RenderLayoutOptions, RenderPageInlineOptions, Tool,
-    ToolContext, render_email, render_layout, render_page_inline,
+    RegistryContext, RenderLayoutOptions, RenderPageInlineOptions, Tool, render_email,
+    render_layout, render_page_inline,
 };
 use crate::app::sitemaps::{
     ActionContext, Branch, CreateActionOptions, PageInfo, Sitemap, UpdateActionOptions,
 };
 use crate::app::storage::Scope;
-use crate::app::{App, AppError};
 use crate::web::dashboard::modules::base::{Content, Variant, page, toast};
 
 use super::sitemaps_views as views;

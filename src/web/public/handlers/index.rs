@@ -1,4 +1,5 @@
 use actix_files::NamedFile;
+use actix_session::Session;
 use actix_web::http::StatusCode;
 use actix_web::http::header::ContentDisposition;
 use actix_web::web::{Data, Path, Query, ReqData};
@@ -9,8 +10,8 @@ use serde::Deserialize;
 
 use crate::app::App;
 use crate::app::auth::{Organization, User};
-use crate::app::sitemaps::Branch;
 use crate::app::sitemaps::contents::{RegistryContext, RenderPageOptions, render_page};
+use crate::app::sitemaps::{ActionContext, Branch};
 use crate::infra::Id;
 use crate::web::errors::WebError;
 
@@ -151,4 +152,35 @@ pub async fn get_file(
         .set_content_disposition(ContentDisposition::attachment(file.name));
 
     Ok(named)
+}
+
+pub async fn call_action(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    user: ReqData<Option<User>>,
+    session: Session,
+    codename: Path<String>,
+) -> Result<HttpResponse, WebError> {
+    let sitemap = app
+        .sitemaps
+        .get_one_by_branch(&org.id, Branch::MAIN)
+        .await?;
+
+    let action = app
+        .sitemaps
+        .actions
+        .get_one_by_sitemap_id_and_codename(&sitemap.id, &codename)
+        .await?;
+
+    let response = action
+        .call(ActionContext {
+            app: app.into_inner(),
+            org: Arc::new(org.into_inner()),
+            user: Arc::new(user.into_inner()),
+            session: Arc::new(session),
+            inline: false,
+        })
+        .await?;
+
+    Ok(response)
 }
