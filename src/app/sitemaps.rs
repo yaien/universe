@@ -1,3 +1,4 @@
+mod actions;
 mod colors;
 pub mod contents;
 mod emails;
@@ -10,6 +11,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use sqlx::prelude::FromRow;
 
+pub use actions::*;
 pub use colors::*;
 pub use emails::*;
 pub use fonts::*;
@@ -42,6 +44,7 @@ pub struct Sitemaps {
     pub fonts: Fonts,
     pub colors: Colors,
     pub layouts: Layouts,
+    pub actions: Actions,
 }
 
 impl Sitemaps {
@@ -51,6 +54,7 @@ impl Sitemaps {
         let fonts = Fonts::new(pool.clone());
         let colors = Colors::new(pool.clone());
         let layouts = Layouts::new(pool.clone());
+        let actions = Actions::new(pool.clone());
 
         Self {
             pool,
@@ -59,6 +63,7 @@ impl Sitemaps {
             fonts,
             colors,
             layouts,
+            actions,
         }
     }
 
@@ -107,6 +112,7 @@ impl Sitemaps {
         let pages = self.pages.get_by_sitemap_id(&from_sitemap.id).await?;
         let fonts = self.fonts.get_by_sitemap_id(&from_sitemap.id).await?;
         let colors = self.colors.get_by_sitemap_id(&from_sitemap.id).await?;
+        let actions = self.actions.get_by_sitemap_id(&from_sitemap.id).await?;
 
         if to_branch == Branch::MAIN {
             let bundled_js = bundle_js(&layouts, &pages);
@@ -152,6 +158,11 @@ impl Sitemaps {
         for mut color in colors {
             color.sitemap_id = to_sitemap_id.clone();
             self.colors.create_from(&color).await?;
+        }
+
+        for mut action in actions {
+            action.sitemap_id = to_sitemap_id.clone();
+            self.actions.create_from(&action).await?;
         }
 
         Ok(to_sitemap_id)

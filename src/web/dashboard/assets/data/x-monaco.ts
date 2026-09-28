@@ -5,6 +5,7 @@ import type Monaco from "monaco-editor";
 Alpine.data("monaco", ({ language, source = "" }: { language: string; source: string }) => ({
   loading: true,
   height: "300px",
+  source,
   async init() {
     this.height = this.$root ? `${this.$root.clientHeight * 0.5}px` : "300px";
 
@@ -34,6 +35,7 @@ Alpine.data("monaco", ({ language, source = "" }: { language: string; source: st
 
     editor.onDidChangeModelContent(() => {
       const value = editor.getValue();
+      this.source = value;
       this.$dispatch("editorinput", { value });
     });
 

@@ -30,5 +30,8 @@ pub fn configure(config: &mut ServiceConfig) {
         .service(update_css)
         .service(update_js)
         .service(update_og_image)
-        .service(update_favicon);
+        .service(update_favicon)
+        .service(create_action)
+        .service(update_action)
+        .service(call_action);
 }
