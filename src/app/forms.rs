@@ -1,6 +1,8 @@
 mod fields;
+mod submissions;
 
-use fields::*;
+pub use fields::*;
+pub use submissions::*;
 
 use sqlx::prelude::FromRow;
 
@@ -21,12 +23,18 @@ pub struct Forms {
     pool: DbPool,
 
     pub fields: FormFields,
+    pub submissions: FormSubmissions,
 }
 
 impl Forms {
     pub fn new(pool: DbPool) -> Self {
         let fields = FormFields::new(pool.clone());
-        Self { pool, fields }
+        let submissions = FormSubmissions::new(pool.clone());
+        Self {
+            pool,
+            fields,
+            submissions,
+        }
     }
 
     pub async fn create(&self, org_id: &Id, name: &str, codename: &str) -> AppResult<Form> {
