@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -1328,6 +1329,7 @@ pub async fn call_action(
     app: Data<App>,
     session: Session,
     codename: Path<String>,
+    data: Form<HashMap<String, String>>,
 ) -> Result<HttpResponse, WebError> {
     let (_, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
     let action = app
@@ -1343,6 +1345,7 @@ pub async fn call_action(
             user: Arc::new(user.into_inner()),
             session: Arc::new(session),
             inline: true,
+            data: data.into_inner(),
         })
         .await?;
 

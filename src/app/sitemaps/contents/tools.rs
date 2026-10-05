@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use actix_session::Session;
@@ -20,6 +21,7 @@ pub struct ToolContext {
     pub user: Arc<Option<User>>,
     pub session: Arc<Session>,
     pub inline: bool,
+    pub data: HashMap<String, String>,
 }
 
 pub enum ToolOutput {

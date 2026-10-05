@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use actix_session::Session;
@@ -134,6 +135,7 @@ pub struct ActionContext {
     pub org: Arc<Organization>,
     pub user: Arc<Option<User>>,
     pub session: Arc<Session>,
+    pub data: HashMap<String, String>,
     pub inline: bool,
 }
 
@@ -155,6 +157,7 @@ impl Action {
             user: ctx.user.clone(),
             session: ctx.session.clone(),
             inline: ctx.inline,
+            data: ctx.data,
         };
 
         let output = self
