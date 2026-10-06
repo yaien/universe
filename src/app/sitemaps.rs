@@ -130,6 +130,7 @@ impl Sitemaps {
         self.pages.delete_by_sitemap_id(&to_sitemap_id).await?;
         self.fonts.delete_by_sitemap_id(&to_sitemap_id).await?;
         self.colors.delete_by_sitemap_id(&to_sitemap_id).await?;
+        self.actions.delete_by_sitemap_id(&to_sitemap_id).await?;
 
         let mut layout_matches = HashMap::new();
         for mut layout in layouts {

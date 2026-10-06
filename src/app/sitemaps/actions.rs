@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use actix_session::Session;
@@ -16,6 +17,7 @@ use crate::infra::{DbPool, Id};
 pub struct Action {
     pub id: Id,
     pub sitemap_id: Id,
+    pub form_id: Option<Id>,
     pub name: String,
     pub tool: Tool,
     pub codename: String,
@@ -66,33 +68,45 @@ impl Actions {
     }
 
     pub async fn create<'a>(&self, opts: CreateActionOptions<'a>) -> AppResult<Action> {
-        sqlx::query_as::<_, Action>("insert into actions (sitemap_id, name, codename, tool) values ($1, $2, $3, $4) returning *")
+        if opts.tool.needs_form_associated() && opts.form_id.is_none() {
+            return Err("Esta función requiere ser asociada con un formulario")?;
+        }
+
+        sqlx::query_as::<_, Action>("insert into actions (sitemap_id, name, codename, tool, form_id) values ($1, $2, $3, $4, $5) returning *")
             .bind(opts.sitemap_id)
             .bind(opts.name)
             .bind(opts.codename)
-            .bind(opts.tool).fetch_one(&self.pool)
+            .bind(opts.tool)
+            .bind(opts.form_id)
+            .fetch_one(&self.pool)
             .await
             .map_err(AppError::Sqlx)
     }
 
     pub async fn create_from(&self, action: &Action) -> AppResult<()> {
-        sqlx::query("insert into actions (sitemap_id, name, codename, tool, response_body_template) values ($1, $2, $3, $4, $5)")
+        sqlx::query("insert into actions (sitemap_id, name, codename, tool, response_body_template, form_id) values ($1, $2, $3, $4, $5, $6)")
             .bind(&action.sitemap_id)
             .bind(&action.name)
             .bind(&action.codename)
             .bind(&action.tool)
             .bind(&action.response_body_template)
+            .bind(&action.form_id)
             .execute(&self.pool)
             .await?;
         Ok(())
     }
 
     pub async fn update<'a>(&self, opts: UpdateActionOptions<'a>) -> AppResult<()> {
-        sqlx::query("update actions set name = $1, codename = $2, tool = $3, response_body_template = $4, updated_at = $5 where sitemap_id = $6 and id = $7")
+        if opts.tool.needs_form_associated() && opts.form_id.is_none() {
+            return Err("Esta función requiere ser asociada con un formulario")?;
+        }
+
+        sqlx::query("update actions set name = $1, codename = $2, tool = $3, response_body_template = $4, form_id = $5, updated_at = $6 where sitemap_id = $7 and id = $8")
             .bind(opts.name)
             .bind(opts.codename)
             .bind(opts.tool)
             .bind(opts.response_body_template)
+            .bind(opts.form_id)
             .bind(Utc::now())
             .bind(opts.sitemap_id)
             .bind(opts.action_id)
@@ -111,6 +125,15 @@ impl Actions {
 
         Ok(())
     }
+
+    pub async fn delete_by_sitemap_id(&self, sitemap_id: &Id) -> AppResult<()> {
+        sqlx::query("delete from actions where sitemap_id = $1")
+            .bind(sitemap_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
 }
 
 pub struct CreateActionOptions<'a> {
@@ -118,6 +141,7 @@ pub struct CreateActionOptions<'a> {
     pub name: &'a str,
     pub codename: &'a str,
     pub tool: &'a Tool,
+    pub form_id: &'a Option<Id>,
 }
 
 pub struct UpdateActionOptions<'a> {
@@ -127,6 +151,7 @@ pub struct UpdateActionOptions<'a> {
     pub codename: &'a str,
     pub tool: &'a Tool,
     pub response_body_template: &'a str,
+    pub form_id: &'a Option<Id>,
 }
 
 pub struct ActionContext {
@@ -134,6 +159,7 @@ pub struct ActionContext {
     pub org: Arc<Organization>,
     pub user: Arc<Option<User>>,
     pub session: Arc<Session>,
+    pub data: HashMap<String, String>,
     pub inline: bool,
 }
 
@@ -155,21 +181,20 @@ impl Action {
             user: ctx.user.clone(),
             session: ctx.session.clone(),
             inline: ctx.inline,
+            data: ctx.data,
+            form_id: self.form_id,
         };
 
-        let output = self
-            .tool
-            .call(tool_context)
-            .context("failed calling tool")?;
+        let output = self.tool.call(tool_context).await?;
+
+        let render_context = context! {
+            user => ctx.user,
+            org => ctx.org,
+            output => output,
+        };
+
         let body = env
-            .render_str(
-                &self.response_body_template,
-                context! {
-                    user => ctx.user,
-                    org => ctx.org,
-                    output => output,
-                },
-            )
+            .render_str(&self.response_body_template, render_context)
             .context("failed at render response template body")?;
 
         Ok(HttpResponse::Ok().body(body))

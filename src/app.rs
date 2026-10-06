@@ -1,5 +1,6 @@
 pub mod auth;
 mod errors;
+pub mod forms;
 pub mod sitemaps;
 pub mod storage;
 pub mod store;
@@ -11,6 +12,7 @@ use sitemaps::Sitemaps;
 use storage::Storage;
 use store::Store;
 
+use crate::app::forms::Forms;
 use crate::infra::Monolith;
 
 pub use errors::*;
@@ -20,6 +22,7 @@ pub struct App {
     pub auth: Arc<Auth>,
     pub storage: Arc<Storage>,
     pub store: Arc<Store>,
+    pub forms: Arc<Forms>,
 }
 
 impl App {
@@ -36,11 +39,14 @@ impl App {
 
         let store = Arc::new(Store::new(mono.pool.clone(), storage.clone()));
 
+        let forms = Arc::new(Forms::new(mono.pool.clone()));
+
         Self {
             sitemaps,
             auth,
             storage,
             store,
+            forms,
         }
     }
 }

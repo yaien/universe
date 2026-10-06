@@ -2,7 +2,7 @@ use actix_files::NamedFile;
 use actix_session::Session;
 use actix_web::http::StatusCode;
 use actix_web::http::header::ContentDisposition;
-use actix_web::web::{Data, Path, Query, ReqData};
+use actix_web::web::{Data, Form, Path, Query, ReqData};
 use actix_web::{Error, HttpResponse};
 use maud::Markup;
 use mime::{APPLICATION_OCTET_STREAM, Mime};
@@ -15,6 +15,7 @@ use crate::app::sitemaps::{ActionContext, Branch};
 use crate::infra::Id;
 use crate::web::errors::WebError;
 
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -160,6 +161,7 @@ pub async fn call_action(
     user: ReqData<Option<User>>,
     session: Session,
     codename: Path<String>,
+    data: Form<HashMap<String, String>>,
 ) -> Result<HttpResponse, WebError> {
     let sitemap = app
         .sitemaps
@@ -179,6 +181,7 @@ pub async fn call_action(
             user: Arc::new(user.into_inner()),
             session: Arc::new(session),
             inline: false,
+            data: data.into_inner(),
         })
         .await?;
 

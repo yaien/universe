@@ -869,6 +869,9 @@ article,
     .item {
         border-bottom: var(--border);
         padding: var(--space);
+        color: var(--text-color);
+        text-decoration: none;
+        display: block;
 
         &.detail {
             cursor: pointer;
@@ -876,6 +879,10 @@ article,
 
         &:hover {
             background-color: var(--hover-color);
+        }
+
+        &:visited {
+            color: var(--text-color);
         }
     }
 }
