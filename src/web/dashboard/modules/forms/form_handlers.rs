@@ -198,19 +198,22 @@ pub async fn get_form_submissions(
         .get_one_by_organization_id(&org.id, &form_id)
         .await?;
 
-    let query = query.into_inner();
+    let offset = query.offset.unwrap_or(0);
+    let limit = query.limit.unwrap_or(10);
+    let search = query.search.as_deref().unwrap_or("");
+    let next_offset = offset + limit;
 
     let submissions = app
         .forms
         .submissions
-        .find(&form.id, &query.search, &query.offset, &query.limit)
+        .find(&form.id, &search, &offset, &limit)
         .await?;
 
     Ok(views::form_submission(
         &form,
         &submissions,
-        &query.search,
-        &query.offset,
-        &query.limit,
+        &search,
+        &next_offset,
+        &limit,
     ))
 }

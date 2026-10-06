@@ -125,6 +125,15 @@ impl Actions {
 
         Ok(())
     }
+
+    pub async fn delete_by_sitemap_id(&self, sitemap_id: &Id) -> AppResult<()> {
+        sqlx::query("delete from actions where sitemap_id = $1")
+            .bind(sitemap_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
 }
 
 pub struct CreateActionOptions<'a> {
@@ -173,21 +182,19 @@ impl Action {
             session: ctx.session.clone(),
             inline: ctx.inline,
             data: ctx.data,
+            form_id: self.form_id,
         };
 
-        let output = self
-            .tool
-            .call(tool_context)
-            .context("failed calling tool")?;
+        let output = self.tool.call(tool_context).await?;
+
+        let render_context = context! {
+            user => ctx.user,
+            org => ctx.org,
+            output => output,
+        };
+
         let body = env
-            .render_str(
-                &self.response_body_template,
-                context! {
-                    user => ctx.user,
-                    org => ctx.org,
-                    output => output,
-                },
-            )
+            .render_str(&self.response_body_template, render_context)
             .context("failed at render response template body")?;
 
         Ok(HttpResponse::Ok().body(body))

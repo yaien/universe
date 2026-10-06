@@ -33,15 +33,15 @@ impl FormSubmissions {
     pub async fn find(
         &self,
         form_id: &Id,
-        search: &Option<String>,
-        offset: &Option<u32>,
-        limit: &Option<u32>,
+        search: &str,
+        offset: &u32,
+        limit: &u32,
     ) -> AppResult<Vec<FormSubmission>> {
         let mut query = QueryBuilder::new("select * from form_submissions where form_id = ");
 
         query.push_bind(form_id);
 
-        if let Some(search) = search {
+        if !search.is_empty() {
             query
                 .push(" and exists (select 1 from form_submission_answers where submission_id = form_submissions.id and value like ")
                 .push_bind(format!("%{}%", search))
@@ -49,12 +49,8 @@ impl FormSubmissions {
         }
 
         query.push(" order by id desc");
-
-        query
-            .push(" limit ")
-            .push_bind(limit.filter(|l| *l <= 20).unwrap_or(10));
-
-        query.push(" offset ").push_bind(offset.unwrap_or(0));
+        query.push(" limit ").push_bind(limit);
+        query.push(" offset ").push_bind(offset);
 
         let mut submissions = query
             .build_query_as::<FormSubmission>()

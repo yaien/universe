@@ -2,6 +2,7 @@ use actix_web::Error as ActixError;
 use actix_web::error::ResponseError;
 use actix_web::http::{StatusCode, header};
 use actix_web::{HttpResponse, HttpResponseBuilder};
+use anyhow::{Context, Error as AnyhowError, anyhow};
 use thiserror::Error;
 
 use crate::app::AppError;
@@ -22,6 +23,9 @@ pub enum WebError {
 
     #[error("{0}")]
     Actix(ActixError),
+
+    #[error("{0}")]
+    Internal(AnyhowError),
 }
 
 impl ResponseError for WebError {
@@ -43,6 +47,11 @@ impl ResponseError for WebError {
 
             // Return an actix error
             Actix(err) => err.error_response(),
+
+            Internal(err) => {
+                log::error!("Error: {:?}", err);
+                HttpResponse::InternalServerError().body("fallo interno en el servicio")
+            }
         }
     }
 }
@@ -52,10 +61,10 @@ impl From<AppError> for WebError {
         match err {
             AppError::Message(message) => WebError::Message(message),
             AppError::Sqlx(err) => {
-                WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+                WebError::Internal(anyhow!("fallo en consulta a la base de datos: {err}"))
             }
             AppError::Any(err) => {
-                WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+                WebError::Internal(anyhow!("fallo interno en el servicio: {err}"))
             }
         }
     }
@@ -63,13 +72,13 @@ impl From<AppError> for WebError {
 
 impl From<sqlx::Error> for WebError {
     fn from(err: sqlx::Error) -> Self {
-        WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+        WebError::Internal(anyhow!("fallo en consulta a la base de datos: {err}"))
     }
 }
 
 impl From<anyhow::Error> for WebError {
     fn from(err: anyhow::Error) -> Self {
-        WebError::Status(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+        WebError::Internal(anyhow!("fallo interno en el servicio: {err}"))
     }
 }
 

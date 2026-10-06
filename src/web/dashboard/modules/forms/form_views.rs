@@ -204,9 +204,9 @@ pub fn form_submissions(form: &Form) -> Markup {
 pub fn form_submission(
     form: &Form,
     submissions: &Vec<FormSubmission>,
-    search: &Option<String>,
-    next_offset: &Option<u32>,
-    limit: &Option<u32>,
+    search: &str,
+    next_offset: &u32,
+    limit: &u32,
 ) -> Markup {
     html!(
         @for (index, submission) in submissions.iter().enumerate() {

@@ -1,6 +1,8 @@
 mod fields;
 mod submissions;
 
+use std::collections::HashMap;
+
 pub use fields::*;
 pub use submissions::*;
 
@@ -99,5 +101,41 @@ impl Forms {
         form.fields = fields;
 
         Ok(form)
+    }
+
+    pub async fn submit(
+        &self,
+        org_id: &Id,
+        form_id: &Id,
+        data: HashMap<String, String>,
+    ) -> AppResult<()> {
+        let form = self.get_one_by_organization_id(org_id, form_id).await?;
+
+        // validate data against form fields
+        for field in &form.fields {
+            if data.get(&field.name).filter(|f| f.is_empty()).is_some() {
+                return Err(format!("el campo {:?} es requerido", field.name))?;
+            }
+        }
+
+        // insert submission
+        let submission_id = sqlx::query("insert into form_submissions (form_id) values ($1)")
+            .bind(form_id)
+            .execute(&self.pool)
+            .await
+            .map(|r| r.last_insert_rowid())?;
+
+        for field in &form.fields {
+            let value = data.get(&field.name);
+
+            sqlx::query("insert into form_submission_answers (submission_id, field_id, value) values ($1, $2, $3)")
+                .bind(submission_id)
+                .bind(field.id)
+                .bind(value)
+                .execute(&self.pool)
+                .await?;
+        }
+
+        Ok(())
     }
 }
