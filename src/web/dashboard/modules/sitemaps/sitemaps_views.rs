@@ -5,6 +5,7 @@ use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use crate::app::auth::Organization;
+use crate::app::forms::Form;
 use crate::app::sitemaps::contents::Tool;
 use crate::app::sitemaps::{
     Action, Branch, Color, Email, Font, Layout, Page, Sitemap, SitemapFont,
@@ -1132,7 +1133,7 @@ pub fn actions(state: &ViewState) -> Markup {
 pub fn create_action() -> Markup {
     html!(
         .template-actions {
-            form hx-post="/dashboard/sitemaps/actions" hx-target="#section" {
+            form hx-post="/dashboard/sitemaps/actions" hx-target="#section" autocomplete="off" {
                 fieldset {
                     legend { "Nombre" }
                     input name="name" required {}
@@ -1141,9 +1142,10 @@ pub fn create_action() -> Markup {
                     legend { "Nombre Clave"}
                     input name="codename" required {}
                 }
+
                 fieldset {
                     legend { "Función" }
-                    select name="tool" required {
+                    select name="tool" required hx-trigger="change, load" hx-get="/dashboard/sitemaps/actions/forms" hx-target="#forms-fieldset" hx-include="#form_id" {
                         @for tool in Tool::iter() {
                             option value=(tool) {
                                 (tool.label())
@@ -1151,12 +1153,31 @@ pub fn create_action() -> Markup {
                         }
                     }
                 }
+
+                #forms-fieldset {}
+
                 .actions {
                     button { "Crear" }
                 }
             }
         }
     )
+}
+
+pub fn form_fieldset(forms: &[Form], selected_form_id: Option<Id>) -> Markup {
+    html! {
+        fieldset {
+            legend { "Formulario" }
+            select id="form_id" name="form_id" required {
+                @for form in forms {
+                    @let selected = selected_form_id.filter(|id| *id == form.id).map(|_| "");
+                    option value=(form.id) selected=[selected] {
+                        (form.name)
+                    }
+                }
+            }
+        }
+    }
 }
 
 pub fn edit_action(action: &Option<Action>) -> Markup {
@@ -1172,7 +1193,7 @@ pub fn edit_action(action: &Option<Action>) -> Markup {
                             "Volver"
                         }
                 }
-                form hx-put=(format!("/dashboard/sitemaps/actions/{}", action.id)) hx-swap="none" {
+                form hx-put=(format!("/dashboard/sitemaps/actions/{}", action.id)) hx-swap="none" autocomplete="off" {
                     fieldset {
                         legend { "Nombre" }
                         input name="name" value=(action.name)  required {}
@@ -1183,14 +1204,17 @@ pub fn edit_action(action: &Option<Action>) -> Markup {
                     }
                     fieldset {
                         legend { "Función" }
-                        select name="tool" value=(action.tool) required {
+                        select name="tool" required hx-trigger="change, load" hx-get="/dashboard/sitemaps/actions/forms" hx-target="#forms-fieldset" hx-include="#form_id" {
                             @for tool in Tool::iter() {
-                                option value=(tool) {
+                                option value=(tool) selected=[(tool == action.tool).then_some("")] {
                                     (tool.label())
                                 }
                             }
                         }
                     }
+
+                    #forms-fieldset {}
+
                     fieldset.code {
                         legend { "Cuerpo de Respuesta"}
                         .monaco x-data=(format!(r#"monaco({{ language: "html", source: {:?} }})"#, action.response_body_template)) {

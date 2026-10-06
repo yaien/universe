@@ -9,7 +9,6 @@ pub struct FormField {
     pub id: Id,
     pub name: String,
     pub label: String,
-    pub number: i32,
 }
 
 pub struct FormFields {

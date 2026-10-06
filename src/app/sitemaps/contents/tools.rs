@@ -10,9 +10,10 @@ use strum_macros::{Display, EnumIter};
 use crate::app::auth::{Organization, User};
 use crate::app::{App, AppError};
 
-#[derive(EnumIter, Display, Debug, Serialize, Deserialize, Type)]
+#[derive(EnumIter, Display, Debug, Serialize, Deserialize, Type, PartialEq)]
 pub enum Tool {
     StaticHtml,
+    Form,
 }
 
 pub struct ToolContext {
@@ -33,17 +34,35 @@ impl Tool {
         use Tool::*;
         match self {
             StaticHtml => static_html(ctx),
+            Form => form(ctx),
         }
     }
 
     pub fn label(&self) -> &'static str {
         use Tool::*;
         match self {
-            StaticHtml => "Retorna un HTML estatico",
+            StaticHtml => "Retornar un HTML estatico",
+            Form => "Guardar registro de formulario",
         }
+    }
+
+    pub fn needs_form_associated(&self) -> bool {
+        use Tool::*;
+        match self {
+            StaticHtml => false,
+            Form => true,
+        }
+    }
+
+    pub fn first() -> Self {
+        Self::StaticHtml
     }
 }
 
 pub fn static_html(_: ToolContext) -> Result<Value, AppError> {
+    Ok(context! {})
+}
+
+pub fn form(_: ToolContext) -> Result<Value, AppError> {
     Ok(context! {})
 }

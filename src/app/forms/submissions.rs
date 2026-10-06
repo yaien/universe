@@ -4,7 +4,6 @@ use sqlx::QueryBuilder;
 use sqlx::prelude::FromRow;
 
 use crate::app::AppResult;
-use crate::app::forms::submissions;
 use crate::infra::{DbPool, Id};
 
 #[derive(FromRow)]

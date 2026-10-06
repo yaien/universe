@@ -33,5 +33,6 @@ pub fn configure(config: &mut ServiceConfig) {
         .service(update_favicon)
         .service(create_action)
         .service(update_action)
-        .service(call_action);
+        .service(call_action)
+        .service(get_actions_forms_fieldset);
 }
