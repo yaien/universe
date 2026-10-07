@@ -909,7 +909,7 @@ pub async fn update_og_image(
         .await
         .context("failed updating og image")?;
 
-    Ok(views::file_og_image_active_button())
+    Ok(views::file_og_image_active_button(false))
 }
 
 #[derive(Deserialize)]
@@ -931,7 +931,7 @@ pub async fn update_favicon(
         .await
         .context("failed updating favicon")?;
 
-    Ok(views::file_favicon_active_button())
+    Ok(views::file_favicon_active_button(false))
 }
 
 #[derive(Deserialize)]

@@ -206,6 +206,33 @@
         position: absolute;
     }
 
+    .files .audio {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 1rem;
+
+        i {
+            font-size: 10rem;
+        }
+
+        audio {
+            width: 80%;
+        }
+
+        &.small {
+            i {
+                font-size: 4rem;
+            }
+        }
+    };
+
     .files .edit .preview {
         border-radius: var(--border-radius);
         border: 1px solid var(--border-color);
@@ -224,7 +251,7 @@
         top: 0;
         left: 0;
         margin: 5px;
-        z-index: 10;
+        z-index: 20;
 
         &.small {
             button {

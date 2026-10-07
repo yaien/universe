@@ -609,7 +609,7 @@ pub fn files(state: &ViewState) -> Markup {
                     hx-encoding="multipart/form-data"
                     "@htmx:xhr:progress"="progress($event)"
                 {
-                    input type="file" x-ref="input" hidden name="files" accept="image/png,image/jpeg,image/jpg,video/mp4" multiple {}
+                    input type="file" x-ref="input" hidden name="files" accept="image/png,image/jpeg,image/jpg,video/mp4,audio/mp3" multiple {}
                     button type="button" "@click"="$refs.input.click()" class="clear" {
                         i.fa-solid.fa-plus {}
                     }
@@ -642,28 +642,29 @@ pub fn file_grid(state: &ViewState) -> Markup {
                         hx-target="#editor"
                         hx-swap="outerHTML"
                         hx-vals=(json!({ "file_id": file.id, "section": Section::File }))
-                        "@mouseenter"="$refs.video?.play()"
-                        "@mouseleave"="$refs.video?.pause()"  {}
-
-                    .setup.small role="group" {
-                        @if Some(file.id) == state.sitemap.favicon_file_id {
-                            (file_favicon_active_button())
-                        }
-                        @if let Some(Model::Page(page)) = &state.model {
-                            @if Some(file.id) == page.og_image_file_id {
-                                (file_og_image_active_button())
-                            }
-                        }
-                    }
-
-
+                        "@mouseenter"="$refs.player?.play()"
+                        "@mouseleave"="$refs.player?.pause()"  {}
 
                     @if file.preset == "image" {
+                        (file_image_setup(&file.id, state, true))
                         img src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) {}
                     }
                     @if file.preset == "video" {
-                        video x-ref="video" src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) muted {}
+                        video x-ref="player" src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) muted {}
                     }
+
+                    @if file.preset == "audio" {
+                        .setup.small role="group" {
+                            button "@click"="$refs.audio?.play()" {
+                                i.fa-solid.fa-play  {}
+                            }
+                        }
+                        .audio.small {
+                            i.fa-solid.fa-music {}
+                            audio x-ref="audio" src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) {}
+                        }
+                    }
+
                 }
             }
         }
@@ -691,30 +692,19 @@ pub fn file(state: &ViewState) -> Markup {
                     }
                 }
                 .preview {
-                    .setup role="group" {
-                        @if Some(file.id) == state.sitemap.favicon_file_id {
-                            (file_favicon_active_button())
-                        } @else {
-                            button.secondary hx-patch="/dashboard/sitemaps/favicon" hx-vals=(json!({ "file_id": file.id })) hx-swap="outerHTML" {
-                                i.fa-solid.fa-globe {}
-                            }
-                        }
-
-                        @if let Some(Model::Page(page)) = &state.model {
-                            @if Some(file.id) == page.og_image_file_id {
-                                (file_og_image_active_button())
-                            } @else {
-                                button.secondary hx-patch="/dashboard/sitemaps/og_image" hx-vals=(json!({ "file_id": file.id })) hx-swap="outerHTML" {
-                                    i.fa-solid.fa-link {}
-                                }
-                            }
-                        }
-                    }
                     @if file.preset == "image" {
-                            img src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) {}
+                        (file_image_setup(&file.id, state, false))
+                        img src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) {}
                     }
                     @if file.preset == "video" {
                         video src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) controls {}
+                    }
+
+                    @if file.preset == "audio" {
+                        .audio {
+                            i.fa-solid.fa-music {}
+                            audio src=(format!("/assets/dynamic/files/{}", file.name)) title=(file.name) alt=(file.name) controls {}
+                        }
                     }
                 }
                 table.compact {
@@ -757,9 +747,9 @@ pub fn file(state: &ViewState) -> Markup {
 
 macro_rules! file_active_button {
     ($func:ident, $icon:expr, $title:expr) => {
-        pub fn $func() -> Markup {
+        pub fn $func(noclick: bool) -> Markup {
             html!(
-                button.noclick title=($title) {
+                button.noclick[noclick] title=($title) {
                     i.($icon) {}
                 }
             )
@@ -778,6 +768,36 @@ file_active_button!(
     "fa-solid fa-globe",
     "Icono de pestaña"
 );
+
+pub fn file_image_setup(file_id: &Id, state: &ViewState, small_mode: bool) -> Markup {
+    html!(
+        .setup.small[small_mode] role="group" {
+            @if Some(*file_id) == state.sitemap.favicon_file_id {
+                (file_favicon_active_button(small_mode))
+            } @else if !small_mode {
+                button.secondary
+                    hx-patch="/dashboard/sitemaps/favicon"
+                    hx-vals=(json!({ "file_id": file_id }))
+                    hx-swap="outerHTML" {
+                    i.fa-solid.fa-globe {}
+                }
+            }
+
+            @if let Some(Model::Page(page)) = &state.model {
+                @if Some(*file_id) == page.og_image_file_id {
+                    (file_og_image_active_button(small_mode))
+                } @else if !small_mode {
+                    button.secondary
+                        hx-patch="/dashboard/sitemaps/og_image"
+                        hx-vals=(json!({ "file_id": file_id }))
+                        hx-swap="outerHTML" {
+                        i.fa-solid.fa-link {}
+                    }
+                }
+            }
+        }
+    )
+}
 
 pub fn fonts(sitemap_fonts: &Option<Vec<SitemapFont>>) -> Markup {
     html! (

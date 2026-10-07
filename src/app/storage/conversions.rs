@@ -11,6 +11,7 @@ use crate::app::storage::dimensions::*;
 pub enum Preset {
     Image,
     Video,
+    Audio,
 }
 
 pub struct Conversion {
@@ -32,6 +33,7 @@ impl Preset {
         match self {
             Image => &[320, 640, 1280],
             Video => &[480, 720],
+            Audio => &[96],
         }
     }
 
@@ -39,7 +41,8 @@ impl Preset {
         use Preset::*;
         match self {
             Image => "image/webp",
-            Video => "video/mp4",
+            Video => "video/webm",
+            Audio => "audio/ogg",
         }
     }
 }
@@ -51,6 +54,7 @@ impl FromStr for Preset {
         match s {
             "image" => Ok(Preset::Image),
             "video" => Ok(Preset::Video),
+            "audio" => Ok(Preset::Audio),
             _ => bail!("invalid preset: {}", s),
         }
     }
@@ -66,6 +70,7 @@ pub fn convert_file(
     match preset {
         Image => convert_image(src, outdir, variants),
         Video => convert_video(src, outdir, variants),
+        Audio => convert_audio(src, outdir, variants),
     }
 }
 
@@ -109,7 +114,7 @@ fn convert_image(src: &Path, outdir: &Path, variants: &[u32]) -> Result<Vec<Conv
 fn convert_video(src: &Path, outdir: &Path, variants: &[u32]) -> Result<Vec<Conversion>> {
     let mut conversions = Vec::new();
     for variant in variants {
-        let file_name = format!("{}.mp4", uuid::Uuid::now_v7());
+        let file_name = format!("{}.webm", uuid::Uuid::now_v7());
 
         let output_file_path = outdir.join(&file_name);
 
@@ -119,17 +124,17 @@ fn convert_video(src: &Path, outdir: &Path, variants: &[u32]) -> Result<Vec<Conv
             .arg("-vf")
             .arg(format!("scale=-2:{}", variant))
             .arg("-c:v")
-            .arg("libx264")
+            .arg("libvpx-vp9")
             .arg("-preset")
             .arg("medium")
             .arg("-crf")
-            .arg("23")
+            .arg("30")
             .arg("-movflags")
             .arg("+faststart")
             .arg("-c:a")
-            .arg("aac")
+            .arg("libopus")
             .arg("-b:a")
-            .arg("128k")
+            .arg("96k")
             .arg(&output_file_path)
             .output()?;
 
@@ -144,7 +149,49 @@ fn convert_video(src: &Path, outdir: &Path, variants: &[u32]) -> Result<Vec<Conv
 
         conversions.push(Conversion {
             file_name,
-            content_type: "video/mp4",
+            content_type: "video/webm",
+            variant: dimensions.variant,
+            size: metadata.len() as u32,
+            width: dimensions.width,
+            height: dimensions.height,
+        });
+    }
+
+    Ok(conversions)
+}
+
+/// Converts an audio file to the specified variants.
+pub fn convert_audio(src: &Path, outdir: &Path, variants: &[u32]) -> Result<Vec<Conversion>> {
+    let mut conversions = Vec::new();
+
+    for &variant in variants {
+        let file_name = format!("{}.ogg", uuid::Uuid::now_v7());
+        let output_file_path = outdir.join(&file_name);
+
+        let output = Command::new("ffmpeg")
+            .arg("-i")
+            .arg(src)
+            .arg("-vn")
+            .arg("-c:a")
+            .arg("libopus")
+            .arg("-b:a")
+            .arg(format!("{}k", variant))
+            .arg(&output_file_path)
+            .output()
+            .expect("failed to convert audio");
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            bail!("failed executing ffprobe: {}", stderr.trim());
+        }
+
+        let metadata = fs::metadata(&output_file_path)?;
+
+        let dimensions = get_audio_dimension(&output_file_path)?;
+
+        conversions.push(Conversion {
+            file_name,
+            content_type: "audio/ogg",
             variant: dimensions.variant,
             size: metadata.len() as u32,
             width: dimensions.width,
@@ -170,6 +217,7 @@ mod tests {
             name: &'static str,
             src: &'static str,
             preset: Preset,
+            is_exact: bool,
         }
 
         let tests = [
@@ -177,11 +225,19 @@ mod tests {
                 name: "convert a big photo",
                 src: "testdata/files/big_photo.jpg",
                 preset: Preset::Image,
+                is_exact: true,
             },
             Test {
                 name: "convert a big video",
                 src: "testdata/files/big_video.mp4",
                 preset: Preset::Video,
+                is_exact: true,
+            },
+            Test {
+                name: "convert a big audio",
+                src: "testdata/files/big_audio.mp3",
+                preset: Preset::Audio,
+                is_exact: false,
             },
         ];
 
@@ -205,11 +261,13 @@ mod tests {
             );
 
             for (i, convertion) in conversions.iter().enumerate() {
-                assert_eq!(
-                    convertion.variant, variants[i],
-                    "[{}]: variant mismatch at index {}",
-                    test.name, i
-                );
+                if test.is_exact {
+                    assert_eq!(
+                        convertion.variant, variants[i],
+                        "[{}]: variant mismatch at index {}",
+                        test.name, i
+                    );
+                }
 
                 let outfile = outdir.path().join(&convertion.file_name);
 
