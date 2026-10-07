@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -16,6 +17,7 @@ pub fn get_dimensions_by_content_type(path: &PathBuf, content_type: &Mime) -> Re
     match content_type.type_() {
         mime::VIDEO => get_video_dimension(&path),
         mime::IMAGE => get_image_dimension(&path),
+        mime::AUDIO => get_audio_dimension(&path),
         other => Err(anyhow!("invalid content type for dimension: {}", other)),
     }
 }
@@ -75,6 +77,39 @@ pub fn get_video_dimension(path: &PathBuf) -> Result<Dimensions> {
     })
 }
 
+pub fn get_audio_dimension(path: &PathBuf) -> Result<Dimensions> {
+    let output = Command::new("ffprobe")
+        .args(&[
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .context("failed executing ffprobe")?;
+
+    let duration_text =
+        String::from_utf8(output.stdout).context("failed decoding ffprobe output")?;
+
+    let duration_secs: f64 = duration_text
+        .trim()
+        .parse()
+        .context("failed parsing bitrate")?;
+
+    let meta = fs::metadata(path).context("failed getting file metadata")?;
+    let filesize_bytes = meta.len();
+    let bitrate_kbps = filesize_bytes as f64 * 8.0 / duration_secs / 1000.0;
+
+    Ok(Dimensions {
+        width: 0,
+        height: 0,
+        variant: bitrate_kbps.round() as u32,
+    })
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -108,6 +143,14 @@ mod tests {
                 width: 1920,
                 height: 1080,
                 variant: 1080,
+            },
+            Test {
+                name: "big_audio",
+                filepath: "testdata/files/big_audio.mp3",
+                content_type: "audio/mp3",
+                width: 0,
+                height: 0,
+                variant: 343,
             },
         ];
 
