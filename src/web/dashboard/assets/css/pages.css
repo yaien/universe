@@ -231,7 +231,7 @@
                 font-size: 4rem;
             }
         }
-    };
+    }
 
     .files .edit .preview {
         border-radius: var(--border-radius);
@@ -307,6 +307,7 @@
     .colors .field input.coloris {
         text-align: right;
         cursor: pointer;
+        color: inherit;
     }
 
     .colors .field .clr-field button {

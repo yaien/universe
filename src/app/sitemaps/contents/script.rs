@@ -6,8 +6,18 @@ pub fn inline(layout_script: &str, page_script: &str) -> Markup {
     let script = format!(
         r#"
         <script type="text/javascript" hx-head="re-eval">
-            {layout_script}
-            {page_script}
+            async function setup() {{
+                {layout_script}
+                {page_script}
+            }}
+            function install() {{
+                setup();
+            }}
+            if (!window.initialized) {{
+                window.initialized = true;
+                document.addEventListener("htmx:after:init", install)
+                document.addEventListener("htmx:after:swap", install)
+            }}
         </script>
 
     "#,

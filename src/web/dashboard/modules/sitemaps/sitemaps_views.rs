@@ -993,8 +993,7 @@ pub fn colors(state: &ViewState) -> Markup {
           None => &Vec::new()
         };
 
-        @let swatches: Vec<&String> = colors.iter().map(|c| &c.value).collect();
-        .colors x-data=(json!({"swatches": swatches})) {
+        .colors {
             #colors {
                 @for c in colors.iter() {
                     (color(c))
@@ -1012,25 +1011,21 @@ pub fn colors(state: &ViewState) -> Markup {
 
 pub fn color(color: &Color) -> Markup {
     html! {
-        .color
-            x-data=(format!(
-                "coloris({{ color: {:?}, tag: {:?}, swatches }})",
-                color.value, color.tag
-            ))
-        {
+        .color data-color hx-live:data-value="q('[name=value] in this').value" hx-live:data-readable="readable(data.value)" {
             form
                 hx-put=(format!("/dashboard/sitemaps/colors/{}", color.id))
                 hx-trigger="input throttle:100ms"
                 hx-swap="none"
+                autocomplete="off"
             {
-                .field x-bind:style="{color: readable, background: color}" {
-                    input name="tag" x-model="tag" required {}
+                .field hx-live:style="{ color: data.readable, background: data.value }" {
+                    input name="tag" required value=(color.tag) {}
                     input
                         name="value"
                         class="coloris"
-                        x-ref="input"
-                        x-model="color"
-                        x-bind:style="{ color: readable }"
+                        value=(color.value)
+                        hx-on:load="Coloris({ themeMode: 'auto', swatches: [] })"
+                        hx-live:style="{ color: data.readable }"
                         required
                         {}
                 }
@@ -1038,7 +1033,7 @@ pub fn color(color: &Color) -> Markup {
             small.hint {
                 .css {
                     i.fa-brands.fa-css {}
-                    pre x-text="`var(--${tag}--color)`" {}
+                    pre {}
                 }
                 button.clear.danger
                     type="button"
