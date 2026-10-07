@@ -6,13 +6,8 @@ pub fn inline(layout_script: &str, page_script: &str) -> Markup {
     let script = format!(
         r#"
         <script type="text/javascript" hx-head="re-eval">
-            function __init() {{
-                {layout_script}
-                {page_script}
-            }}
-            document.addEventListener('alpine:init', __init);
-            document.addEventListener('htmx:after:swap', __init);
-            if (window.Alpine) {{ __init(); }}
+            {layout_script}
+            {page_script}
         </script>
 
     "#,
