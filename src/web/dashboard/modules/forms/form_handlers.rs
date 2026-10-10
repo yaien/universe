@@ -41,7 +41,6 @@ pub async fn get_forms(
 #[derive(Deserialize)]
 pub struct CreateForm {
     pub name: String,
-    pub codename: String,
 }
 
 #[post("/forms")]
@@ -50,16 +49,27 @@ pub async fn create_form(
     org: ReqData<Organization>,
     form: Form<CreateForm>,
 ) -> WebResult<HttpResponse> {
-    let form = app
-        .forms
-        .create(&org.id, &form.name, &form.codename)
-        .await?;
+    let form = app.forms.create(&org.id, &form.name).await?;
 
     let response = HttpResponse::Ok()
         .insert_header(("HX-Location", format!("/dashboard/forms/{}", form.id)))
         .finish();
 
     Ok(response)
+}
+
+#[put("/forms/{form_id}")]
+pub async fn update_form(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    form_id: Path<Id>,
+    form: Form<CreateForm>,
+) -> WebResult<Markup> {
+    app.forms.update(&org.id, &form_id, &form.name).await?;
+    Ok(toast(
+        "Formulario actualizado correctamente",
+        Variant::Primary,
+    ))
 }
 
 #[derive(Deserialize)]

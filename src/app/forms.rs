@@ -15,7 +15,6 @@ use crate::infra::{DbPool, Id};
 pub struct Form {
     pub id: Id,
     pub name: String,
-    pub codename: String,
 
     #[sqlx(skip)]
     pub fields: Vec<FormField>,
@@ -39,31 +38,23 @@ impl Forms {
         }
     }
 
-    pub async fn create(&self, org_id: &Id, name: &str, codename: &str) -> AppResult<Form> {
+    pub async fn create(&self, org_id: &Id, name: &str) -> AppResult<Form> {
         let form = sqlx::query_as::<_, Form>(
-            "insert into forms (organization_id, name, codename) values ($1, $2, $3) returning *",
+            "insert into forms (organization_id, name) values ($1, $2) returning *",
         )
         .bind(org_id)
         .bind(name)
-        .bind(codename)
         .fetch_one(&self.pool)
         .await?;
 
         Ok(form)
     }
 
-    pub async fn update(
-        &self,
-        org_id: &Id,
-        form_id: &Id,
-        name: &str,
-        codename: &str,
-    ) -> AppResult<Form> {
+    pub async fn update(&self, org_id: &Id, form_id: &Id, name: &str) -> AppResult<Form> {
         let form = sqlx::query_as::<_, Form>(
-            "update forms set name = $1, codename = $2 where organization_id = $3 and id = $4 returning *",
+            "update forms set name = $1 where organization_id = $2 and id = $3 returning *",
         )
         .bind(name)
-        .bind(codename)
         .bind(org_id)
         .bind(form_id)
         .fetch_one(&self.pool)

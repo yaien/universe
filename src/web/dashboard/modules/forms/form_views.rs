@@ -48,10 +48,6 @@ pub fn create_form_modal() -> Markup {
                     legend { "Nombre" }
                     input name="name" required {}
                 }
-                fieldset {
-                    legend { "Nombre Clave" }
-                    input name="codename" required {}
-                }
                 .actions.text-center {
                     button type="submit" { "Crear" }
                 }
@@ -65,14 +61,10 @@ pub fn base_form(form: &Form) -> Markup {
         article #base {
             .body {
                 h4 { "Formulario" }
-                form {
+                form hx-put=(format!("/dashboard/forms/{}", form.id)) hx-swap="none" {
                     fieldset {
                         label { "Nombre" }
                         input name="name" value=(form.name) required {}
-                    }
-                    fieldset {
-                        label { "Nombre Clave" }
-                        input name="codename" value=(form.codename) required {}
                     }
                     .actions {
                         button.danger type="button" hx-delete=(format!("/dashboard/forms/{}?fragment=delete", form.id)) hx-target="#form" hx-swap="beforeend" {
