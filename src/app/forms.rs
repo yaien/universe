@@ -3,6 +3,7 @@ mod submissions;
 
 use std::collections::HashMap;
 
+use chrono::Utc;
 pub use fields::*;
 pub use submissions::*;
 
@@ -61,6 +62,17 @@ impl Forms {
         .await?;
 
         Ok(form)
+    }
+
+    pub async fn delete(&self, org_id: &Id, form_id: &Id) -> AppResult<()> {
+        sqlx::query("update forms set deleted_at = $1 where organization_id = $2 and id = $3")
+            .bind(Utc::now())
+            .bind(org_id)
+            .bind(form_id)
+            .execute(&self.pool)
+            .await
+            .map_err(AppError::Sqlx)
+            .map(|_| ())
     }
 
     pub async fn get_by_organization_id(&self, org_id: &Id) -> AppResult<Vec<Form>> {

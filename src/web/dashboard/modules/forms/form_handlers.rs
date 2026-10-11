@@ -93,6 +93,7 @@ pub async fn get_form(
         .await?;
 
     let content = match query.fragment.as_deref() {
+        Some("delete") => views::delete_form_modal(&form),
         Some("fields") => views::field_list(&form),
         Some("create_field") => views::create_field_form(&form),
         Some("update_field") => {
@@ -117,6 +118,19 @@ pub async fn get_form(
     };
 
     Ok(content)
+}
+
+#[delete("/forms/{form_id}")]
+pub async fn delete_form(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    form_id: Path<Id>,
+) -> WebResult<HttpResponse> {
+    app.forms.delete(&org.id, &form_id).await?;
+
+    Ok(HttpResponse::Ok()
+        .insert_header(("HX-Location", "/dashboard/forms"))
+        .finish())
 }
 
 #[derive(Deserialize)]

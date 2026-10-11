@@ -2,6 +2,7 @@ use anyhow::Context;
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 use minijinja::{Environment, Value, context};
 
+use crate::app::auth::Organization;
 use crate::app::errors::AppError;
 
 use super::{Color, Email, Layout, Page, Sitemap, SitemapFont};
@@ -267,9 +268,18 @@ fn get_layout_content(ctx: &RegistryContext, layout: &Layout) -> Result<String, 
     Ok(content)
 }
 
+pub struct EmailRegistryContext<'a> {
+    pub org: &'a Organization,
+}
+
 /// get_email_content returns the subject and body of an email.
-pub fn get_email_content(email: &Email, ctx: Value) -> Result<(String, String), AppError> {
+pub fn get_email_content<'a>(
+    ctx: &EmailRegistryContext<'a>,
+    email: &Email,
+) -> Result<(String, String), AppError> {
     let env = Environment::new();
+
+    let ctx = context! { org => &ctx.org };
 
     let subject = match env.render_str(&email.subject, &ctx) {
         Ok(subject) => subject,
@@ -284,8 +294,8 @@ pub fn get_email_content(email: &Email, ctx: Value) -> Result<(String, String), 
     Ok((subject, body))
 }
 
-pub fn render_email(email: &Email, ctx: Value) -> Result<Markup, AppError> {
-    let (subject, body) = get_email_content(email, ctx)?;
+pub fn render_email(ctx: EmailRegistryContext<'_>, email: &Email) -> Result<Markup, AppError> {
+    let (subject, body) = get_email_content(&ctx, email)?;
 
     Ok(html!(
         (DOCTYPE)

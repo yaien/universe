@@ -10,6 +10,7 @@ pub fn configure(config: &mut ServiceConfig) {
         .service(get_form)
         .service(create_form)
         .service(update_form)
+        .service(delete_form)
         .service(create_field)
         .service(update_field)
         .service(delete_field)

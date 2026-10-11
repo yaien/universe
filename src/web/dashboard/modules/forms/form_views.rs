@@ -1,5 +1,3 @@
-use std::collections::{HashMap, HashSet};
-
 use maud::{Markup, html};
 use serde_json::json;
 
@@ -56,6 +54,22 @@ pub fn create_form_modal() -> Markup {
     );
 }
 
+pub fn delete_form_modal(form: &Form) -> Markup {
+    modal(
+        "Eliminar Formulario",
+        html! {
+            form hx-delete=(format!("/dashboard/forms/{}", form.id)) hx-target="dialog" hx-swap="outerHTML swap:250ms" hx-disable="find button" {
+                p {
+                    center { "Estas seguro de eliminar el formulario " strong { (form.name) } "?" }
+                }
+                .actions.text-center {
+                    button type="submit" { "Eliminar" }
+                }
+            }
+        },
+    )
+}
+
 pub fn base_form(form: &Form) -> Markup {
     html! {
         article #base {
@@ -67,7 +81,7 @@ pub fn base_form(form: &Form) -> Markup {
                         input name="name" value=(form.name) required {}
                     }
                     .actions {
-                        button.danger type="button" hx-delete=(format!("/dashboard/forms/{}?fragment=delete", form.id)) hx-target="#form" hx-swap="beforeend" {
+                        button.danger type="button" hx-get=(format!("/dashboard/forms/{}?fragment=delete", form.id)) hx-target="#form" hx-swap="beforeend" {
                             "Eliminar"
                         }
                         button type="submit" { "Guardar" }

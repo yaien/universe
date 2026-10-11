@@ -85,7 +85,7 @@ pub fn product_detail(product: &Product, presentation: &Option<&Presentation>) -
                                 }
                             }
                             .actions {
-                                button.danger type="button" hx-get=(format!("/dashboard/products/{}/delete", product.id)) hx-target="#product" hx-swap="beforeend" {
+                                button.danger type="button" hx-get=(format!("/dashboard/products/{}?fragment=delete", product.id)) hx-target="#product" hx-swap="beforeend" {
                                     "Eliminar"
                                 }
                                 button type="submit" { "Guardar" }
