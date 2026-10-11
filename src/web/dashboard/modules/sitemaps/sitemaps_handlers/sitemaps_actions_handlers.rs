@@ -111,7 +111,7 @@ pub struct GetFormsFieldsetQuery {
 }
 
 #[get("/sitemaps/actions/forms")]
-pub async fn get_actions_forms_fieldset(
+pub async fn get_action_form_fieldset(
     org: ReqData<Organization>,
     app: Data<App>,
     query: Query<GetFormsFieldsetQuery>,

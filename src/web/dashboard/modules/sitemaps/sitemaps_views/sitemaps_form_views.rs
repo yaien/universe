@@ -1,8 +1,10 @@
+use crate::app::forms::FormField;
+
 use super::*;
 
 pub fn forms(forms: &Option<Vec<Form>>) -> Markup {
     html! {
-        .forms {
+        #forms .forms {
             .actions {
                 button.clear hx-get="/dashboard/sitemaps"
                     hx-target="#editor"
@@ -37,6 +39,9 @@ pub fn create_form() -> Markup {
                     input name="name" required {}
                 }
                 .actions.text-center {
+                    button hx-get="/dashboard/sitemaps" hx-target="#fields" hx-swap="outerHTML" hx-vals=(json!({ "section": Section::Forms })) {
+                        "Volver"
+                    }
                     button type="submit" { "Crear" }
                 }
             }
@@ -47,7 +52,7 @@ pub fn create_form() -> Markup {
 pub fn edit_form(form: &Option<Form>) -> Markup {
     html! {
         @if let Some(form) = form {
-            .forms {
+            #forms .forms {
                 .actions {
                     button
                         hx-trigger="click"
@@ -60,7 +65,24 @@ pub fn edit_form(form: &Option<Form>) -> Markup {
                     }
                 }
                 (base_form(form))
-                (field_list(form))
+                (form_field_list(form))
+            }
+        }
+    }
+}
+
+pub fn delete_form(form: &Form) -> Markup {
+    html! {
+        fieldset #base {
+            legend { "Eliminar formulario" }
+            form hx-delete=(format!("/dashboard/sitemaps/forms/{}", form.id)) hx-target="#section" hx-swap="outerHTML" {
+                p {
+                    center { "Estas seguro de eliminar el formulario " strong { (form.name) } "?" }
+                }
+                .actions.text-center {
+                    button type="button" hx-get="/dashboard/sitemaps" hx-target="#base" hx-select="#base" { "Cancelar" }
+                    button.danger type="submit" { "Eliminar" }
+                }
             }
         }
     }
@@ -68,7 +90,7 @@ pub fn edit_form(form: &Option<Form>) -> Markup {
 
 fn base_form(form: &Form) -> Markup {
     html! {
-        fieldset {
+        fieldset #base {
             legend { "Formulario" }
             form hx-put=(format!("/dashboard/forms/{}", form.id)) hx-swap="none" {
                 fieldset {
@@ -76,7 +98,7 @@ fn base_form(form: &Form) -> Markup {
                     input name="name" value=(form.name) required {}
                 }
                 .actions {
-                    button.danger type="button" hx-get=(format!("/dashboard/forms/{}?fragment=delete", form.id)) hx-target="#form" hx-swap="beforeend" {
+                    button.danger type="button" hx-get=(format!("/dashboard/sitemaps/forms/{}/delete", form.id)) hx-target="#base" hx-swap="outerHTML" {
                         "Eliminar"
                     }
                     button type="submit" { "Guardar" }
@@ -86,11 +108,11 @@ fn base_form(form: &Form) -> Markup {
     }
 }
 
-fn field_list(form: &Form) -> Markup {
+pub fn form_field_list(form: &Form) -> Markup {
     html! {
         fieldset #fields {
             legend { "Campos" }
-            .actions {
+            .actions style="padding: 0" {
                 button.clear
                     hx-get=(format!("/dashboard/sitemaps/forms/{}/fields/create", form.id))
                     hx-target="#fields"
@@ -105,6 +127,59 @@ fn field_list(form: &Form) -> Markup {
                         hx-target="#fields"
                         hx-swap="outerHTML" {
                         (field.label)
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn create_field_form(form: &Form) -> Markup {
+    html! {
+        fieldset #fields {
+            legend { "Crear campo" }
+            form hx-post=(format!("/dashboard/sitemaps/forms/{}/fields", form.id)) hx-target="#fields" hx-swap="outerHTML" {
+                fieldset {
+                    legend { "Etiqueta" }
+                    input name="label" required {}
+                }
+                fieldset {
+                    legend { "Nombre" }
+                    input name="name" required {}
+                }
+                .actions {
+                    button hx-get="/dashboard/sitemaps" hx-select="#fields" hx-target="#fields" hx-swap="outerHTML" {
+                        "Volver"
+                    }
+                    button type="submit" { "Guardar" }
+                }
+            }
+        }
+    }
+}
+
+pub fn update_field_form(form: &Form, field: &FormField) -> Markup {
+    html! {
+        fieldset #fields {
+            legend { "Editar campo" }
+            form hx-put=(format!("/dashboard/sitemaps/forms/{}/fields/{}", form.id, field.id)) hx-target="#fields" hx-swap="outerHTML" {
+                fieldset {
+                    legend { "Etiqueta" }
+                    input name="label" value=(field.label) required {}
+                }
+                fieldset {
+                    legend { "Nombre" }
+                    input name="name" value=(field.name) required {}
+                }
+                .actions {
+                    .actions {
+                        button hx-get="/dashboard/sitemaps" hx-select="#fields" hx-target="#fields" hx-swap="outerHTML" {
+                            "Volver"
+                        }
+                    }
+                    .actions {
+                        button.danger type="button" hx-delete=(format!("/dashboard/sitemaps/forms/{}/fields/{}", form.id, field.id)) hx-target="#fields" hx-swap="outerHTML" { "Eliminar" }
+                        button type="submit" { "Guardar" }
                     }
                 }
             }

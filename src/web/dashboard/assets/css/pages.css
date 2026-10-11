@@ -231,7 +231,7 @@
                 font-size: 4rem;
             }
         }
-    };
+    }
 
     .files .edit .preview {
         border-radius: var(--border-radius);
@@ -340,36 +340,19 @@
         margin: 0;
     }
 
-    /* Actions */
-    .functions {
-        .function {
-            padding: 0.5rem;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-        }
-
-        .headers {
-            margin-bottom: calc(var(--space) * 2);
-        }
-
-        .header {
-            display: flex;
-            padding: 0;
-            margin-bottom: var(--space);
-
-            input {
-                border-right: 1px solid var(--border-color);
-                padding: 0 var(--space);
-            }
-        }
-    }
-
+    /* Template Actions */
     .template-actions {
         fieldset.code {
             height: 300px;
+        }
+    }
+
+    /* Forms */
+    .forms {
+        .actions {
+            display: flex;
+            justify-content: space-around;
+            gap: var(--space);
         }
     }
 }
