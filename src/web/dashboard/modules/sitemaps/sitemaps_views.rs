@@ -1024,7 +1024,6 @@ pub fn color(color: &Color) -> Markup {
                         name="value"
                         class="coloris"
                         value=(color.value)
-                        hx-on:load="Coloris({ themeMode: 'auto', swatches: [] })"
                         hx-live:style="{ color: data.readable }"
                         required
                         {}
