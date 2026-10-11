@@ -1,6 +1,6 @@
 use anyhow::Context;
 use maud::{DOCTYPE, Markup, PreEscaped, html};
-use minijinja::{Environment, Value, context};
+use minijinja::{Environment, context};
 
 use crate::app::auth::Organization;
 use crate::app::errors::AppError;
