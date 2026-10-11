@@ -1,7 +1,8 @@
 use anyhow::Context;
 use maud::{DOCTYPE, Markup, PreEscaped, html};
-use minijinja::{Environment, Value, context};
+use minijinja::{Environment, context};
 
+use crate::app::auth::Organization;
 use crate::app::errors::AppError;
 
 use super::{Color, Email, Layout, Page, Sitemap, SitemapFont};
@@ -78,7 +79,8 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
                 link rel="stylesheet" href="/assets/landing/style.css" {}
 
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
-                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0-beta6" integrity="sha384-6lyVbhrs13b9z7mLOpt/N6R76rtkEBWgCjAXRs/DSWyi2AMnQSs10ijWk+PI8n7W" crossorigin="anonymous" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0" integrity="sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc" crossorigin="anonymous" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-live.min.js" {}
                 script src="/assets/landing/script.js" {}
 
             }
@@ -130,8 +132,10 @@ pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, Ap
                 (script::inline(layout_js, &page.js))
 
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
-                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0-beta6" integrity="sha384-6lyVbhrs13b9z7mLOpt/N6R76rtkEBWgCjAXRs/DSWyi2AMnQSs10ijWk+PI8n7W" crossorigin="anonymous" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0" integrity="sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc" crossorigin="anonymous" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-alpine-compat.js" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-live.min.js" {}
 
             }
 
@@ -236,8 +240,9 @@ pub fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppError> {
                  (script::inline(&layout.js, ""))
 
                  script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
-                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0-beta6" integrity="sha384-6lyVbhrs13b9z7mLOpt/N6R76rtkEBWgCjAXRs/DSWyi2AMnQSs10ijWk+PI8n7W" crossorigin="anonymous" {}
+                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0" integrity="sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc" crossorigin="anonymous" {}
                  script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
+                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-alpine-compat.js" {}
             }
             body hx-trigger="reload" hx-get="/dashboard/sitemaps/preview" {
                 div data-layout=(layout.name) {
@@ -263,9 +268,18 @@ fn get_layout_content(ctx: &RegistryContext, layout: &Layout) -> Result<String, 
     Ok(content)
 }
 
+pub struct EmailRegistryContext<'a> {
+    pub org: &'a Organization,
+}
+
 /// get_email_content returns the subject and body of an email.
-pub fn get_email_content(email: &Email, ctx: Value) -> Result<(String, String), AppError> {
+pub fn get_email_content<'a>(
+    ctx: &EmailRegistryContext<'a>,
+    email: &Email,
+) -> Result<(String, String), AppError> {
     let env = Environment::new();
+
+    let ctx = context! { org => &ctx.org };
 
     let subject = match env.render_str(&email.subject, &ctx) {
         Ok(subject) => subject,
@@ -280,8 +294,8 @@ pub fn get_email_content(email: &Email, ctx: Value) -> Result<(String, String), 
     Ok((subject, body))
 }
 
-pub fn render_email(email: &Email, ctx: Value) -> Result<Markup, AppError> {
-    let (subject, body) = get_email_content(email, ctx)?;
+pub fn render_email(ctx: EmailRegistryContext<'_>, email: &Email) -> Result<Markup, AppError> {
+    let (subject, body) = get_email_content(&ctx, email)?;
 
     Ok(html!(
         (DOCTYPE)

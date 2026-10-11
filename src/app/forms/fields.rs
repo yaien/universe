@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use sqlx::prelude::FromRow;
 
 use crate::app::AppResult;
@@ -9,6 +9,7 @@ pub struct FormField {
     pub id: Id,
     pub name: String,
     pub label: String,
+    pub deleted_at: Option<DateTime<Utc>>,
 }
 
 pub struct FormFields {
@@ -39,15 +40,30 @@ impl FormFields {
         }
 
         // check it the name and form_id are unique
-        let field_exists: bool = sqlx::query_scalar("select exists(select 1 from form_fields where form_id = $1 and name = $2 and deleted_at is null)")
-            .bind(form_id)
-            .bind(name)
-            .fetch_one(&self.pool)
-            .await?;
+        let field = sqlx::query_as::<_, FormField>(
+            "select * from form_fields where form_id = $1 and name = $2",
+        )
+        .bind(form_id)
+        .bind(name)
+        .fetch_optional(&self.pool)
+        .await?;
 
-        if field_exists {
-            return Err("el nombre del campo ya existe")?;
-        }
+        if let Some(field) = field {
+            match field.deleted_at {
+                Some(_) => {
+                    let field = sqlx::query_as::<_, FormField>("update form_fields set updated_at = $1, deleted_at = null where id = $2 returning *")
+                            .bind(Utc::now())
+                            .bind(field.id)
+                            .fetch_one(&self.pool)
+                            .await?;
+
+                    return Ok(field);
+                }
+                None => {
+                    return Err("el nombre del campo ya existe")?;
+                }
+            }
+        };
 
         // get max number
         let max_number: i32 = sqlx::query_scalar("select coalesce(max(number), 0) from form_fields where form_id = $1 and deleted_at is null")
@@ -101,9 +117,10 @@ impl FormFields {
         }
 
         // update the field
-        let field: FormField = sqlx::query_as("update form_fields set name = $1, label = $2 where form_id = $3 and id = $4 returning *")
+        let field: FormField = sqlx::query_as("update form_fields set name = $1, label = $2, updated_at = $3 where form_id = $4 and id = $5 returning *")
             .bind(name)
             .bind(label)
+            .bind(Utc::now())
             .bind(form_id)
             .bind(field_id)
             .fetch_one(&self.pool)

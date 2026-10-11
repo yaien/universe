@@ -64,6 +64,11 @@ impl From<AppError> for WebError {
                 WebError::Internal(anyhow!("fallo en consulta a la base de datos: {err}"))
             }
             AppError::Any(err) => {
+                if let Some(app_err) = err.downcast_ref::<AppError>() {
+                    if let AppError::Message(app_message) = app_err {
+                        return WebError::Message(app_message.clone());
+                    }
+                }
                 WebError::Internal(anyhow!("fallo interno en el servicio: {err}"))
             }
         }
@@ -78,6 +83,12 @@ impl From<sqlx::Error> for WebError {
 
 impl From<anyhow::Error> for WebError {
     fn from(err: anyhow::Error) -> Self {
+        if let Some(app_err) = err.downcast_ref::<AppError>() {
+            if let AppError::Message(app_message) = app_err {
+                return WebError::Message(app_message.clone());
+            }
+        }
+
         WebError::Internal(anyhow!("fallo interno en el servicio: {err}"))
     }
 }

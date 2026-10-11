@@ -6,13 +6,18 @@ pub fn inline(layout_script: &str, page_script: &str) -> Markup {
     let script = format!(
         r#"
         <script type="text/javascript" hx-head="re-eval">
-            function __init() {{
+            async function init() {{
                 {layout_script}
                 {page_script}
             }}
-            document.addEventListener('alpine:init', __init);
-            document.addEventListener('htmx:after:swap', __init);
-            if (window.Alpine) {{ __init(); }}
+            function __init() {{
+                init();
+            }}
+            if (!window.initialized) {{
+                document.addEventListener('htmx:after:init', __init);
+                document.addEventListener('htmx:after:swap', __init);
+                window.initialized = true;
+            }}
         </script>
 
     "#,
@@ -30,8 +35,8 @@ pub fn bundle(layouts: &Vec<Layout>, pages: &Vec<Page>) -> String {
         script.push_str(&format!("  {}\n", page.js));
     }
     script.push_str("}\n");
-    script.push_str("document.addEventListener('alpine:init', __init);\n");
-    script.push_str("if (window.Alpine) { __init(); }\n");
+    script.push_str("document.addEventListener('htmx:after:init', __init);\n");
+    script.push_str("document.addEventListener('htmx:after:swap', __init);\n");
 
     script
 }
