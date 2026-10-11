@@ -54,6 +54,7 @@ pub struct SessionState {
     pub browsed_font_id: Option<Id>,
     pub sitemap_font_id: Option<Id>,
     pub action_id: Option<Id>,
+    pub form_id: Option<Id>,
 }
 
 impl Default for SessionState {
@@ -67,6 +68,7 @@ impl Default for SessionState {
             browsed_font_id: None,
             sitemap_font_id: None,
             action_id: None,
+            form_id: None,
         }
     }
 }
@@ -110,6 +112,7 @@ pub struct QueryState {
     pub browsed_font_id: Option<Id>,
     pub sitemap_font_id: Option<Id>,
     pub action_id: Option<Id>,
+    pub form_id: Option<Id>,
 }
 
 #[derive(EnumIter, Debug, PartialEq, Serialize, Deserialize)]
@@ -175,7 +178,7 @@ impl Section {
             Self::EditStyles => Some("fa-brands fa-css"),
             Self::EditScript => Some("fa-brands fa-js"),
             Self::Actions => Some("fa-regular fa-hand-point-up"),
-            Self::Forms => Some("fa-regular fa-table-list"),
+            Self::Forms => Some("fa-solid fa-table-list"),
 
             _ => None,
         }

@@ -34,5 +34,6 @@ pub fn configure(config: &mut ServiceConfig) {
         .service(create_action)
         .service(update_action)
         .service(call_action)
+        .service(create_form)
         .service(get_actions_forms_fieldset);
 }

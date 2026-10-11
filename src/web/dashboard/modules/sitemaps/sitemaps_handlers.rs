@@ -3,6 +3,7 @@ mod sitemaps_colors_handlers;
 mod sitemaps_edit_handlers;
 mod sitemaps_files_handlers;
 mod sitemaps_fonts_handlers;
+mod sitemaps_forms_handlers;
 mod sitemaps_initial_handlers;
 mod sitemaps_sources_handlers;
 
@@ -11,6 +12,7 @@ pub use sitemaps_colors_handlers::*;
 pub use sitemaps_edit_handlers::*;
 pub use sitemaps_files_handlers::*;
 pub use sitemaps_fonts_handlers::*;
+pub use sitemaps_forms_handlers::*;
 pub use sitemaps_initial_handlers::*;
 pub use sitemaps_sources_handlers::*;
 
@@ -41,7 +43,7 @@ use super::sitemaps_views::{
     Model, ModelType, QueryState, RELOAD_HEADER, Section, SessionState, ViewState,
 };
 use crate::infra::Id;
-use crate::web::errors::WebError;
+use crate::web::errors::{WebError, WebResult};
 
 async fn get_view_state<'a>(
     app: &App,
@@ -79,6 +81,10 @@ async fn get_view_state<'a>(
 
     if query.action_id.is_some() {
         session_state.action_id = query.action_id
+    }
+
+    if query.form_id.is_some() {
+        session_state.form_id = query.form_id
     }
 
     if let Some(sitemap_branch) = query.sitemap_branch {
@@ -335,7 +341,24 @@ async fn get_view_state<'a>(
                     .ok();
             }
         }
-        Section::CreateAction => {}
+        Section::Forms => {
+            view_state.forms = app
+                .forms
+                .get_by_organization_id(&org.id)
+                .await
+                .inspect_err(|e| log::error!("failed getting forms: {e}"))
+                .ok();
+        }
+        Section::EditForm => {
+            if let Some(form_id) = session_state.form_id {
+                view_state.form = app
+                    .forms
+                    .get_one_by_organization_id(&org.id, &form_id)
+                    .await
+                    .inspect_err(|e| log::error!("failed getting form: {e}"))
+                    .ok();
+            }
+        }
         _ => {}
     };
 
@@ -350,7 +373,7 @@ pub async fn pages(
     query: Query<QueryState>,
     session: Session,
     req: HttpRequest,
-) -> Result<Markup, WebError> {
+) -> WebResult<Markup> {
     let mut query = query.into_inner();
 
     if !req.headers().contains_key("hx-request") {
@@ -392,7 +415,7 @@ pub async fn get_preview(
     user: ReqData<Option<User>>,
     app: Data<App>,
     session: Session,
-) -> Result<Markup, WebError> {
+) -> WebResult<Markup> {
     let (session_state, sitemap) = get_session_state_and_sitemap(&app, &session, &org.id).await?;
 
     let Some(model_id) = session_state.model_id else {
