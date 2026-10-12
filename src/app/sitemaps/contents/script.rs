@@ -14,7 +14,7 @@ pub fn inline(layout_script: &str, page_script: &str) -> Markup {
                 init();
             }}
             if (!window.initialized) {{
-                document.addEventListener('htmx:after:init', __init);
+                document.addEventListener('alpine:init', __init);
                 document.addEventListener('htmx:after:swap', __init);
                 window.initialized = true;
             }}
@@ -35,8 +35,8 @@ pub fn bundle(layouts: &Vec<Layout>, pages: &Vec<Page>) -> String {
         script.push_str(&format!("  {}\n", page.js));
     }
     script.push_str("}\n");
-    script.push_str("document.addEventListener('htmx:after:init', __init);\n");
-    script.push_str("document.addEventListener('htmx:after:swap', __init);\n");
+    script.push_str("document.addEventListener('alpine:init', __init);\n");
+    script.push_str("if (window.Alpine) { __init(); }\n");
 
     script
 }
