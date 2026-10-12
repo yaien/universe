@@ -13,11 +13,8 @@ pub fn inline(layout_script: &str, page_script: &str) -> Markup {
             function __init() {{
                 init();
             }}
-            if (!window.initialized) {{
-                document.addEventListener('alpine:init', __init);
-                document.addEventListener('htmx:after:swap', __init);
-                window.initialized = true;
-            }}
+            document.addEventListener('alpine:init', __init);
+            if (window.Alpine) {{ __init(); }}
         </script>
 
     "#,
