@@ -8,11 +8,13 @@ use crate::app::errors::AppError;
 use super::{Color, Email, Layout, Page, Sitemap, SitemapFont};
 
 mod links;
+mod queries;
 mod registry;
 mod script;
 mod style;
 mod tools;
 
+pub use queries::*;
 pub use script::bundle as bundle_js;
 pub use style::bundle as bundle_css;
 pub use tools::*;
@@ -79,7 +81,8 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
                 link rel="stylesheet" href="/assets/landing/style.css" {}
 
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
-                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0" integrity="sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc" crossorigin="anonymous" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-live.min.js" {}
                 script src="/assets/landing/script.js" {}
 
             }
@@ -131,8 +134,9 @@ pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, Ap
                 (script::inline(layout_js, &page.js))
 
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
-                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0" integrity="sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc" crossorigin="anonymous" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-live.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-alpine-compat.js" {}
             }
 
@@ -237,7 +241,7 @@ pub fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppError> {
                  (script::inline(&layout.js, ""))
 
                  script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
-                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0" integrity="sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc" crossorigin="anonymous" {}
+                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js" {}
                  script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
                  script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-alpine-compat.js" {}
             }

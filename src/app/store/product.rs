@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use chrono::Utc;
+use serde::Serialize;
 use slug::slugify;
 use sqlx::QueryBuilder;
 use sqlx::prelude::FromRow;
@@ -10,7 +11,7 @@ use crate::infra::{DbPool, Id};
 
 use super::{Content, Presentation};
 
-#[derive(FromRow)]
+#[derive(FromRow, Serialize)]
 pub struct Product {
     pub id: Id,
     pub name: String,

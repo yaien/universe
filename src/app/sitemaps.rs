@@ -5,6 +5,7 @@ mod emails;
 mod fonts;
 mod layouts;
 mod pages;
+mod vars;
 
 use std::collections::HashMap;
 
@@ -17,6 +18,7 @@ pub use emails::*;
 pub use fonts::*;
 pub use layouts::*;
 pub use pages::*;
+pub use vars::*;
 
 use contents::{bundle_css, bundle_js};
 
