@@ -1,10 +1,12 @@
 mod auth;
 mod dashboard;
 mod errors;
+mod external;
 mod public;
 
 use actix_multipart::form::tempfile::TempFileConfig;
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
+use actix_web::HttpResponse;
 use actix_web::middleware::Logger;
 use actix_web::{
     cookie::SameSite,
@@ -12,7 +14,9 @@ use actix_web::{
     web::{Data, ServiceConfig, scope},
 };
 
+use crate::app::App;
 use crate::infra::Monolith;
+use crate::web::external::caddy;
 
 pub fn configure(mono: Data<Monolith>) -> impl Fn(&mut ServiceConfig) {
     move |config| {
@@ -29,7 +33,7 @@ pub fn configure(mono: Data<Monolith>) -> impl Fn(&mut ServiceConfig) {
 
         let tempfile = TempFileConfig::default().directory(&mono.config.storage_temp_path);
 
-        config.service(
+        config.service(external::caddy).service(
             scope("")
                 .configure(dashboard::configure)
                 .configure(auth::configure)
