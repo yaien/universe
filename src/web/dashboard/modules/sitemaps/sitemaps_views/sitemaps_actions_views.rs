@@ -42,7 +42,6 @@ pub fn create_action() -> Markup {
                     legend { "Nombre Clave"}
                     input name="codename" required {}
                 }
-
                 fieldset {
                     legend { "Función" }
                     select name="tool" required hx-trigger="change, load" hx-get="/dashboard/sitemaps/actions/forms" hx-target="#forms-fieldset" hx-include="#form_id" {

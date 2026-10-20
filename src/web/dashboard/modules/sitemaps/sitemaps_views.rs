@@ -223,7 +223,7 @@ impl Section {
             Section::EditForm => edit_form(&state.form),
             Section::Vars => vars(state),
             Section::CreateVar => create_var(state),
-            Section::EditVar => edit_var(&state),
+            Section::EditVar => edit_var(&state.var),
         }
     }
 }

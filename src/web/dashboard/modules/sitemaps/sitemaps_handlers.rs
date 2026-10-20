@@ -6,6 +6,7 @@ mod sitemaps_fonts_handlers;
 mod sitemaps_forms_handlers;
 mod sitemaps_initial_handlers;
 mod sitemaps_sources_handlers;
+mod sitemaps_vars_handlers;
 
 pub use sitemaps_actions_handlers::*;
 pub use sitemaps_colors_handlers::*;
@@ -15,6 +16,7 @@ pub use sitemaps_fonts_handlers::*;
 pub use sitemaps_forms_handlers::*;
 pub use sitemaps_initial_handlers::*;
 pub use sitemaps_sources_handlers::*;
+pub use sitemaps_vars_handlers::*;
 
 use std::collections::HashMap;
 use std::sync::Arc;
