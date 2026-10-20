@@ -5,6 +5,7 @@ mod sitemaps_files_views;
 mod sitemaps_fonts_views;
 mod sitemaps_form_views;
 mod sitemaps_sources_views;
+mod sitemaps_vars_views;
 mod sitempas_initial_views;
 
 use maud::{Markup, html};
@@ -16,7 +17,7 @@ use strum_macros::EnumIter;
 use crate::app::auth::Organization;
 use crate::app::forms::Form;
 use crate::app::sitemaps::{
-    Action, Branch, Color, Email, Font, Layout, Page, Sitemap, SitemapFont,
+    Action, Branch, Color, Email, Font, Layout, Page, Sitemap, SitemapFont, Var,
 };
 use crate::app::storage::File;
 use crate::infra::Id;
@@ -28,6 +29,7 @@ pub use sitemaps_files_views::*;
 pub use sitemaps_fonts_views::*;
 pub use sitemaps_form_views::*;
 pub use sitemaps_sources_views::*;
+pub use sitemaps_vars_views::*;
 pub use sitempas_initial_views::*;
 
 pub enum Model {
@@ -55,6 +57,7 @@ pub struct SessionState {
     pub sitemap_font_id: Option<Id>,
     pub action_id: Option<Id>,
     pub form_id: Option<Id>,
+    pub var_id: Option<Id>,
 }
 
 impl Default for SessionState {
@@ -69,6 +72,7 @@ impl Default for SessionState {
             sitemap_font_id: None,
             action_id: None,
             form_id: None,
+            var_id: None,
         }
     }
 }
@@ -97,6 +101,8 @@ pub struct ViewState<'a> {
     pub action: Option<Action>,
     pub forms: Option<Vec<Form>>,
     pub form: Option<Form>,
+    pub vars: Option<Vec<Var>>,
+    pub var: Option<Var>,
 }
 
 #[derive(Deserialize, Default)]
@@ -113,6 +119,7 @@ pub struct QueryState {
     pub sitemap_font_id: Option<Id>,
     pub action_id: Option<Id>,
     pub form_id: Option<Id>,
+    pub var_id: Option<Id>,
 }
 
 #[derive(EnumIter, Debug, PartialEq, Serialize, Deserialize)]
@@ -132,8 +139,11 @@ pub enum Section {
     EditHTML,
     Actions,
     CreateAction,
-    Forms,
     EditAction,
+    Vars,
+    CreateVar,
+    EditVar,
+    Forms,
     CreateForm,
     EditForm,
     Publish,
@@ -152,6 +162,7 @@ impl Section {
             Self::EditStyles => true,
             Self::Actions => true,
             Self::Forms => true,
+            Self::Vars => true,
             _ => false,
         }
     }
@@ -163,6 +174,9 @@ impl Section {
             Self::EditScript => true,
             Self::EditStyles => true,
             Self::EditAction => true,
+            Self::Vars => true,
+            Self::Forms => true,
+            Self::Actions => true,
             _ => false,
         }
     }
@@ -177,8 +191,9 @@ impl Section {
             Self::EditHTML => Some("fa-solid fa-code"),
             Self::EditStyles => Some("fa-brands fa-css"),
             Self::EditScript => Some("fa-brands fa-js"),
-            Self::Actions => Some("fa-regular fa-hand-point-up"),
+            Self::Actions => Some("fa-solid fa-hand-point-up"),
             Self::Forms => Some("fa-solid fa-table-list"),
+            Self::Vars => Some("fa-solid fa-atom"),
 
             _ => None,
         }
@@ -206,6 +221,9 @@ impl Section {
             Section::Forms => forms(&state.forms),
             Section::CreateForm => create_form(),
             Section::EditForm => edit_form(&state.form),
+            Section::Vars => vars(state),
+            Section::CreateVar => create_var(state),
+            Section::EditVar => edit_var(&state),
         }
     }
 }

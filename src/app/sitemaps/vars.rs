@@ -37,7 +37,7 @@ impl Vars {
         Self { pool }
     }
 
-    pub async fn get_by_page_id(&self, page_id: Id) -> AppResult<Vec<Var>> {
+    pub async fn get_by_page_id(&self, page_id: &Id) -> AppResult<Vec<Var>> {
         sqlx::query_as::<_, Var>("SELECT * FROM vars where page_id = $1")
             .bind(page_id)
             .fetch_all(&self.pool)
@@ -45,10 +45,28 @@ impl Vars {
             .map_err(AppError::Sqlx)
     }
 
-    pub async fn get_by_layout_id(&self, layout_id: Id) -> AppResult<Vec<Var>> {
+    pub async fn get_by_layout_id(&self, layout_id: &Id) -> AppResult<Vec<Var>> {
         sqlx::query_as::<_, Var>("SELECT * FROM vars where layout_id = $1")
             .bind(layout_id)
             .fetch_all(&self.pool)
+            .await
+            .map_err(AppError::Sqlx)
+    }
+
+    pub async fn get_one_by_id_and_layout_id(&self, var_id: &Id, layout_id: &Id) -> AppResult<Var> {
+        sqlx::query_as::<_, Var>("SELECT * FROM vars where id = $1 and layout_id = $2")
+            .bind(var_id)
+            .bind(layout_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(AppError::Sqlx)
+    }
+
+    pub async fn get_one_by_id_and_page_id(&self, var_id: &Id, page_id: &Id) -> AppResult<Var> {
+        sqlx::query_as::<_, Var>("SELECT * FROM vars where id = $1 and page_id = $2")
+            .bind(var_id)
+            .bind(page_id)
+            .fetch_one(&self.pool)
             .await
             .map_err(AppError::Sqlx)
     }

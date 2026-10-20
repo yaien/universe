@@ -47,6 +47,7 @@ pub struct Sitemaps {
     pub colors: Colors,
     pub layouts: Layouts,
     pub actions: Actions,
+    pub vars: Vars,
 }
 
 impl Sitemaps {
@@ -57,6 +58,7 @@ impl Sitemaps {
         let colors = Colors::new(pool.clone());
         let layouts = Layouts::new(pool.clone());
         let actions = Actions::new(pool.clone());
+        let vars = Vars::new(pool.clone());
 
         Self {
             pool,
@@ -66,6 +68,7 @@ impl Sitemaps {
             colors,
             layouts,
             actions,
+            vars,
         }
     }
 

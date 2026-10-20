@@ -87,6 +87,10 @@ async fn get_view_state<'a>(
         session_state.form_id = query.form_id
     }
 
+    if query.var_id.is_some() {
+        session_state.var_id = query.var_id
+    }
+
     if let Some(sitemap_branch) = query.sitemap_branch {
         session_state.sitemap_branch = sitemap_branch;
         session_state.model_id = None;
@@ -187,6 +191,8 @@ async fn get_view_state<'a>(
         action: None,
         forms: None,
         form: None,
+        vars: None,
+        var: None,
     };
 
     match &view_state.section {
@@ -357,6 +363,46 @@ async fn get_view_state<'a>(
                     .await
                     .inspect_err(|e| log::error!("failed getting form: {e}"))
                     .ok();
+            }
+        }
+        Section::Vars => {
+            view_state.vars = match &view_state.model {
+                Some(Model::Page(page)) => app
+                    .sitemaps
+                    .vars
+                    .get_by_page_id(&page.id)
+                    .await
+                    .inspect_err(|e| log::error!("failed getting vars by page: {e}"))
+                    .ok(),
+                Some(Model::Layout(layout)) => app
+                    .sitemaps
+                    .vars
+                    .get_by_layout_id(&layout.id)
+                    .await
+                    .inspect_err(|e| log::error!("failed getting vars by layout: {e}"))
+                    .ok(),
+                _ => None,
+            }
+        }
+        Section::EditVar => {
+            if let Some(var_id) = query.var_id {
+                view_state.var = match &view_state.model {
+                    Some(Model::Page(page)) => app
+                        .sitemaps
+                        .vars
+                        .get_one_by_id_and_page_id(&var_id, &page.id)
+                        .await
+                        .inspect_err(|e| log::error!("failed getting var: {e}"))
+                        .ok(),
+                    Some(Model::Layout(layout)) => app
+                        .sitemaps
+                        .vars
+                        .get_one_by_id_and_layout_id(&var_id, &layout.id)
+                        .await
+                        .inspect_err(|e| log::error!("failed getting var: {e}"))
+                        .ok(),
+                    _ => None,
+                }
             }
         }
         _ => {}
