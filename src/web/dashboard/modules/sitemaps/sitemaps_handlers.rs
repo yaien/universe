@@ -503,7 +503,8 @@ pub async fn get_preview(
                 layout,
                 fonts,
                 colors,
-            })?;
+            })
+            .await?;
 
             Ok(content)
         }

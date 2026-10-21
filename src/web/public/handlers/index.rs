@@ -58,7 +58,8 @@ pub async fn get_index(
         layout,
         sitemap,
         fonts,
-    })?;
+    })
+    .await?;
 
     Ok(content)
 }

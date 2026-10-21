@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::Context;
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 use minijinja::{Environment, context};
@@ -30,7 +32,7 @@ pub struct RenderPageOptions {
 }
 
 /// render_page returns the markup for a page.
-pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
+pub async fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
     let RenderPageOptions {
         ctx,
         page,
@@ -39,8 +41,9 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
         fonts,
     } = options;
 
-    let content =
-        get_page_content(&ctx, &page, &layout, false).context("failed getting page content")?;
+    let content = get_page_content(&ctx, &page, &layout, false)
+        .await
+        .context("failed getting page content")?;
 
     let org = &ctx.org;
 
@@ -82,7 +85,6 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
 
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js" {}
-                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-live.min.js" {}
                 script src="/assets/landing/script.js" {}
 
             }
@@ -104,7 +106,7 @@ pub struct RenderPageInlineOptions {
     pub ctx: RegistryContext,
 }
 
-pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, AppError> {
+pub async fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, AppError> {
     let RenderPageInlineOptions {
         page,
         layout,
@@ -113,8 +115,9 @@ pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, Ap
         ctx,
     } = options;
 
-    let content =
-        get_page_content(&ctx, &page, &layout, true).context("failed getting page content")?;
+    let content = get_page_content(&ctx, &page, &layout, true)
+        .await
+        .context("failed getting page content")?;
 
     Ok(html!(
         (DOCTYPE)
@@ -136,7 +139,6 @@ pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, Ap
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
-                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-live.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-alpine-compat.js" {}
             }
 
@@ -160,7 +162,7 @@ fn render_template_error(prelude: &str, e: minijinja::Error) -> String {
     .into_string()
 }
 
-fn get_page_content(
+async fn get_page_content(
     ctx: &RegistryContext,
     page: &Page,
     layout: &Option<Layout>,
@@ -198,7 +200,40 @@ fn get_page_content(
         page.name
     );
 
-    let s = context! {user => &ctx.user, org => &ctx.org};
+    let layout_context = match layout.as_ref() {
+        Some(layout) => {
+            let vars = ctx.app.sitemaps.vars.get_by_layout_id(&layout.id).await?;
+            let mut var_context = HashMap::new();
+            for var in vars {
+                let value = var
+                    .query
+                    .call(&ctx.app, &ctx.org, &ctx.user, &var.args)
+                    .await?;
+
+                var_context.insert(var.name, value);
+            }
+            var_context
+        }
+        None => HashMap::new(),
+    };
+
+    let page_vars = ctx.app.sitemaps.vars.get_by_page_id(&page.id).await?;
+    let mut page_context = HashMap::new();
+    for var in page_vars {
+        let value = var
+            .query
+            .call(&ctx.app, &ctx.org, &ctx.user, &var.args)
+            .await?;
+
+        page_context.insert(var.name, value);
+    }
+
+    let s = context! {
+        user => &ctx.user,
+        org => &ctx.org,
+        layout => &layout_context,
+        page => &page_context,
+    };
 
     let content = match env.render_str(&content_template, s) {
         Ok(content) => content,
