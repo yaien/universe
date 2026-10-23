@@ -15,6 +15,7 @@ use super::{Content, Presentation};
 pub struct Product {
     pub id: Id,
     pub name: String,
+    pub slug: String,
     pub published: bool,
 
     #[sqlx(skip)]

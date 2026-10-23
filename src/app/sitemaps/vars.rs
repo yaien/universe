@@ -1,25 +1,10 @@
+use sqlx::prelude::FromRow;
+use sqlx::types::Json;
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
-use sqlx::prelude::{FromRow, Type};
-use sqlx::types::Json;
-use strum_macros::{Display, EnumIter};
-
-use crate::app::sitemaps::contents::Query;
+use crate::app::sitemaps::contents::{Query, Source};
 use crate::app::{AppError, AppResult};
 use crate::infra::{DbPool, Id};
-
-#[derive(Type, Deserialize, Serialize, PartialEq, EnumIter, Display)]
-pub enum Source {
-    #[strum(to_string = "Cadena de consulta")]
-    Query,
-
-    #[strum(to_string = "Ruta")]
-    Path,
-
-    #[strum(to_string = "Estatico")]
-    Static,
-}
 
 #[derive(FromRow)]
 pub struct Var {

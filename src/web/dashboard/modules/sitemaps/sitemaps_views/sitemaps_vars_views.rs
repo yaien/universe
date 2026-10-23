@@ -1,7 +1,6 @@
 use maud::html;
 
-use crate::app::sitemaps::Source;
-use crate::app::sitemaps::contents::Query;
+use crate::app::sitemaps::contents::{Query, Source};
 
 use super::*;
 

@@ -9,7 +9,7 @@ use minijinja::{Environment, context};
 use sqlx::prelude::FromRow;
 
 use crate::app::auth::{Organization, User};
-use crate::app::sitemaps::contents::{RegisterFunctions, RegistryContext, Tool, ToolContext};
+use crate::app::sitemaps::contents::{RegisterFunctions, Tool, ToolContext};
 use crate::app::{App, AppError, AppResult};
 use crate::infra::{DbPool, Id};
 
@@ -167,13 +167,7 @@ impl Action {
     pub async fn call<'a>(&self, ctx: ActionContext) -> AppResult<HttpResponse> {
         let mut env = Environment::new();
 
-        let registry_context = RegistryContext {
-            app: ctx.app.clone(),
-            org: ctx.org.clone(),
-            user: ctx.user.clone(),
-        };
-
-        env.register_functions(&registry_context, ctx.inline);
+        env.register_functions(ctx.inline);
 
         let tool_context = ToolContext {
             app: ctx.app.clone(),

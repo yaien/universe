@@ -140,7 +140,20 @@ impl Sitemaps {
         let mut layout_matches = HashMap::new();
         for mut layout in layouts {
             layout.sitemap_id = to_sitemap_id.clone();
+            let layout_vars = self.vars.get_by_layout_id(&layout.id).await?;
             let created_layout_id = self.layouts.create_from(&layout).await?;
+
+            for var in layout_vars {
+                self.vars
+                    .create_for_layout(NewLayoutVar {
+                        name: var.name,
+                        source: var.source,
+                        query: var.query,
+                        args: var.args,
+                        layout_id: created_layout_id.clone(),
+                    })
+                    .await?;
+            }
             layout_matches.insert(layout.id.clone(), created_layout_id);
         }
 
@@ -152,7 +165,21 @@ impl Sitemaps {
                 .map(|id| layout_matches.get(&id).copied())
                 .flatten();
 
-            self.pages.create_from(&page).await?;
+            let page_vars = self.vars.get_by_page_id(&page.id).await?;
+
+            let created_page_id = self.pages.create_from(&page).await?;
+
+            for var in page_vars {
+                self.vars
+                    .create_for_page(NewPageVar {
+                        name: var.name,
+                        source: var.source,
+                        query: var.query,
+                        args: var.args,
+                        page_id: created_page_id.clone(),
+                    })
+                    .await?;
+            }
         }
 
         for font in fonts {

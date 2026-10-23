@@ -1,6 +1,6 @@
 use crate::app::AppError;
-use crate::app::sitemaps::contents::Query as VarQuery;
-use crate::app::sitemaps::{NewLayoutVar, NewPageVar, Source as VarSource};
+use crate::app::sitemaps::contents::{Query as VarQuery, Source as VarSource};
+use crate::app::sitemaps::{NewLayoutVar, NewPageVar};
 
 use super::*;
 
@@ -21,8 +21,7 @@ pub async fn create_var(
     session: Session,
     form: Form<CreateVar>,
 ) -> WebResult<Markup> {
-    let (mut session_state, sitemap) =
-        get_session_state_and_sitemap(&app, &session, &org.id).await?;
+    let mut session_state = get_session_state(&session);
 
     let Some(model_id) = session_state.model_id else {
         return Err(AppError::from("modelo invalido"))?;

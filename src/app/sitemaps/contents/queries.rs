@@ -32,11 +32,23 @@ impl Query {
         &self,
         app: &App,
         org: &Organization,
+        _user: &Option<User>,
+        _args: &HashMap<String, String>,
+    ) -> Result<Value, AppError> {
+        match self {
+            Query::GetProducts => get_products(app, org).await,
+        }
+    }
+
+    pub async fn call_inline(
+        &self,
+        app: &App,
+        org: &Organization,
         user: &Option<User>,
         args: &HashMap<String, String>,
     ) -> Result<Value, AppError> {
         match self {
-            Query::GetProducts => get_products(app, org, args).await,
+            _ => self.call(app, org, user, args).await,
         }
     }
 
@@ -57,11 +69,7 @@ impl Query {
     }
 }
 
-async fn get_products(
-    app: &App,
-    org: &Organization,
-    args: &HashMap<String, String>,
-) -> Result<Value, AppError> {
+async fn get_products(app: &App, org: &Organization) -> Result<Value, AppError> {
     let products = app.store.products.get_by_organization_id(&org.id).await?;
     Ok(Value::from_serialize(products))
 }

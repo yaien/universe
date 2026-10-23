@@ -32,8 +32,8 @@ use serde::Deserialize;
 use crate::app::App;
 use crate::app::auth::{Organization, Role, User};
 use crate::app::sitemaps::contents::{
-    EmailRegistryContext, RegistryContext, RenderLayoutOptions, RenderPageInlineOptions, Tool,
-    render_email, render_layout, render_page_inline,
+    EmailRegistryContext, RenderLayoutOptions, RenderPageInlineOptions, Tool, render_email,
+    render_layout, render_page_inline,
 };
 
 use crate::app::sitemaps::{Branch, PageInfo, Sitemap};
@@ -491,14 +491,10 @@ pub async fn get_preview(
                 None => None,
             };
 
-            let ctx = RegistryContext {
+            let content = render_page_inline(RenderPageInlineOptions {
                 app: app.into_inner(),
                 org: Arc::new(org.into_inner()),
                 user: Arc::new(user.into_inner()),
-            };
-
-            let content = render_page_inline(RenderPageInlineOptions {
-                ctx,
                 page,
                 layout,
                 fonts,
@@ -524,18 +520,15 @@ pub async fn get_preview(
 
             let colors = app.sitemaps.colors.get_by_sitemap_id(&sitemap.id).await?;
 
-            let ctx = RegistryContext {
+            let content = render_layout(RenderLayoutOptions {
                 app: app.into_inner(),
                 org: Arc::new(org.into_inner()),
                 user: Arc::new(user.into_inner()),
-            };
-
-            let content = render_layout(RenderLayoutOptions {
-                ctx,
                 layout,
                 fonts,
                 colors,
-            })?;
+            })
+            .await?;
 
             Ok(content)
         }
