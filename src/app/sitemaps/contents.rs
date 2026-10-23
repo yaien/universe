@@ -242,7 +242,13 @@ async fn get_page_vars(
     let vars = app.sitemaps.vars.get_by_page_id(&page.id).await?;
     for var in vars {
         let args = match &var.source {
-            Some(source) => source.map_args(query, &page.path, request_path, &var.args)?,
+            Some(source) => source.map_args(
+                query,
+                &page.path,
+                request_path,
+                &var.args,
+                var.query.required_args(),
+            )?,
             None => HashMap::new(),
         };
 

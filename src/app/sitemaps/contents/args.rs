@@ -23,7 +23,8 @@ impl Source {
         query: &HashMap<String, String>,
         page_path: &str,
         request_path: &str,
-        args: &HashMap<String, String>,
+        var_args: &HashMap<String, String>,
+        query_required_args: &[&str],
     ) -> Result<HashMap<String, String>, anyhow::Error> {
         match self {
             Source::Path => {
@@ -39,19 +40,31 @@ impl Source {
                     .filter_map(|c| c.map(|c| c.as_str()))
                     .collect::<Vec<_>>();
 
-                let args = args
-                    .keys()
+                if query_required_args.len() != matches.len() {
+                    return Err(anyhow::anyhow!(
+                        "expected {} matches, got {}",
+                        query_required_args.len(),
+                        matches.len()
+                    ));
+                }
+
+                let args = query_required_args
+                    .iter()
                     .zip(matches)
                     .map(|(k, v)| (k.to_string(), v.to_string()))
                     .collect::<HashMap<String, String>>();
 
                 Ok(args)
             }
-            Source::Query => Ok(args
-                .iter()
-                .filter_map(|(k, v)| query.get(v).cloned().map(|new_v| (k.clone(), new_v)))
-                .collect()),
-            _ => Ok(args.clone()),
+            Source::Query => {
+                let args = var_args
+                    .iter()
+                    .filter_map(|(k, v)| query.get(v).cloned().map(|new_v| (k.clone(), new_v)))
+                    .collect::<HashMap<String, String>>();
+
+                Ok(args)
+            }
+            _ => Ok(var_args.clone()),
         }
     }
 }
@@ -66,7 +79,8 @@ mod tests {
         query_map: &'static [(&'static str, &'static str)],
         page_path: &'static str,
         request_path: &'static str,
-        args: &'static [(&'static str, &'static str)],
+        var_args: &'static [(&'static str, &'static str)],
+        query_required_args: &'static [&'static str],
         expected: &'static [(&'static str, &'static str)],
     }
 
@@ -79,7 +93,8 @@ mod tests {
                 query_map: &[("name", "product"), ("entity", "example"), ("non", "nox")],
                 page_path: "",
                 request_path: "",
-                args: &[("name", "name"), ("entity", "entity")],
+                var_args: &[("name", "name"), ("entity", "entity")],
+                query_required_args: &[],
                 expected: &[("name", "product"), ("entity", "example")],
             },
             Test {
@@ -88,7 +103,8 @@ mod tests {
                 query_map: &[],
                 page_path: "/products/%",
                 request_path: "/products/product_slug",
-                args: &[("slug", "")],
+                var_args: &[],
+                query_required_args: &["slug"],
                 expected: &[("slug", "product_slug")],
             },
         ];
@@ -100,15 +116,21 @@ mod tests {
                 .map(|(k, v)| (k.to_string(), v.to_string()))
                 .collect::<HashMap<_, _>>();
 
-            let args = test
-                .args
+            let var_args = test
+                .var_args
                 .iter()
                 .map(|(k, v)| (k.to_string(), v.to_string()))
                 .collect::<HashMap<_, _>>();
 
             let result = test
                 .source
-                .map_args(&query_map, test.page_path, test.request_path, &args)
+                .map_args(
+                    &query_map,
+                    test.page_path,
+                    test.request_path,
+                    &var_args,
+                    &test.query_required_args,
+                )
                 .expect("expected to get mapped args");
 
             let expected = test
