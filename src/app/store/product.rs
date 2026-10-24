@@ -79,6 +79,30 @@ impl Products {
         .fetch_one(&self.db)
         .await?;
 
+        self.preload(&mut product).await?;
+
+        Ok(product)
+    }
+
+    pub async fn get_one_published_by_slug(
+        &self,
+        organization_id: &Id,
+        slug: &str,
+    ) -> Result<Product, AppError> {
+        let mut product = sqlx::query_as::<_, Product>(
+            "select * from products where organization_id = $1 and slug = $2 and deleted_at is null",
+        )
+        .bind(organization_id)
+        .bind(slug)
+        .fetch_one(&self.db)
+        .await?;
+
+        self.preload(&mut product).await?;
+
+        Ok(product)
+    }
+
+    async fn preload(&self, product: &mut Product) -> Result<(), AppError> {
         product.presentations = sqlx::query_as::<_, Presentation>(
             "select * from presentations where product_id = $1 and deleted_at is null order by number",
         )
@@ -109,7 +133,7 @@ impl Products {
             }
         }
 
-        Ok(product)
+        Ok(())
     }
 
     pub async fn get_by_organization_id(
