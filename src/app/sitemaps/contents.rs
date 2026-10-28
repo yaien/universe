@@ -115,7 +115,7 @@ pub async fn render_page(options: RenderPageOptions) -> Result<Markup, AppError>
                     @if page_title.is_empty() {
                         (org.title)
                     } @else {
-                        (page_title) "-" (org.title)
+                        (page_title) " - " (org.title)
                     }
                 }
 
@@ -125,6 +125,7 @@ pub async fn render_page(options: RenderPageOptions) -> Result<Markup, AppError>
 
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-live.min.js" {}
                 script src="/assets/landing/script.js" {}
 
             }
@@ -159,12 +160,29 @@ pub async fn render_page_inline(options: RenderPageInlineOptions) -> Result<Mark
         org,
     } = options;
 
-    let page_vars = get_page_inline_vars(app.clone(), org.clone(), user.clone(), &page.id)
-        .await
-        .context("failed getting page vars")?;
+    let page_vars =
+        match get_page_inline_vars(app.clone(), org.clone(), user.clone(), &page.id).await {
+            Ok(vars) => vars,
+            Err(e) => {
+                return Ok(PreEscaped(render_template_error(
+                    "failed getting page vars",
+                    Error::new(ErrorKind::UndefinedError, format!("{e:#?}")),
+                )));
+            }
+        };
 
     let layout_vars = match &layout {
-        Some(layout) => get_layout_vars(app.clone(), org.clone(), user.clone(), &layout.id).await?,
+        Some(layout) => {
+            match get_layout_vars(app.clone(), org.clone(), user.clone(), &layout.id).await {
+                Ok(vars) => vars,
+                Err(e) => {
+                    return Ok(PreEscaped(render_template_error(
+                        "failed getting layout vars",
+                        Error::new(ErrorKind::UndefinedError, format!("{e:#?}")),
+                    )));
+                }
+            }
+        }
         None => HashMap::new(),
     };
 
@@ -208,6 +226,8 @@ pub async fn render_page_inline(options: RenderPageInlineOptions) -> Result<Mark
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-alpine-compat.js" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-live.min.js" {}
+
             }
 
             body hx-trigger="reload" hx-get="/dashboard/sitemaps/preview" {
@@ -374,6 +394,7 @@ pub async fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppEr
                  script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js" {}
                  script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
                  script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-alpine-compat.js" {}
+                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-live.min.js" {}
             }
             body hx-trigger="reload" hx-get="/dashboard/sitemaps/preview" {
                 div data-layout=(layout.name) {

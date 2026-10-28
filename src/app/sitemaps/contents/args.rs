@@ -7,13 +7,10 @@ use sqlx::prelude::Type;
 
 #[derive(Type, Deserialize, Serialize, PartialEq, EnumIter, Display)]
 pub enum Source {
-    #[strum(to_string = "Cadena de consulta")]
     Query,
 
-    #[strum(to_string = "Ruta")]
     Path,
 
-    #[strum(to_string = "Estatico")]
     Static,
 }
 

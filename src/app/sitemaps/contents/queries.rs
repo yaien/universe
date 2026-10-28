@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use anyhow::Context;
 use minijinja::Value;
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::Type;
@@ -7,6 +8,7 @@ use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
 
 use crate::app::auth::{Organization, User};
+use crate::app::sitemaps::contents::Source;
 use crate::app::{App, AppError};
 
 #[derive(EnumIter, Display, Debug, Serialize, Deserialize, Type)]
@@ -69,20 +71,22 @@ impl Query {
         match self {
             Query::GetProducts => vec![],
             Query::GetProduct => vec![QueryArgs {
-                name: "Slug".to_string(),
+                name: "slug".to_string(),
                 label: "slug".to_string(),
             }],
         }
     }
 
     pub fn descriptors() -> Vec<QueryDescriptor> {
-        Query::iter()
-            .map(|q| QueryDescriptor {
-                name: format!("{q:?}"),
-                label: q.to_string(),
-                args: q.args_descriptors(),
-            })
-            .collect()
+        Query::iter().map(|q| q.descriptor()).collect()
+    }
+
+    pub fn descriptor(&self) -> QueryDescriptor {
+        QueryDescriptor {
+            name: format!("{:?}", self),
+            label: self.to_string(),
+            args: self.args_descriptors(),
+        }
     }
 }
 
@@ -101,6 +105,7 @@ async fn get_product(
         .store
         .products
         .get_one_published_by_slug(&org.id, &slug)
-        .await?;
+        .await
+        .context(format!("failed getting product query by slug {slug:?}"))?;
     Ok(Value::from_serialize(product))
 }

@@ -202,12 +202,15 @@ impl Products {
         name: &str,
         published: &bool,
     ) -> Result<(), AppError> {
-        let res = sqlx::query("update products set name = $1, published = $2, updated_at = $3 where id = $4 and organization_id = $5 and deleted_at is null")
-            .bind(&name)
-            .bind(&published)
+        let slug = slugify(name);
+
+        let res = sqlx::query("update products set name = $1, slug = $2, published = $3, updated_at = $4 where id = $5 and organization_id = $6 and deleted_at is null")
+            .bind(name)
+            .bind(slug)
+            .bind(published)
             .bind(Utc::now())
-            .bind(&product_id)
-            .bind(&organization_id)
+            .bind(product_id)
+            .bind(organization_id)
             .execute(&self.db)
             .await?;
 

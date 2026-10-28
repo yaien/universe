@@ -44,5 +44,6 @@ pub fn configure(config: &mut ServiceConfig) {
         .service(create_form_field)
         .service(update_form_field)
         .service(delete_form_field)
-        .service(create_var);
+        .service(create_var)
+        .service(update_var);
 }
