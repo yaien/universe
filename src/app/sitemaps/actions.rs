@@ -5,6 +5,7 @@ use actix_session::Session;
 use actix_web::HttpResponse;
 use anyhow::Context;
 use chrono::Utc;
+use maud::html;
 use minijinja::{Environment, context};
 use sqlx::prelude::FromRow;
 
@@ -170,10 +171,10 @@ impl Action {
         env.register_functions(ctx.inline);
 
         let tool_context = ToolContext {
-            app: ctx.app.clone(),
-            org: ctx.org.clone(),
-            user: ctx.user.clone(),
-            session: ctx.session.clone(),
+            app: &ctx.app,
+            org: &ctx.org,
+            user: &ctx.user,
+            session: &ctx.session,
             inline: ctx.inline,
             data: ctx.data,
             form_id: self.form_id,
@@ -187,9 +188,15 @@ impl Action {
             output => output,
         };
 
-        let body = env
-            .render_str(&self.response_body_template, render_context)
-            .context("failed at render response template body")?;
+        let body = match env.render_str(&self.response_body_template, render_context) {
+            Ok(body) => body,
+            Err(e) => html!({
+                hx-partial hx-target="#errors" hx-swap="append" {
+                    #error hx-live="await timeout(10s); this.remove();" { (format!("{e:#}"))}
+                }
+            })
+            .into_string(),
+        };
 
         Ok(HttpResponse::Ok().body(body))
     }

@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
 use crate::app::Storage;
-pub use crate::app::store::content::*;
-pub use crate::app::store::presentation::*;
-pub use crate::app::store::product::*;
+pub use cart::*;
+pub use content::*;
+pub use presentation::*;
+pub use product::*;
+
 use crate::infra::DbPool;
 
+mod cart;
 mod content;
 mod presentation;
 mod product;
@@ -14,6 +17,7 @@ pub struct Store {
     pub products: Products,
     pub presentations: Presentations,
     pub contents: Contents,
+    pub carts: Carts,
 }
 
 impl Store {
@@ -21,6 +25,7 @@ impl Store {
         Self {
             products: Products::new(db.clone()),
             presentations: Presentations::new(db.clone()),
+            carts: Carts::new(db.clone()),
             contents: Contents::new(db, files),
         }
     }

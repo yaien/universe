@@ -25,6 +25,7 @@ pub async fn get_index(
     user: ReqData<Option<User>>,
     path: Path<String>,
     query: Query<HashMap<String, String>>,
+    session: Session,
 ) -> Result<Markup, WebError> {
     let sitemap = app
         .sitemaps
@@ -53,6 +54,7 @@ pub async fn get_index(
         user: Arc::new(user.into_inner()),
         query_map: query.into_inner(),
         request_path: path.into_inner(),
+        session,
         page,
         layout,
         sitemap,

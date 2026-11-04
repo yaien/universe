@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use actix_session::Session;
 use anyhow::Context;
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 use minijinja::{Environment, Error, ErrorKind, Value, context};
@@ -36,6 +37,7 @@ pub struct RenderPageOptions {
     pub fonts: Vec<SitemapFont>,
     pub org: Arc<Organization>,
     pub user: Arc<Option<User>>,
+    pub session: Session,
     pub query_map: HashMap<String, String>,
     pub request_path: String,
 }
@@ -46,6 +48,7 @@ pub async fn render_page(options: RenderPageOptions) -> Result<Markup, AppError>
         app,
         org,
         user,
+        session,
         page,
         layout,
         sitemap,
@@ -58,6 +61,7 @@ pub async fn render_page(options: RenderPageOptions) -> Result<Markup, AppError>
         app.clone(),
         org.clone(),
         user.clone(),
+        &session,
         &page,
         &query_map,
         &request_path,
@@ -66,9 +70,11 @@ pub async fn render_page(options: RenderPageOptions) -> Result<Markup, AppError>
     .context("failed getting page vars")?;
 
     let layout_vars = match &layout {
-        Some(layout) => get_layout_vars(app.clone(), org.clone(), user.clone(), &layout.id)
-            .await
-            .context("failed getting layout vars")?,
+        Some(layout) => {
+            get_layout_vars(app.clone(), org.clone(), user.clone(), &session, &layout.id)
+                .await
+                .context("failed getting layout vars")?
+        }
         None => HashMap::new(),
     };
 
@@ -147,6 +153,7 @@ pub struct RenderPageInlineOptions {
     pub colors: Vec<Color>,
     pub user: Arc<Option<User>>,
     pub org: Arc<Organization>,
+    pub session: Session,
 }
 
 pub async fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, AppError> {
@@ -158,22 +165,32 @@ pub async fn render_page_inline(options: RenderPageInlineOptions) -> Result<Mark
         colors,
         user,
         org,
+        session,
     } = options;
 
-    let page_vars =
-        match get_page_inline_vars(app.clone(), org.clone(), user.clone(), &page.id).await {
-            Ok(vars) => vars,
-            Err(e) => {
-                return Ok(PreEscaped(render_template_error(
-                    "failed getting page vars",
-                    Error::new(ErrorKind::UndefinedError, format!("{e:#?}")),
-                )));
-            }
-        };
+    let page_vars = match get_page_inline_vars(
+        app.clone(),
+        org.clone(),
+        user.clone(),
+        &session,
+        &page.id,
+    )
+    .await
+    {
+        Ok(vars) => vars,
+        Err(e) => {
+            return Ok(PreEscaped(render_template_error(
+                "failed getting page vars",
+                Error::new(ErrorKind::UndefinedError, format!("{e:#?}")),
+            )));
+        }
+    };
 
     let layout_vars = match &layout {
         Some(layout) => {
-            match get_layout_vars(app.clone(), org.clone(), user.clone(), &layout.id).await {
+            match get_layout_vars(app.clone(), org.clone(), user.clone(), &session, &layout.id)
+                .await
+            {
                 Ok(vars) => vars,
                 Err(e) => {
                     return Ok(PreEscaped(render_template_error(
@@ -254,6 +271,7 @@ async fn get_page_vars(
     app: Arc<App>,
     org: Arc<Organization>,
     user: Arc<Option<User>>,
+    session: &Session,
     page: &Page,
     query: &HashMap<String, String>,
     request_path: &str,
@@ -272,7 +290,7 @@ async fn get_page_vars(
             None => HashMap::new(),
         };
 
-        let result = var.query.call(&app, &org, &user, &args).await?;
+        let result = var.query.call(&app, &org, &user, &session, &args).await?;
 
         map.insert(var.name.clone(), result);
     }
@@ -283,12 +301,16 @@ async fn get_page_inline_vars(
     app: Arc<App>,
     org: Arc<Organization>,
     user: Arc<Option<User>>,
+    session: &Session,
     page_id: &Id,
 ) -> AppResult<HashMap<String, Value>> {
     let vars = app.sitemaps.vars.get_by_page_id(&page_id).await?;
     let mut map = HashMap::new();
     for var in vars {
-        let result = var.query.call_inline(&app, &org, &user, &var.args).await?;
+        let result = var
+            .query
+            .call_inline(&app, &org, &user, session, &var.args)
+            .await?;
 
         map.insert(var.name.clone(), result);
     }
@@ -358,6 +380,7 @@ pub struct RenderLayoutOptions {
     pub colors: Vec<Color>,
     pub user: Arc<Option<User>>,
     pub org: Arc<Organization>,
+    pub session: Session,
 }
 
 /// render_layout returns the markup for a layout.
@@ -369,9 +392,11 @@ pub async fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppEr
         colors,
         org,
         user,
+        session,
     } = options;
 
-    let layout_vars = get_layout_vars(app.clone(), org.clone(), user.clone(), &layout.id).await?;
+    let layout_vars =
+        get_layout_vars(app.clone(), org.clone(), user.clone(), &session, &layout.id).await?;
 
     let content =
         get_layout_content(&org, &user, &layout, &layout_vars).context("failed getting content")?;
@@ -409,12 +434,18 @@ async fn get_layout_vars(
     app: Arc<App>,
     org: Arc<Organization>,
     user: Arc<Option<User>>,
+    session: &Session,
     layout_id: &Id,
 ) -> AppResult<HashMap<String, Value>> {
     let mut map = HashMap::new();
+
     let vars = app.sitemaps.vars.get_by_layout_id(layout_id).await?;
+
     for var in vars {
-        let value = var.query.call_inline(&app, &org, &user, &var.args).await?;
+        let value = var
+            .query
+            .call_inline(&app, &org, &user, session, &var.args)
+            .await?;
         map.insert(var.name, value);
     }
 

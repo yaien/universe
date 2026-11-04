@@ -79,7 +79,7 @@ impl Vars {
     pub async fn create_for_layout(&self, var: NewLayoutVar) -> AppResult<Var> {
         self.validate_args(&var.query, &var.source, &var.args)?;
 
-        sqlx::query_as::<_, Var>("INSERT INTO vars (name, source, query, args, layout_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *")
+        sqlx::query_as::<_, Var>("INSERT INTO vars (name, source, query, args, layout_id) VALUES ($1, $2, $3, $4, $5) RETURNING *")
             .bind(var.name)
             .bind(var.source)
             .bind(var.query)
