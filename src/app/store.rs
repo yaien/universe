@@ -20,6 +20,7 @@ pub struct Store {
     pub presentations: Presentations,
     pub contents: Contents,
     pub carts: Carts,
+    pub orders: Orders,
 }
 
 impl Store {
@@ -28,6 +29,7 @@ impl Store {
             products: Products::new(db.clone()),
             presentations: Presentations::new(db.clone()),
             carts: Carts::new(db.clone()),
+            orders: Orders::new(db.clone()),
             contents: Contents::new(db, files),
         }
     }
