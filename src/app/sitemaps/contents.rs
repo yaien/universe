@@ -285,12 +285,22 @@ async fn get_page_vars(
                 &page.path,
                 request_path,
                 &var.args,
-                var.query.required_args(),
+                var.query.get_required_args(),
             )?,
             None => HashMap::new(),
         };
 
-        let result = var.query.call(&app, &org, &user, &session, &args).await?;
+        let result = var
+            .query
+            .call(&QueryContext {
+                app: &app,
+                org: &org,
+                user: &user,
+                session: &session,
+                args: &args,
+                inline: true,
+            })
+            .await?;
 
         map.insert(var.name.clone(), result);
     }
@@ -309,7 +319,14 @@ async fn get_page_inline_vars(
     for var in vars {
         let result = var
             .query
-            .call_inline(&app, &org, &user, session, &var.args)
+            .call(&QueryContext {
+                app: &app,
+                org: &org,
+                user: &user,
+                session: &session,
+                args: &var.args,
+                inline: true,
+            })
             .await?;
 
         map.insert(var.name.clone(), result);
@@ -444,7 +461,14 @@ async fn get_layout_vars(
     for var in vars {
         let value = var
             .query
-            .call_inline(&app, &org, &user, session, &var.args)
+            .call(&QueryContext {
+                app: &app,
+                org: &org,
+                user: &user,
+                session: &session,
+                args: &var.args,
+                inline: true,
+            })
             .await?;
         map.insert(var.name, value);
     }

@@ -61,7 +61,7 @@ impl Vars {
     }
 
     pub async fn create_for_page(&self, var: NewPageVar) -> AppResult<Var> {
-        if var.args.len() != var.query.required_args().len() * 2 {
+        if var.args.len() != var.query.get_required_args().len() * 2 {
             return Err("la cantidad de argumentos no coincide con los requeridos")?;
         }
 
@@ -126,7 +126,7 @@ impl Vars {
         source: &Option<Source>,
         args: &HashMap<String, String>,
     ) -> Result<(), AppError> {
-        if query.required_args().is_empty() {
+        if query.get_required_args().is_empty() {
             return Ok(());
         }
 
@@ -134,7 +134,7 @@ impl Vars {
             return Err("falta el campo de fuente de argumentos (source)")?;
         };
 
-        for required_arg in query.required_args() {
+        for required_arg in query.get_required_args() {
             match source {
                 Source::Static => {
                     if args.get(*required_arg).filter(|k| !k.is_empty()).is_none() {
