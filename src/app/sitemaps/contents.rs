@@ -1,46 +1,97 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use actix_session::Session;
 use anyhow::Context;
 use maud::{DOCTYPE, Markup, PreEscaped, html};
-use minijinja::{Environment, context};
+use minijinja::{Environment, Error, ErrorKind, Value, context};
 
-use crate::app::auth::Organization;
+use crate::app::auth::{Organization, User};
 use crate::app::errors::AppError;
+use crate::app::{App, AppResult};
+use crate::infra::Id;
 
 use super::{Color, Email, Layout, Page, Sitemap, SitemapFont};
 
+mod args;
 mod links;
+mod queries;
 mod registry;
 mod script;
 mod style;
 mod tools;
 
+pub use args::*;
+pub use queries::*;
 pub use script::bundle as bundle_js;
 pub use style::bundle as bundle_css;
 pub use tools::*;
 
-pub use registry::{RegisterFunctions, RegistryContext};
+pub use registry::RegisterFunctions;
 
 pub struct RenderPageOptions {
+    pub app: Arc<App>,
     pub sitemap: Sitemap,
     pub page: Page,
     pub layout: Option<Layout>,
     pub fonts: Vec<SitemapFont>,
-    pub ctx: RegistryContext,
+    pub org: Arc<Organization>,
+    pub user: Arc<Option<User>>,
+    pub session: Session,
+    pub query_map: HashMap<String, String>,
+    pub request_path: String,
 }
 
 /// render_page returns the markup for a page.
-pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
+pub async fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
     let RenderPageOptions {
-        ctx,
+        app,
+        org,
+        user,
+        session,
         page,
         layout,
         sitemap,
         fonts,
+        query_map,
+        request_path,
     } = options;
 
-    let content =
-        get_page_content(&ctx, &page, &layout, false).context("failed getting page content")?;
+    let page_vars = get_page_vars(
+        app.clone(),
+        org.clone(),
+        user.clone(),
+        &session,
+        &page,
+        &query_map,
+        &request_path,
+    )
+    .await
+    .context("failed getting page vars")?;
 
-    let org = &ctx.org;
+    let layout_vars = match &layout {
+        Some(layout) => {
+            get_layout_vars(app.clone(), org.clone(), user.clone(), &session, &layout.id)
+                .await
+                .context("failed getting layout vars")?
+        }
+        None => HashMap::new(),
+    };
+
+    let content = get_page_content(&org, &user, &page, &page_vars, &layout, &layout_vars, false)
+        .context("failed getting page content")?;
+
+    let page_title = Environment::new()
+        .render_str(
+            &page.title,
+            context! {
+                user => user,
+                org => org,
+                page => page_vars,
+                layout => layout_vars,
+            },
+        )
+        .unwrap_or_default();
 
     Ok(html!(
         (DOCTYPE)
@@ -67,10 +118,10 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
                 }
 
                 title {
-                    @if page.title.is_empty() {
+                    @if page_title.is_empty() {
                         (org.title)
                     } @else {
-                        (page.title) "-" (org.title)
+                        (page_title) " - " (org.title)
                     }
                 }
 
@@ -79,7 +130,8 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
                 link rel="stylesheet" href="/assets/landing/style.css" {}
 
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
-                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0" integrity="sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc" crossorigin="anonymous" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-live.min.js" {}
                 script src="/assets/landing/script.js" {}
 
             }
@@ -94,24 +146,80 @@ pub fn render_page(options: RenderPageOptions) -> Result<Markup, AppError> {
 }
 
 pub struct RenderPageInlineOptions {
+    pub app: Arc<App>,
     pub page: Page,
     pub layout: Option<Layout>,
     pub fonts: Vec<SitemapFont>,
     pub colors: Vec<Color>,
-    pub ctx: RegistryContext,
+    pub user: Arc<Option<User>>,
+    pub org: Arc<Organization>,
+    pub session: Session,
 }
 
-pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, AppError> {
+pub async fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, AppError> {
     let RenderPageInlineOptions {
+        app,
         page,
         layout,
         fonts,
         colors,
-        ctx,
+        user,
+        org,
+        session,
     } = options;
 
-    let content =
-        get_page_content(&ctx, &page, &layout, true).context("failed getting page content")?;
+    let page_vars = match get_page_inline_vars(
+        app.clone(),
+        org.clone(),
+        user.clone(),
+        &session,
+        &page.id,
+    )
+    .await
+    {
+        Ok(vars) => vars,
+        Err(e) => {
+            return Ok(PreEscaped(render_template_error(
+                "failed getting page vars",
+                Error::new(ErrorKind::UndefinedError, format!("{e:#?}")),
+            )));
+        }
+    };
+
+    let layout_vars = match &layout {
+        Some(layout) => {
+            match get_layout_vars(app.clone(), org.clone(), user.clone(), &session, &layout.id)
+                .await
+            {
+                Ok(vars) => vars,
+                Err(e) => {
+                    return Ok(PreEscaped(render_template_error(
+                        "failed getting layout vars",
+                        Error::new(ErrorKind::UndefinedError, format!("{e:#?}")),
+                    )));
+                }
+            }
+        }
+        None => HashMap::new(),
+    };
+
+    let mut content = get_page_content(&org, &user, &page, &page_vars, &layout, &layout_vars, true)
+        .context("failed getting page content")?;
+
+    let page_title_context = context! {
+        user => user,
+        org => org,
+        page => page_vars,
+        layout => layout_vars,
+    };
+
+    let page_title = match Environment::new().render_str(&page.title, page_title_context) {
+        Ok(title) => title,
+        Err(e) => {
+            content = render_template_error("failed at page title render", e);
+            page.title.clone()
+        }
+    };
 
     Ok(html!(
         (DOCTYPE)
@@ -121,6 +229,7 @@ pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, Ap
                 meta charset="UTF-8" {}
                 meta name="viewport" content="width=device-width, initial-scale=1.0" {}
                 meta name="htmx-config" content="transitions:true" {}
+                title { (page_title) }
 
                 (links::fonts(&fonts))
 
@@ -131,9 +240,11 @@ pub fn render_page_inline(options: RenderPageInlineOptions) -> Result<Markup, Ap
                 (script::inline(layout_js, &page.js))
 
                 script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
-                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0" integrity="sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc" crossorigin="anonymous" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-alpine-compat.js" {}
+                script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-live.min.js" {}
+
             }
 
             body hx-trigger="reload" hx-get="/dashboard/sitemaps/preview" {
@@ -156,10 +267,80 @@ fn render_template_error(prelude: &str, e: minijinja::Error) -> String {
     .into_string()
 }
 
-fn get_page_content(
-    ctx: &RegistryContext,
+async fn get_page_vars(
+    app: Arc<App>,
+    org: Arc<Organization>,
+    user: Arc<Option<User>>,
+    session: &Session,
     page: &Page,
+    query: &HashMap<String, String>,
+    request_path: &str,
+) -> AppResult<HashMap<String, Value>> {
+    let mut map = HashMap::new();
+    let vars = app.sitemaps.vars.get_by_page_id(&page.id).await?;
+    for var in vars {
+        let args = match &var.source {
+            Some(source) => source.map_args(
+                query,
+                &page.path,
+                request_path,
+                &var.args,
+                var.query.get_required_args(),
+            )?,
+            None => HashMap::new(),
+        };
+
+        let result = var
+            .query
+            .call(&QueryContext {
+                app: &app,
+                org: &org,
+                user: &user,
+                session: &session,
+                args: &args,
+                inline: true,
+            })
+            .await?;
+
+        map.insert(var.name.clone(), result);
+    }
+    Ok(map)
+}
+
+async fn get_page_inline_vars(
+    app: Arc<App>,
+    org: Arc<Organization>,
+    user: Arc<Option<User>>,
+    session: &Session,
+    page_id: &Id,
+) -> AppResult<HashMap<String, Value>> {
+    let vars = app.sitemaps.vars.get_by_page_id(&page_id).await?;
+    let mut map = HashMap::new();
+    for var in vars {
+        let result = var
+            .query
+            .call(&QueryContext {
+                app: &app,
+                org: &org,
+                user: &user,
+                session: &session,
+                args: &var.args,
+                inline: true,
+            })
+            .await?;
+
+        map.insert(var.name.clone(), result);
+    }
+    Ok(map)
+}
+
+fn get_page_content(
+    org: &Organization,
+    user: &Option<User>,
+    page: &Page,
+    page_vars: &HashMap<String, Value>,
     layout: &Option<Layout>,
+    layout_vars: &HashMap<String, Value>,
     inline: bool,
 ) -> Result<String, AppError> {
     let layout_template = layout
@@ -170,7 +351,7 @@ fn get_page_content(
 
     let mut env = Environment::new();
 
-    env.register_functions(&ctx, inline);
+    env.register_functions(inline);
 
     match env.add_template("layout", layout_template) {
         Ok(_) => {}
@@ -194,7 +375,12 @@ fn get_page_content(
         page.name
     );
 
-    let s = context! {user => &ctx.user, org => &ctx.org};
+    let s = context! {
+        user => user,
+        org => org,
+        layout => layout_vars,
+        page => page_vars,
+    };
 
     let content = match env.render_str(&content_template, s) {
         Ok(content) => content,
@@ -205,22 +391,32 @@ fn get_page_content(
 }
 
 pub struct RenderLayoutOptions {
+    pub app: Arc<App>,
     pub layout: Layout,
     pub fonts: Vec<SitemapFont>,
     pub colors: Vec<Color>,
-    pub ctx: RegistryContext,
+    pub user: Arc<Option<User>>,
+    pub org: Arc<Organization>,
+    pub session: Session,
 }
 
 /// render_layout returns the markup for a layout.
-pub fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppError> {
+pub async fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppError> {
     let RenderLayoutOptions {
+        app,
         layout,
         fonts,
         colors,
-        ctx,
+        org,
+        user,
+        session,
     } = options;
 
-    let content = get_layout_content(&ctx, &layout).context("failed getting content")?;
+    let layout_vars =
+        get_layout_vars(app.clone(), org.clone(), user.clone(), &session, &layout.id).await?;
+
+    let content =
+        get_layout_content(&org, &user, &layout, &layout_vars).context("failed getting content")?;
 
     Ok(html!(
         (DOCTYPE)
@@ -237,9 +433,10 @@ pub fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppError> {
                  (script::inline(&layout.js, ""))
 
                  script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" {}
-                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0" integrity="sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc" crossorigin="anonymous" {}
+                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js" {}
                  script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-head.min.js" {}
                  script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-alpine-compat.js" {}
+                 script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-live.min.js" {}
             }
             body hx-trigger="reload" hx-get="/dashboard/sitemaps/preview" {
                 div data-layout=(layout.name) {
@@ -250,12 +447,46 @@ pub fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppError> {
     ))
 }
 
-fn get_layout_content(ctx: &RegistryContext, layout: &Layout) -> Result<String, AppError> {
+async fn get_layout_vars(
+    app: Arc<App>,
+    org: Arc<Organization>,
+    user: Arc<Option<User>>,
+    session: &Session,
+    layout_id: &Id,
+) -> AppResult<HashMap<String, Value>> {
+    let mut map = HashMap::new();
+
+    let vars = app.sitemaps.vars.get_by_layout_id(layout_id).await?;
+
+    for var in vars {
+        let value = var
+            .query
+            .call(&QueryContext {
+                app: &app,
+                org: &org,
+                user: &user,
+                session: &session,
+                args: &var.args,
+                inline: true,
+            })
+            .await?;
+        map.insert(var.name, value);
+    }
+
+    Ok(map)
+}
+
+fn get_layout_content(
+    org: &Organization,
+    user: &Option<User>,
+    layout: &Layout,
+    layout_vars: &HashMap<String, Value>,
+) -> Result<String, AppError> {
     let mut env = Environment::new();
 
-    env.register_functions(ctx, true);
+    env.register_functions(true);
 
-    let s = context! { org => &ctx.org, user => &ctx.user };
+    let s = context! { org => org, user => user, layout => layout_vars };
 
     let content = match env.render_str(&layout.html, s) {
         Ok(content) => content,

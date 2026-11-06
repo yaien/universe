@@ -1,4 +1,5 @@
 use chrono::Utc;
+use serde::Serialize;
 use sqlx::prelude::FromRow;
 
 use crate::app::AppError;
@@ -6,7 +7,7 @@ use crate::infra::{DbPool, Id};
 
 use super::Content;
 
-#[derive(FromRow)]
+#[derive(FromRow, Serialize)]
 pub struct Presentation {
     pub id: Id,
     pub product_id: Id,

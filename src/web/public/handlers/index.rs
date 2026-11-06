@@ -10,7 +10,7 @@ use serde::Deserialize;
 
 use crate::app::App;
 use crate::app::auth::{Organization, User};
-use crate::app::sitemaps::contents::{RegistryContext, RenderPageOptions, render_page};
+use crate::app::sitemaps::contents::{RenderPageOptions, render_page};
 use crate::app::sitemaps::{ActionContext, Branch};
 use crate::infra::Id;
 use crate::web::errors::WebError;
@@ -24,6 +24,8 @@ pub async fn get_index(
     org: ReqData<Organization>,
     user: ReqData<Option<User>>,
     path: Path<String>,
+    query: Query<HashMap<String, String>>,
+    session: Session,
 ) -> Result<Markup, WebError> {
     let sitemap = app
         .sitemaps
@@ -46,19 +48,19 @@ pub async fn get_index(
 
     let fonts = app.sitemaps.fonts.get_by_sitemap_id(&sitemap.id).await?;
 
-    let ctx = RegistryContext {
+    let content = render_page(RenderPageOptions {
         app: app.into_inner(),
         org: Arc::new(org.into_inner()),
         user: Arc::new(user.into_inner()),
-    };
-
-    let content = render_page(RenderPageOptions {
-        ctx,
+        query_map: query.into_inner(),
+        request_path: path.into_inner(),
+        session,
         page,
         layout,
         sitemap,
         fonts,
-    })?;
+    })
+    .await?;
 
     Ok(content)
 }

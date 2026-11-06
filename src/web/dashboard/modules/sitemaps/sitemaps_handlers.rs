@@ -6,6 +6,7 @@ mod sitemaps_fonts_handlers;
 mod sitemaps_forms_handlers;
 mod sitemaps_initial_handlers;
 mod sitemaps_sources_handlers;
+mod sitemaps_vars_handlers;
 
 pub use sitemaps_actions_handlers::*;
 pub use sitemaps_colors_handlers::*;
@@ -15,6 +16,7 @@ pub use sitemaps_fonts_handlers::*;
 pub use sitemaps_forms_handlers::*;
 pub use sitemaps_initial_handlers::*;
 pub use sitemaps_sources_handlers::*;
+pub use sitemaps_vars_handlers::*;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -30,8 +32,8 @@ use serde::Deserialize;
 use crate::app::App;
 use crate::app::auth::{Organization, Role, User};
 use crate::app::sitemaps::contents::{
-    EmailRegistryContext, RegistryContext, RenderLayoutOptions, RenderPageInlineOptions, Tool,
-    render_email, render_layout, render_page_inline,
+    EmailRegistryContext, RenderLayoutOptions, RenderPageInlineOptions, Tool, render_email,
+    render_layout, render_page_inline,
 };
 
 use crate::app::sitemaps::{Branch, PageInfo, Sitemap};
@@ -85,6 +87,10 @@ async fn get_view_state<'a>(
 
     if query.form_id.is_some() {
         session_state.form_id = query.form_id
+    }
+
+    if query.var_id.is_some() {
+        session_state.var_id = query.var_id
     }
 
     if let Some(sitemap_branch) = query.sitemap_branch {
@@ -187,6 +193,8 @@ async fn get_view_state<'a>(
         action: None,
         forms: None,
         form: None,
+        vars: None,
+        var: None,
     };
 
     match &view_state.section {
@@ -359,6 +367,46 @@ async fn get_view_state<'a>(
                     .ok();
             }
         }
+        Section::Vars => {
+            view_state.vars = match &view_state.model {
+                Some(Model::Page(page)) => app
+                    .sitemaps
+                    .vars
+                    .get_by_page_id(&page.id)
+                    .await
+                    .inspect_err(|e| log::error!("failed getting vars by page: {e}"))
+                    .ok(),
+                Some(Model::Layout(layout)) => app
+                    .sitemaps
+                    .vars
+                    .get_by_layout_id(&layout.id)
+                    .await
+                    .inspect_err(|e| log::error!("failed getting vars by layout: {e}"))
+                    .ok(),
+                _ => None,
+            }
+        }
+        Section::EditVar => {
+            if let Some(var_id) = query.var_id {
+                view_state.var = match &view_state.model {
+                    Some(Model::Page(page)) => app
+                        .sitemaps
+                        .vars
+                        .get_one_by_id_and_page_id(&var_id, &page.id)
+                        .await
+                        .inspect_err(|e| log::error!("failed getting var: {e}"))
+                        .ok(),
+                    Some(Model::Layout(layout)) => app
+                        .sitemaps
+                        .vars
+                        .get_one_by_id_and_layout_id(&var_id, &layout.id)
+                        .await
+                        .inspect_err(|e| log::error!("failed getting var: {e}"))
+                        .ok(),
+                    _ => None,
+                }
+            }
+        }
         _ => {}
     };
 
@@ -443,19 +491,17 @@ pub async fn get_preview(
                 None => None,
             };
 
-            let ctx = RegistryContext {
+            let content = render_page_inline(RenderPageInlineOptions {
                 app: app.into_inner(),
                 org: Arc::new(org.into_inner()),
                 user: Arc::new(user.into_inner()),
-            };
-
-            let content = render_page_inline(RenderPageInlineOptions {
-                ctx,
+                session,
                 page,
                 layout,
                 fonts,
                 colors,
-            })?;
+            })
+            .await?;
 
             Ok(content)
         }
@@ -475,18 +521,16 @@ pub async fn get_preview(
 
             let colors = app.sitemaps.colors.get_by_sitemap_id(&sitemap.id).await?;
 
-            let ctx = RegistryContext {
+            let content = render_layout(RenderLayoutOptions {
                 app: app.into_inner(),
                 org: Arc::new(org.into_inner()),
                 user: Arc::new(user.into_inner()),
-            };
-
-            let content = render_layout(RenderLayoutOptions {
-                ctx,
+                session,
                 layout,
                 fonts,
                 colors,
-            })?;
+            })
+            .await?;
 
             Ok(content)
         }

@@ -110,8 +110,8 @@ impl Forms {
         &self,
         org_id: &Id,
         form_id: &Id,
-        data: HashMap<String, String>,
-    ) -> AppResult<()> {
+        data: &HashMap<String, String>,
+    ) -> AppResult<Id> {
         let form = self.get_one_by_organization_id(org_id, form_id).await?;
 
         // validate data against form fields
@@ -139,6 +139,6 @@ impl Forms {
                 .await?;
         }
 
-        Ok(())
+        Ok(submission_id)
     }
 }

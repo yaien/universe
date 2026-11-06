@@ -2,7 +2,7 @@ use actix_web::Error as ActixError;
 use actix_web::error::ResponseError;
 use actix_web::http::{StatusCode, header};
 use actix_web::{HttpResponse, HttpResponseBuilder};
-use anyhow::{Context, Error as AnyhowError, anyhow};
+use anyhow::{Error as AnyhowError, anyhow};
 use thiserror::Error;
 
 use crate::app::AppError;

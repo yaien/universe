@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use chrono::Utc;
+use serde::Serialize;
 use slug::slugify;
 use sqlx::QueryBuilder;
 use sqlx::prelude::FromRow;
@@ -10,10 +11,11 @@ use crate::infra::{DbPool, Id};
 
 use super::{Content, Presentation};
 
-#[derive(FromRow)]
+#[derive(FromRow, Serialize)]
 pub struct Product {
     pub id: Id,
     pub name: String,
+    pub slug: String,
     pub published: bool,
 
     #[sqlx(skip)]
@@ -77,6 +79,30 @@ impl Products {
         .fetch_one(&self.db)
         .await?;
 
+        self.preload(&mut product).await?;
+
+        Ok(product)
+    }
+
+    pub async fn get_one_published_by_slug(
+        &self,
+        organization_id: &Id,
+        slug: &str,
+    ) -> Result<Product, AppError> {
+        let mut product = sqlx::query_as::<_, Product>(
+            "select * from products where organization_id = $1 and slug = $2 and deleted_at is null",
+        )
+        .bind(organization_id)
+        .bind(slug)
+        .fetch_one(&self.db)
+        .await?;
+
+        self.preload(&mut product).await?;
+
+        Ok(product)
+    }
+
+    async fn preload(&self, product: &mut Product) -> Result<(), AppError> {
         product.presentations = sqlx::query_as::<_, Presentation>(
             "select * from presentations where product_id = $1 and deleted_at is null order by number",
         )
@@ -107,7 +133,7 @@ impl Products {
             }
         }
 
-        Ok(product)
+        Ok(())
     }
 
     pub async fn get_by_organization_id(
@@ -176,12 +202,15 @@ impl Products {
         name: &str,
         published: &bool,
     ) -> Result<(), AppError> {
-        let res = sqlx::query("update products set name = $1, published = $2, updated_at = $3 where id = $4 and organization_id = $5 and deleted_at is null")
-            .bind(&name)
-            .bind(&published)
+        let slug = slugify(name);
+
+        let res = sqlx::query("update products set name = $1, slug = $2, published = $3, updated_at = $4 where id = $5 and organization_id = $6 and deleted_at is null")
+            .bind(name)
+            .bind(slug)
+            .bind(published)
             .bind(Utc::now())
-            .bind(&product_id)
-            .bind(&organization_id)
+            .bind(product_id)
+            .bind(organization_id)
             .execute(&self.db)
             .await?;
 

@@ -72,7 +72,7 @@ pub fn product_detail(product: &Product, presentation: &Option<&Presentation>) -
                 article {
                     .body {
                         h4 { "Producto" }
-                        form hx-put=(format!("/dashboard/products/{}", product.id)) hx-target="dialog" hx-swap="outerHTML swap:250ms" hx-disable="find button" {
+                        form hx-put=(format!("/dashboard/products/{}", product.id)) hx-swap="none" hx-disable="find button" {
                             fieldset {
                                 legend { "Nombre" }
                                 input name="name" value=(product.name) required {}

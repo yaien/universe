@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use actix_multipart::form::tempfile::TempFile;
+use serde::Serialize;
 use sqlx::prelude::FromRow;
 
 use crate::app::storage::Scope;
 use crate::app::{AppError, Storage};
 use crate::infra::{DbPool, Id};
 
-#[derive(FromRow)]
+#[derive(FromRow, Serialize)]
 pub struct Content {
     pub id: Id,
     pub number: i64,

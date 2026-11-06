@@ -129,7 +129,7 @@ pub async fn create_form_field(
 pub async fn get_edit_form_field_form(
     app: Data<App>,
     org: ReqData<Organization>,
-    path: (Path<(Id, Id)>),
+    path: Path<(Id, Id)>,
 ) -> WebResult<Markup> {
     let (form_id, field_id) = path.into_inner();
 

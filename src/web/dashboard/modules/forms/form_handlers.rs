@@ -1,14 +1,13 @@
 use super::form_views as views;
-use actix_web::http::StatusCode;
-use actix_web::web::{Data, Form, Path, Query, ReqData};
-use actix_web::{HttpRequest, HttpResponse, delete, get, post, put};
-use maud::{Markup, html};
+use actix_web::web::{Data, Path, Query, ReqData};
+use actix_web::{HttpRequest, get};
+use maud::Markup;
 use serde::Deserialize;
 
 use crate::app::App;
 use crate::app::auth::{Organization, Role};
 use crate::infra::Id;
-use crate::web::dashboard::modules::base::{self, Content, Variant, toast};
+use crate::web::dashboard::modules::base::{self, Content};
 use crate::web::errors::WebResult;
 
 #[get("/forms")]
