@@ -61,6 +61,7 @@ impl Tool {
         use Tool::*;
         match self {
             Form => true,
+            CreateManualOrderFromCart => true,
             _ => false,
         }
     }

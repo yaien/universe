@@ -13,9 +13,6 @@ pub struct Cart {
 
     #[sqlx(skip)]
     pub total_price: f64,
-
-    #[sqlx(skip)]
-    pub item_count: usize,
 }
 
 #[derive(FromRow, Serialize)]
@@ -93,7 +90,6 @@ impl Carts {
         for item in cart.items.iter_mut() {
             item.total_price = (item.quantity as f64) * item.presentation_price;
             cart.total_price += item.total_price;
-            cart.item_count += 1;
         }
 
         Ok(Some(cart))
