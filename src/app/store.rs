@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::app::Storage;
 pub use cart::*;
 pub use content::*;
+pub use order::*;
 pub use presentation::*;
 pub use product::*;
 
@@ -10,6 +11,7 @@ use crate::infra::DbPool;
 
 mod cart;
 mod content;
+mod order;
 mod presentation;
 mod product;
 

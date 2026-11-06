@@ -23,7 +23,7 @@ log = "0.4.33"
 maud = { version = "0.27.0", features = ["actix-web"] }
 mime = "0.3.17"
 mime_guess = "2.0.5"
-minijinja = { version = "2.21.0", features = ["loop_controls"] }
+minijinja = { version = "2.21.0", features = ["loop_controls", "json"] }
 oauth2 = "5.0.0"
 regex = "1.13.1"
 reqwest = { version = "0.13.4", features = ["json"] }
