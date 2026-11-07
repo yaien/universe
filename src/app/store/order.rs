@@ -6,9 +6,10 @@ use serde::Serialize;
 use sqlx::prelude::{FromRow, Type};
 use sqlx::types::Json;
 use std::collections::HashMap;
+use strum_macros::Display;
 use uuid::Uuid;
 
-#[derive(Type, Serialize)]
+#[derive(Type, Serialize, Display)]
 pub enum OrderStatus {
     Pending,
     Completed,
@@ -28,6 +29,8 @@ pub struct Order {
     pub cart_id: Option<Id>,
     pub form_submission_id: Option<Id>,
     pub user_id: Id,
+    pub user_name: String,
+    pub user_email: String,
     pub amount: f64,
     pub provider: OrderProvider,
     pub status: OrderStatus,
@@ -154,7 +157,9 @@ impl Orders {
     ) -> AppResult<Order> {
         let mut order = sqlx::query_as::<_, Order>(
             r#"
-            SELECT * FROM orders WHERE organization_id = $1 AND user_id = $2 AND id = $3
+            SELECT o.*, u.name AS user_name, u.email AS user_email FROM orders o
+            JOIN users u ON o.user_id = u.id
+            WHERE organization_id = $1 AND o.user_id = $2 AND o.id = $3
             "#,
         )
         .bind(organization_id)
@@ -168,13 +173,14 @@ impl Orders {
         Ok(order)
     }
 
-    pub async fn get_by_organization_id(&self, organization_id: Id) -> AppResult<Vec<Order>> {
+    pub async fn get_by_organization_id(&self, org_id: &Id) -> AppResult<Vec<Order>> {
         let orders = sqlx::query_as::<_, Order>(
             r#"
-            SELECT * FROM orders WHERE organization_id = $1
+            SELECT o.*, u.name AS user_name, u.email AS user_email FROM orders o
+            JOIN users u ON o.user_id = u.id WHERE o.organization_id = $1
             "#,
         )
-        .bind(organization_id)
+        .bind(org_id)
         .fetch_all(&self.pool)
         .await?;
 
@@ -188,7 +194,9 @@ impl Orders {
     ) -> AppResult<Vec<Order>> {
         let orders = sqlx::query_as::<_, Order>(
             r#"
-            SELECT * FROM orders WHERE organization_id = $1 AND user_id = $2
+            SELECT o.*, u.name AS user_name, u.email AS user_email FROM orders o
+            JOIN users u ON o.user_id = u.id
+            WHERE o.organization_id = $1 AND o.user_id = $2
             "#,
         )
         .bind(organization_id)
