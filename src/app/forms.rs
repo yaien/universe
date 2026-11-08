@@ -110,6 +110,7 @@ impl Forms {
         &self,
         org_id: &Id,
         form_id: &Id,
+        user_id: Option<&Id>,
         data: &HashMap<String, String>,
     ) -> AppResult<Id> {
         let form = self.get_one_by_organization_id(org_id, form_id).await?;
@@ -122,11 +123,13 @@ impl Forms {
         }
 
         // insert submission
-        let submission_id = sqlx::query("insert into form_submissions (form_id) values ($1)")
-            .bind(form_id)
-            .execute(&self.pool)
-            .await
-            .map(|r| r.last_insert_rowid())?;
+        let submission_id =
+            sqlx::query("insert into form_submissions (form_id, user_id) values ($1, $2)")
+                .bind(form_id)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await
+                .map(|r| r.last_insert_rowid())?;
 
         for field in &form.fields {
             let value = data.get(&field.name);

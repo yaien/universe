@@ -866,6 +866,18 @@ article,
     list-style-type: none;
     padding: 0;
 
+    &.compact {
+        .item {
+            padding: 0;
+        }
+    }
+
+    &.no-border {
+        .item {
+            border-bottom: none;
+        }
+    }
+
     .item {
         border-bottom: var(--border);
         padding: var(--space);

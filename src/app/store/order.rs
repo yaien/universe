@@ -1,4 +1,5 @@
 use crate::app::AppResult;
+use crate::app::forms::{FormField, FormSubmissionAnswer};
 use crate::app::store::Cart;
 use crate::infra::{DbPool, Id};
 use chrono::{DateTime, Utc};
@@ -6,9 +7,10 @@ use serde::Serialize;
 use sqlx::prelude::{FromRow, Type};
 use sqlx::types::Json;
 use std::collections::HashMap;
+use strum_macros::Display;
 use uuid::Uuid;
 
-#[derive(Type, Serialize)]
+#[derive(Type, Serialize, Display)]
 pub enum OrderStatus {
     Pending,
     Completed,
@@ -26,8 +28,10 @@ pub struct Order {
     pub uuid: String,
     pub organization_id: Id,
     pub cart_id: Option<Id>,
-    pub form_submission_id: Option<Id>,
+    pub form_submission_id: Id,
     pub user_id: Id,
+    pub user_name: String,
+    pub user_email: String,
     pub amount: f64,
     pub provider: OrderProvider,
     pub status: OrderStatus,
@@ -39,6 +43,12 @@ pub struct Order {
 
     #[sqlx(skip)]
     pub items: Vec<OrderItem>,
+
+    #[sqlx(skip)]
+    pub form_fields: Vec<FormField>,
+
+    #[sqlx(skip)]
+    pub form_submission_answers: Vec<FormSubmissionAnswer>,
 }
 
 #[derive(FromRow, Serialize)]
@@ -46,7 +56,10 @@ pub struct OrderItem {
     pub id: Id,
     pub order_id: Id,
     pub product_id: Id,
+    pub product_name: String,
     pub presentation_id: Id,
+    pub presentation_name: String,
+    pub first_presentation_content_file_id: Option<Id>,
     pub quantity: i32,
     pub price_per_unit: f64,
     pub total_price: f64,
@@ -115,25 +128,53 @@ impl Orders {
     }
 
     async fn preload(&self, order: &mut Order) -> AppResult<()> {
-        let items =
-            sqlx::query_as::<_, OrderItem>(r#"SELECT * FROM order_items WHERE order_id = $1"#)
-                .bind(order.id)
-                .fetch_all(&self.pool)
-                .await?;
+        order.items = sqlx::query_as(
+            r#"
+                SELECT o.*, c.file_id AS first_presentation_content_file_id, p.name AS presentation_name, pr.name AS product_name FROM order_items o
+                JOIN contents c on c.presentation_id = o.presentation_id
+                JOIN presentations p on p.id = o.presentation_id
+                JOIN products pr on pr.id = o.product_id
+                WHERE o.order_id = $1 and c.number = 0
+            "#,
+        )
+        .bind(&order.id)
+        .fetch_all(&self.pool)
+        .await?;
 
-        order.items = items;
+        order.form_submission_answers = sqlx::query_as(
+            r#"
+                SELECT * FROM form_submission_answers
+                WHERE submission_id = $1 and deleted_at is null
+            "#,
+        )
+        .bind(&order.form_submission_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        order.form_fields = sqlx::query_as(
+            r#"
+            SELECT f.* FROM form_fields f
+            JOIN form_submissions s ON s.form_id = f.form_id
+            WHERE s.id = $1 and f.deleted_at is null
+        "#,
+        )
+        .bind(&order.form_submission_id)
+        .fetch_all(&self.pool)
+        .await?;
 
         Ok(())
     }
 
     pub async fn get_by_organization_id_and_id(
         &self,
-        organization_id: Id,
-        id: Id,
+        organization_id: &Id,
+        id: &Id,
     ) -> AppResult<Order> {
         let mut order = sqlx::query_as::<_, Order>(
             r#"
-            SELECT * FROM orders WHERE organization_id = $1 AND id = $2
+            SELECT o.*, u.name AS user_name, u.email AS user_email FROM orders o
+            JOIN users u ON o.user_id = u.id
+            WHERE organization_id = $1 AND o.id = $2
             "#,
         )
         .bind(organization_id)
@@ -154,7 +195,9 @@ impl Orders {
     ) -> AppResult<Order> {
         let mut order = sqlx::query_as::<_, Order>(
             r#"
-            SELECT * FROM orders WHERE organization_id = $1 AND user_id = $2 AND id = $3
+            SELECT o.*, u.name AS user_name, u.email AS user_email FROM orders o
+            JOIN users u ON o.user_id = u.id
+            WHERE organization_id = $1 AND o.user_id = $2 AND o.id = $3
             "#,
         )
         .bind(organization_id)
@@ -168,13 +211,14 @@ impl Orders {
         Ok(order)
     }
 
-    pub async fn get_by_organization_id(&self, organization_id: Id) -> AppResult<Vec<Order>> {
+    pub async fn get_by_organization_id(&self, org_id: &Id) -> AppResult<Vec<Order>> {
         let orders = sqlx::query_as::<_, Order>(
             r#"
-            SELECT * FROM orders WHERE organization_id = $1
+            SELECT o.*, u.name AS user_name, u.email AS user_email FROM orders o
+            JOIN users u ON o.user_id = u.id WHERE o.organization_id = $1
             "#,
         )
-        .bind(organization_id)
+        .bind(org_id)
         .fetch_all(&self.pool)
         .await?;
 
@@ -188,7 +232,9 @@ impl Orders {
     ) -> AppResult<Vec<Order>> {
         let orders = sqlx::query_as::<_, Order>(
             r#"
-            SELECT * FROM orders WHERE organization_id = $1 AND user_id = $2
+            SELECT o.*, u.name AS user_name, u.email AS user_email FROM orders o
+            JOIN users u ON o.user_id = u.id
+            WHERE o.organization_id = $1 AND o.user_id = $2
             "#,
         )
         .bind(organization_id)
@@ -203,7 +249,7 @@ impl Orders {
 pub struct NewCartOrder {
     pub organization_id: Id,
     pub cart: Cart,
-    pub form_submission_id: Option<Id>,
+    pub form_submission_id: Id,
     pub user_id: Id,
     pub provider: OrderProvider,
     pub metadata: HashMap<String, String>,

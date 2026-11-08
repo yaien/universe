@@ -1,10 +1,11 @@
 use chrono::{DateTime, Utc};
+use serde::Serialize;
 use sqlx::prelude::FromRow;
 
 use crate::app::AppResult;
 use crate::infra::{DbPool, Id};
 
-#[derive(FromRow)]
+#[derive(FromRow, Serialize)]
 pub struct FormField {
     pub id: Id,
     pub name: String,

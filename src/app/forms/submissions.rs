@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
+use serde::Serialize;
 use sqlx::QueryBuilder;
 use sqlx::prelude::FromRow;
 
 use crate::app::AppResult;
 use crate::infra::{DbPool, Id};
 
-#[derive(FromRow)]
+#[derive(FromRow, Serialize)]
 pub struct FormSubmissionAnswer {
     pub field_id: Id,
     pub value: String,
