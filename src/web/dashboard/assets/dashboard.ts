@@ -1,5 +1,6 @@
 import "htmx.org";
 
+import "./data/x-utils";
 import "./data/x-coloris";
 import "./data/x-filesize";
 import "./data/x-progress";

@@ -76,9 +76,11 @@ pub async fn form(ctx: ToolContext<'_>) -> AppResult<Value> {
         return Err("Esta accion requiere un formulario asociado")?;
     };
 
+    let user_id = ctx.user.as_ref().map(|u| &u.id);
+
     ctx.app
         .forms
-        .submit(&ctx.org.id, &form_id, &ctx.data)
+        .submit(&ctx.org.id, &form_id, user_id, &ctx.data)
         .await?;
 
     Ok(context! {})
@@ -281,23 +283,21 @@ pub async fn create_manual_order_from_cart(ctx: ToolContext<'_>) -> AppResult<Va
         return Err("el carrito está vacío")?;
     }
 
-    let form_submission_id = match ctx.form_id {
-        Some(form_id) => {
-            let submission_id = ctx
-                .app
-                .forms
-                .submit(&ctx.org.id, &form_id, &ctx.data)
-                .await?;
-
-            Some(submission_id)
-        }
-        None => None,
-    };
-
     let user_id = match ctx.user {
         Some(user) => user.id,
         None => return Err("no se encontró el usuario")?,
     };
+
+    let form_id = match ctx.form_id {
+        Some(form_id) => form_id,
+        None => return Err("no se encontró el formulario")?,
+    };
+
+    let form_submission_id = ctx
+        .app
+        .forms
+        .submit(&ctx.org.id, &form_id, Some(&user_id), &ctx.data)
+        .await?;
 
     let new_order = NewCartOrder {
         organization_id: ctx.org.id,

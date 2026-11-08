@@ -1,6 +1,7 @@
 use super::*;
 
 use anyhow::Context;
+use log::info;
 
 pub async fn get_products(ctx: &QueryContext<'_>) -> AppResult<Value> {
     let products = ctx
@@ -34,6 +35,11 @@ pub async fn get_cart(ctx: &QueryContext<'_>) -> AppResult<Value> {
         true => "test_cart_id",
         false => "cart_id",
     };
+
+    info!(
+        "debug vars at get cart {:?}, session_cart_id_key: {session_cart_id_key:?}",
+        ctx.args
+    );
 
     let Some(cart_id) = ctx.session.get(session_cart_id_key).ok().flatten() else {
         let cart = ctx

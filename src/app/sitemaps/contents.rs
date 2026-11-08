@@ -70,11 +70,9 @@ pub async fn render_page(options: RenderPageOptions) -> Result<Markup, AppError>
     .context("failed getting page vars")?;
 
     let layout_vars = match &layout {
-        Some(layout) => {
-            get_layout_vars(app.clone(), org.clone(), user.clone(), &session, &layout.id)
-                .await
-                .context("failed getting layout vars")?
-        }
+        Some(layout) => get_layout_vars(&app, &org, &user, &session, &layout.id, false)
+            .await
+            .context("failed getting layout vars")?,
         None => HashMap::new(),
     };
 
@@ -188,9 +186,7 @@ pub async fn render_page_inline(options: RenderPageInlineOptions) -> Result<Mark
 
     let layout_vars = match &layout {
         Some(layout) => {
-            match get_layout_vars(app.clone(), org.clone(), user.clone(), &session, &layout.id)
-                .await
-            {
+            match get_layout_vars(&app, &org, &user, &session, &layout.id, false).await {
                 Ok(vars) => vars,
                 Err(e) => {
                     return Ok(PreEscaped(render_template_error(
@@ -298,7 +294,7 @@ async fn get_page_vars(
                 user: &user,
                 session: &session,
                 args: &args,
-                inline: true,
+                inline: false,
             })
             .await?;
 
@@ -412,8 +408,7 @@ pub async fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppEr
         session,
     } = options;
 
-    let layout_vars =
-        get_layout_vars(app.clone(), org.clone(), user.clone(), &session, &layout.id).await?;
+    let layout_vars = get_layout_vars(&app, &org, &user, &session, &layout.id, true).await?;
 
     let content =
         get_layout_content(&org, &user, &layout, &layout_vars).context("failed getting content")?;
@@ -448,11 +443,12 @@ pub async fn render_layout(options: RenderLayoutOptions) -> Result<Markup, AppEr
 }
 
 async fn get_layout_vars(
-    app: Arc<App>,
-    org: Arc<Organization>,
-    user: Arc<Option<User>>,
+    app: &App,
+    org: &Organization,
+    user: &Option<User>,
     session: &Session,
     layout_id: &Id,
+    inline: bool,
 ) -> AppResult<HashMap<String, Value>> {
     let mut map = HashMap::new();
 
@@ -462,12 +458,12 @@ async fn get_layout_vars(
         let value = var
             .query
             .call(&QueryContext {
-                app: &app,
-                org: &org,
-                user: &user,
-                session: &session,
+                app,
+                org,
+                user,
+                session,
+                inline,
                 args: &var.args,
-                inline: true,
             })
             .await?;
         map.insert(var.name, value);
