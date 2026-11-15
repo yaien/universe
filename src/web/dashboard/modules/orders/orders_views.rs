@@ -1,7 +1,6 @@
-use chrono::TimeZone;
 use maud::{Markup, html};
 
-use crate::app::store::Order;
+use crate::app::store::{Order, OrderStatus};
 
 pub fn order_list(orders: &[Order]) -> Markup {
     html!(
@@ -59,54 +58,20 @@ pub fn order_details(order: Order) -> Markup {
     html!(
         .container data-scope="order" x-data="utils" {
             .info {
-                article {
-                    .body {
-                        h3 { "Detalles de Orden" }
-                        ul.list {
-                            li.item {
-                                span { "ID" }
-                                span { (order.id) }
-                            }
-                            li.item {
-                                span { "Nombre" }
-                                span { (order.user_name) }
-                            }
-                            li.item {
-                                span { "Email" }
-                                span { (order.user_email) }
-                            }
-                            li.item {
-                                span { "Monto" }
-                                span x-text=(format!("currency({})", order.amount)) { (order.amount) }
-                            }
-                            li.item {
-                                span { "Fecha de Creación" }
-                                span x-text=(format!("date('{}')", order.created_at)) { (order.created_at) }
-                            }
-                            li.item {
-                                span { "Fecha de Actualización" }
-                                span x-text=(format!("date('{}')", order.updated_at)) { (order.updated_at) }
-                            }
-                            li.item {
-                                span { "Estado" }
-                                span { (order.status) }
-                            }
-                        }
-                        .actions {
-                            button { "Cancelar" }
-                            button { "Aprobar"}
-                        }
-                    }
+                article #order_info {
+                    (order_info(&order))
                 }
-                article {
-                    .body {
-                        h3 { "Información Adicional" }
-                        ul {
-                            @for field in order.form_fields {
-                                li.item {
-                                    span { (field.label) }
-                                    @if let Some(answer) = order.form_submission_answers.iter().find(|a| a.field_id == field.id) {
-                                        span { (answer.value) }
+                @if order.form_fields.len() > 0 {
+                    article {
+                        .body {
+                            h3 { "Información Adicional" }
+                            ul {
+                                @for field in order.form_fields {
+                                    li.item {
+                                        span { (field.label) }
+                                        @if let Some(answer) = order.form_submission_answers.iter().find(|a| a.field_id == field.id) {
+                                            span { (answer.value) }
+                                        }
                                     }
                                 }
                             }
@@ -162,4 +127,48 @@ pub fn order_details(order: Order) -> Markup {
             }
         }
     )
+}
+
+pub fn order_info(order: &Order) -> Markup {
+    html! {
+        .body {
+            h3 { "Detalles de Orden" }
+            ul.list {
+                li.item {
+                    span { "ID" }
+                    span { (order.id) }
+                }
+                li.item {
+                    span { "Nombre" }
+                    span { (order.user_name) }
+                }
+                li.item {
+                    span { "Email" }
+                    span { (order.user_email) }
+                }
+                li.item {
+                    span { "Monto" }
+                    span x-text=(format!("currency({})", order.amount)) { (order.amount) }
+                }
+                li.item {
+                    span { "Fecha de Creación" }
+                    span x-text=(format!("date('{}')", order.created_at)) { (order.created_at) }
+                }
+                li.item {
+                    span { "Fecha de Actualización" }
+                    span x-text=(format!("date('{}')", order.updated_at)) { (order.updated_at) }
+                }
+                li.item {
+                    span { "Estado" }
+                    span { (order.status) }
+                }
+            }
+            @if order.status == OrderStatus::Pending {
+                .actions {
+                    button.danger hx-post=(format!("/dashboard/orders/{}/cancel", order.id)) hx-target="#order_info" { "Cancelar" }
+                    button hx-post=(format!("/dashboard/orders/{}/approve", order.id)) hx-target="#order_info" { "Aprobar" }
+                }
+            }
+        }
+    }
 }

@@ -10,10 +10,10 @@ use std::collections::HashMap;
 use strum_macros::Display;
 use uuid::Uuid;
 
-#[derive(Type, Serialize, Display)]
+#[derive(Type, Serialize, Display, PartialEq)]
 pub enum OrderStatus {
     Pending,
-    Completed,
+    Approved,
     Cancelled,
 }
 
@@ -223,6 +223,58 @@ impl Orders {
         .await?;
 
         Ok(orders)
+    }
+
+    pub async fn cancel(&self, org_id: &Id, order_id: &Id) -> AppResult<()> {
+        let order = self.get_by_organization_id_and_id(org_id, order_id).await?;
+
+        if order.status != OrderStatus::Pending {
+            return Err("Cannot approve a non-pending order")?;
+        }
+
+        let mut tx = self.pool.begin().await?;
+
+        for item in order.items {
+            sqlx::query("UPDATE presentations SET quantity = quantity + $1 where id = $2")
+                .bind(item.quantity)
+                .bind(item.presentation_id)
+                .execute(&mut *tx)
+                .await?;
+        }
+
+        sqlx::query(
+            "UPDATE orders SET status = $1, updated_at = $2 WHERE organization_id = $3 AND id = $4",
+        )
+        .bind(OrderStatus::Cancelled)
+        .bind(Utc::now())
+        .bind(org_id)
+        .bind(order_id)
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(())
+    }
+
+    pub async fn approve(&self, org_id: &Id, order_id: &Id) -> AppResult<()> {
+        let order = self.get_by_organization_id_and_id(org_id, order_id).await?;
+
+        if order.status != OrderStatus::Pending {
+            return Err("Cannot cancel a non-pending order")?;
+        }
+
+        sqlx::query(
+            "UPDATE orders SET status = $1, updated_at = $2 WHERE organization_id = $3 AND id = $4",
+        )
+        .bind(OrderStatus::Approved)
+        .bind(Utc::now())
+        .bind(org_id)
+        .bind(order_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
     }
 
     pub async fn get_by_organization_id_and_user_id(
