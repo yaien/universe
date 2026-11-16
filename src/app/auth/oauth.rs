@@ -16,6 +16,7 @@ pub struct OAuthAccountInfo {
     pub access_token: String,
     pub refresh_token: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
+    pub organization_id: Id,
 }
 
 #[derive(FromRow)]
@@ -105,6 +106,10 @@ impl OAuth {
                     .execute(&self.pool)
                     .await?;
 
+            self.users
+                .associate_user_with_organization(&account.user_id, &info.organization_id)
+                .await?;
+
             return self.users.get_one_by_id(&account.user_id).await;
         }
 
@@ -126,6 +131,10 @@ impl OAuth {
         .bind(&user.id)
         .execute(&self.pool)
         .await?;
+
+        self.users
+            .associate_user_with_organization(&user.id, &info.organization_id)
+            .await?;
 
         return Ok(user);
     }

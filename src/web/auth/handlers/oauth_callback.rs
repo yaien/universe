@@ -100,6 +100,7 @@ pub async fn callback(
         access_token: res.access_token().secret().clone(),
         refresh_token: res.refresh_token().map(|t| t.secret().clone()),
         expires_at: res.expires_in().map(|duration| Utc::now() + duration),
+        organization_id: org.id,
     };
 
     let user = match app.auth.oauth.sync_account(account_info).await {

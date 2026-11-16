@@ -42,4 +42,37 @@ impl Users {
             .fetch_one(&self.pool)
             .await
     }
+
+    pub async fn get_by_organization_id(&self, org_id: &Id) -> Result<Vec<User>, sqlx::Error> {
+        sqlx::query_as("SELECT u.* FROM users u JOIN organization_users org on org.user_id = u.id where org.organization_id = $1")
+            .bind(org_id)
+            .fetch_all(&self.pool)
+            .await
+    }
+
+    pub async fn associate_user_with_organization(
+        &self,
+        user_id: &Id,
+        org_id: &Id,
+    ) -> Result<(), sqlx::Error> {
+        let association_exist: bool = sqlx::query_scalar(
+            "select exists(select 1 from organization_users where user_id = $1 and organization_id = $2)",
+        )
+        .bind(user_id)
+        .bind(org_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        if !association_exist {
+            sqlx::query(
+                "insert into organization_users (user_id, organization_id) values ($1, $2)",
+            )
+            .bind(user_id)
+            .bind(org_id)
+            .execute(&self.pool)
+            .await?;
+        }
+
+        Ok(())
+    }
 }

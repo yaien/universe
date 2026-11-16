@@ -93,11 +93,9 @@ fn aside(path: &str) -> Markup {
             .footer{
                 ul {
                     li {
-                        form action="/auth/logout" method="POST" x-ref="logout" {
-                            a "@click.prevent"="$refs.logout.submit()" {
-                                i.fa-solid.fa-arrow-right-from-bracket {}
-                                span { "Cerrar sesión" }
-                            }
+                        a href="/auth/logout" {
+                            i.fa-solid.fa-arrow-right-from-bracket {}
+                            span { "Cerrar sesión" }
                         }
                     }
                 }
