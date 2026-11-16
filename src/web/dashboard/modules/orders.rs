@@ -6,5 +6,8 @@ mod orders_views;
 use orders_handlers::*;
 
 pub fn configure(cfg: &mut ServiceConfig) {
-    cfg.service(order_list).service(order_details);
+    cfg.service(order_list)
+        .service(order_details)
+        .service(cancel_order)
+        .service(approve_order);
 }

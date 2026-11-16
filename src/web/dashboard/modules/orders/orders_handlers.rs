@@ -1,5 +1,5 @@
 use actix_web::web::{Data, Path, ReqData};
-use actix_web::{HttpRequest, get};
+use actix_web::{HttpRequest, get, post};
 use maud::Markup;
 
 use super::orders_views as views;
@@ -46,4 +46,34 @@ pub async fn order_details(
         role: &role,
         content: views::order_details(order),
     }))
+}
+
+#[post("/orders/{order_id}/approve")]
+pub async fn approve_order(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    order_id: Path<Id>,
+) -> WebResult<Markup> {
+    app.store.orders.approve(&org.id, &order_id).await?;
+    let order = app
+        .store
+        .orders
+        .get_by_organization_id_and_id(&org.id, &order_id)
+        .await?;
+    Ok(views::order_info(&order))
+}
+
+#[post("/orders/{order_id}/cancel")]
+pub async fn cancel_order(
+    app: Data<App>,
+    org: ReqData<Organization>,
+    order_id: Path<Id>,
+) -> WebResult<Markup> {
+    app.store.orders.cancel(&org.id, &order_id).await?;
+    let order = app
+        .store
+        .orders
+        .get_by_organization_id_and_id(&org.id, &order_id)
+        .await?;
+    Ok(views::order_info(&order))
 }
