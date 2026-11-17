@@ -4,6 +4,7 @@ use sqlx::prelude::FromRow;
 
 #[derive(FromRow, Clone)]
 pub struct Role {
+    pub id: Id,
     pub user_name: String,
     pub user_email: String,
 }
