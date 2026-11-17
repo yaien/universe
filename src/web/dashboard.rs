@@ -14,6 +14,8 @@ pub fn configure(config: &mut ServiceConfig) {
                 .configure(modules::products::configure)
                 .configure(modules::forms::configure)
                 .configure(modules::orders::configure)
+                .configure(modules::roles::configure)
+                .configure(modules::users::configure)
                 .wrap(from_fn(middlewares::role)),
         )
         .configure(modules::base::configure);

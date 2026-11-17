@@ -181,7 +181,12 @@ pub async fn delete_product_from_cart(ctx: ToolContext<'_>) -> AppResult<Value> 
 
     let cart = match ctx.session.get(session_key).ok().flatten() {
         Some(cart_id) => ctx.app.store.carts.get(&ctx.org.id, &cart_id).await?,
-        None => None,
+        None => {
+            return Ok(context! {
+                error => "no se encuentra el item en el carrito de compras",
+                error_code => "not_item_found"
+            });
+        }
     };
 
     let cart = match cart {
